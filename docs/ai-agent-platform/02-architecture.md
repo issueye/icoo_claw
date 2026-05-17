@@ -18,7 +18,7 @@ flowchart LR
   Claw1 --> SDK["pkg/agent_sdk\nagentsdk-go wrapper"]
   Claw2 --> SDK
   ClawN --> SDK
-  SDK --> AgentSDK["go_pkg/agentsdk-go"]
+  SDK --> AgentSDK["server/claw/pkg/agent_sdk/sdk"]
   GW --> GWDB["gateway.sqlite\nGORM metadata"]
 ```
 
@@ -127,7 +127,7 @@ flowchart TB
 
 关键设计：
 
-- `pkg/agent_sdk` 是唯一直接 import `github.com/stellarlinkco/agentsdk-go/pkg/...` 的平台封装层。
+- `pkg/agent_sdk` 是平台封装层，直接引用项目内 `server/claw/pkg/agent_sdk/sdk/...` 源码模块，不再通过第三方 module/replace 引入 agentsdk-go。
 - `RuntimeFactory` 根据网关传入的 Agent Profile 构建 SDK `api.Options`。
 - `HistoryAdapter` 将 `session_store` 的消息格式转换为 `agentsdk-go/pkg/message.Message`。
 - 同步执行后调用 `Runtime.SessionHistory(sessionID)` 保存完整快照。

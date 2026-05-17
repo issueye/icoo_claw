@@ -9,7 +9,7 @@
 | SQLite(no cgo) | `github.com/glebarez/sqlite` | GORM 的纯 Go SQLite driver |
 | Session KV/List | Redka | Redis-like API，SQLite backend |
 | Redka SQLite(no cgo) | `modernc.org/sqlite` | Redka `DriverName: "sqlite"` |
-| Agent Runtime | `go_pkg/agentsdk-go` | 通过 `server/claw/pkg/agent_sdk` 封装 |
+| Agent Runtime | `server/claw/pkg/agent_sdk/sdk` | agentsdk-go 源码已抽取为项目内模块，并由 `server/claw/pkg/agent_sdk` 封装 |
 | DI | 手动 DI | `internal/di/container.go` 显式组装 |
 
 说明：
@@ -37,9 +37,10 @@ server/session_store/go.mod
 本地依赖使用 replace：
 
 ```go
-replace github.com/stellarlinkco/agentsdk-go => ../../go_pkg/agentsdk-go
 replace github.com/nalgeon/redka => ../../go_pkg/redka
 ```
+
+说明：agentsdk-go 不再作为第三方 module 引入；其运行时代码位于 `server/claw/pkg/agent_sdk/sdk`。
 
 ## 手动 DI 示例结构
 

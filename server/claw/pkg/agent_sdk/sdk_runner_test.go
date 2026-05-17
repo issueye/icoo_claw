@@ -6,7 +6,7 @@ import (
 
 	"icoo_claw/server/claw/pkg/sessionstore"
 
-	sdkmodel "github.com/stellarlinkco/agentsdk-go/pkg/model"
+	sdkmodel "icoo_claw/server/claw/pkg/agent_sdk/sdk/model"
 )
 
 type memoryHistoryStore struct {

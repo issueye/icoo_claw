@@ -1,6 +1,6 @@
 # AI Agent Platform 文档索引
 
-本文档集基于当前仓库内 `go_pkg/agentsdk-go` 与 `go_pkg/redka` 的源码分析，面向 `server/claw`、`server/gateway`、`server/session_store` 三个服务的 MVP 与后续演进设计。
+本文档集基于已抽取到 `server/claw/pkg/agent_sdk/sdk` 的 agentsdk-go 源码模块与 `go_pkg/redka` 的源码分析，面向 `server/claw`、`server/gateway`、`server/session_store` 三个服务的 MVP 与后续演进设计。
 
 ## 文档列表
 

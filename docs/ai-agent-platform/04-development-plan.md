@@ -15,7 +15,7 @@ Worker A：Workspace/Go module
 
 - 建立 `go.work`。
 - 建立三个服务 `go.mod`。
-- 配置本地 replace 到 `go_pkg/agentsdk-go`、`go_pkg/redka`。
+- agentsdk-go 源码作为 `server/claw/pkg/agent_sdk/sdk` 项目内模块；仅 Redka 通过本地 replace 到 `go_pkg/redka`。
 - 添加基础 Makefile 或 task 脚本。
 
 Worker B：Gateway skeleton

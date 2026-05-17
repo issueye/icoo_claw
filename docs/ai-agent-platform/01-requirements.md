@@ -4,7 +4,7 @@
 
 当前仓库已有两个本地 Go 包：
 
-- `go_pkg/agentsdk-go`: Agent SDK，提供 Claude Code 风格运行时能力。
+- `server/claw/pkg/agent_sdk/sdk`: 从 agentsdk-go 抽取进项目内的 Agent SDK 源码模块，提供 Claude Code 风格运行时能力。
 - `go_pkg/redka`: Redis-compatible 数据服务，可基于 SQLite/PostgreSQL 持久化，也可嵌入为 RESP 服务。
 
 目标是在 `server` 下建设三个服务：
@@ -26,13 +26,12 @@
 
 源码依据：
 
-- Runtime 入口：`go_pkg/agentsdk-go/pkg/api/agent.go`
-- Options/Request/Response：`go_pkg/agentsdk-go/pkg/api/options.go`
-- 流式事件：`go_pkg/agentsdk-go/pkg/api/stream.go`
-- HTTP 示例：`go_pkg/agentsdk-go/examples/03-http/server.go`
-- MCP 桥接：`go_pkg/agentsdk-go/pkg/mcp/mcp.go`
-- Skills：`go_pkg/agentsdk-go/pkg/runtime/skills`
-- Subagents：`go_pkg/agentsdk-go/pkg/runtime/subagents`
+- Runtime 入口：`server/claw/pkg/agent_sdk/sdk/api/agent.go`
+- Options/Request/Response：`server/claw/pkg/agent_sdk/sdk/api/options.go`
+- 流式事件：`server/claw/pkg/agent_sdk/sdk/api/stream.go`
+- MCP 桥接：`server/claw/pkg/agent_sdk/sdk/mcp/mcp.go`
+- Skills：`server/claw/pkg/agent_sdk/sdk/runtime/skills`
+- Subagents：`server/claw/pkg/agent_sdk/sdk/runtime/subagents`
 
 已具备能力：
 

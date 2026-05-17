@@ -5,9 +5,9 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/stellarlinkco/agentsdk-go/pkg/api"
-	sdkmessage "github.com/stellarlinkco/agentsdk-go/pkg/message"
-	sdkmodel "github.com/stellarlinkco/agentsdk-go/pkg/model"
+	"icoo_claw/server/claw/pkg/agent_sdk/sdk/api"
+	sdkmessage "icoo_claw/server/claw/pkg/agent_sdk/sdk/message"
+	sdkmodel "icoo_claw/server/claw/pkg/agent_sdk/sdk/model"
 )
 
 type RuntimeFactory struct {

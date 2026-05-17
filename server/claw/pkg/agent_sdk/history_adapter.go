@@ -7,7 +7,7 @@ import (
 
 	"icoo_claw/server/claw/pkg/sessionstore"
 
-	sdkmessage "github.com/stellarlinkco/agentsdk-go/pkg/message"
+	sdkmessage "icoo_claw/server/claw/pkg/agent_sdk/sdk/message"
 )
 
 type HistoryStore interface {
