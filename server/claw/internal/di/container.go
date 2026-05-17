@@ -29,7 +29,7 @@ func NewContainer() (*Container, error) {
 	engine := router.New(router.Controllers{
 		Health: healthController,
 		Agent:  agentController,
-	})
+	}, cfg.InternalToken)
 
 	return &Container{Config: cfg, Router: engine}, nil
 }

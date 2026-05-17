@@ -14,13 +14,18 @@ import (
 
 type ClawClient struct {
 	httpClient *http.Client
+	token      string
 }
 
-func NewClawClient(httpClient *http.Client) *ClawClient {
+func NewClawClient(httpClient *http.Client, token ...string) *ClawClient {
 	if httpClient == nil {
 		httpClient = &http.Client{Timeout: 120 * time.Second}
 	}
-	return &ClawClient{httpClient: httpClient}
+	resolved := ""
+	if len(token) > 0 {
+		resolved = token[0]
+	}
+	return &ClawClient{httpClient: httpClient, token: resolved}
 }
 
 func (c *ClawClient) Run(ctx context.Context, baseURL string, req RunRequest) (*RunResponse, error) {
@@ -41,6 +46,9 @@ func (c *ClawClient) Stream(ctx context.Context, baseURL string, req RunRequest)
 		return nil, err
 	}
 	httpReq.Header.Set("Content-Type", "application/json")
+	if c.token != "" {
+		httpReq.Header.Set("X-Internal-Token", c.token)
+	}
 
 	resp, err := c.httpClient.Do(httpReq)
 	if err != nil {
@@ -85,6 +93,9 @@ func (c *ClawClient) doJSON(ctx context.Context, baseURL, path string, body any,
 		return err
 	}
 	req.Header.Set("Content-Type", "application/json")
+	if c.token != "" {
+		req.Header.Set("X-Internal-Token", c.token)
+	}
 
 	resp, err := c.httpClient.Do(req)
 	if err != nil {

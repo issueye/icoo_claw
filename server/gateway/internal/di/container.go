@@ -43,7 +43,7 @@ func NewContainer() (*Container, error) {
 		agentRepository,
 		instanceRepository,
 		client.NewSessionStoreClient(cfg.SessionStoreURL, nil),
-		client.NewClawClient(nil),
+		client.NewClawClient(nil, cfg.InternalToken),
 	)
 	healthController := controller.NewHealthController()
 	agentController := controller.NewAgentController(agentService)
