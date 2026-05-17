@@ -1,0 +1,9 @@
+go 1.25.0
+
+use (
+	./go_pkg/agentsdk-go
+	./go_pkg/redka
+	./server/claw
+	./server/gateway
+	./server/session_store
+)

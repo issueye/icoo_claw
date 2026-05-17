@@ -1,0 +1,46 @@
+package dto
+
+import "time"
+
+type AgentProfile struct {
+	ID            string    `json:"id"`
+	Name          string    `json:"name"`
+	ModelProvider string    `json:"model_provider"`
+	ModelName     string    `json:"model_name"`
+	BaseURL       string    `json:"base_url,omitempty"`
+	SystemPrompt  string    `json:"system_prompt"`
+	MaxIterations int       `json:"max_iterations"`
+	ToolWhitelist []string  `json:"tool_whitelist"`
+	MCPServerIDs  []string  `json:"mcp_server_ids"`
+	SkillIDs      []string  `json:"skill_ids"`
+	Enabled       bool      `json:"enabled"`
+	CreatedAt     time.Time `json:"created_at"`
+	UpdatedAt     time.Time `json:"updated_at"`
+}
+
+type CreateAgentRequest struct {
+	ID            string   `json:"id"`
+	Name          string   `json:"name" binding:"required"`
+	ModelProvider string   `json:"model_provider"`
+	ModelName     string   `json:"model_name"`
+	BaseURL       string   `json:"base_url"`
+	SystemPrompt  string   `json:"system_prompt"`
+	MaxIterations int      `json:"max_iterations"`
+	ToolWhitelist []string `json:"tool_whitelist"`
+	MCPServerIDs  []string `json:"mcp_server_ids"`
+	SkillIDs      []string `json:"skill_ids"`
+	Enabled       *bool    `json:"enabled"`
+}
+
+type UpdateAgentRequest struct {
+	Name          *string  `json:"name"`
+	ModelProvider *string  `json:"model_provider"`
+	ModelName     *string  `json:"model_name"`
+	BaseURL       *string  `json:"base_url"`
+	SystemPrompt  *string  `json:"system_prompt"`
+	MaxIterations *int     `json:"max_iterations"`
+	ToolWhitelist []string `json:"tool_whitelist"`
+	MCPServerIDs  []string `json:"mcp_server_ids"`
+	SkillIDs      []string `json:"skill_ids"`
+	Enabled       *bool    `json:"enabled"`
+}

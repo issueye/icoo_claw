@@ -1,0 +1,57 @@
+package di
+
+import (
+	"fmt"
+
+	"icoo_claw/server/gateway/internal/config"
+	"icoo_claw/server/gateway/internal/controller"
+	"icoo_claw/server/gateway/internal/model"
+	"icoo_claw/server/gateway/internal/repository"
+	"icoo_claw/server/gateway/internal/router"
+	"icoo_claw/server/gateway/internal/service"
+
+	"github.com/gin-gonic/gin"
+	"github.com/glebarez/sqlite"
+	"gorm.io/gorm"
+)
+
+type Container struct {
+	Config config.Config
+	DB     *gorm.DB
+	Router *gin.Engine
+}
+
+func NewContainer() (*Container, error) {
+	cfg := config.Load()
+
+	db, err := gorm.Open(sqlite.Open(cfg.DBPath), &gorm.Config{})
+	if err != nil {
+		return nil, fmt.Errorf("open gateway db: %w", err)
+	}
+	if err := db.AutoMigrate(&model.AgentProfile{}, &model.AgentInstance{}); err != nil {
+		return nil, fmt.Errorf("migrate gateway db: %w", err)
+	}
+
+	agentRepository := repository.NewGormAgentRepository(db)
+	instanceRepository := repository.NewGormAgentInstanceRepository(db)
+	agentService := service.NewAgentService(agentRepository)
+	instanceService := service.NewAgentInstanceService(cfg, agentRepository, instanceRepository, service.NewLocalProcessSupervisor())
+	healthController := controller.NewHealthController()
+	agentController := controller.NewAgentController(agentService)
+	instanceController := controller.NewAgentInstanceController(instanceService)
+	engine := router.New(router.Controllers{
+		Health:        healthController,
+		Agent:         agentController,
+		AgentInstance: instanceController,
+	})
+
+	return &Container{
+		Config: cfg,
+		DB:     db,
+		Router: engine,
+	}, nil
+}
+
+func (c *Container) Run() error {
+	return c.Router.Run(c.Config.HTTPAddr)
+}
