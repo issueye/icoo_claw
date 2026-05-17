@@ -3,6 +3,7 @@ package di
 import (
 	"fmt"
 
+	"icoo_claw/server/gateway/internal/client"
 	"icoo_claw/server/gateway/internal/config"
 	"icoo_claw/server/gateway/internal/controller"
 	"icoo_claw/server/gateway/internal/model"
@@ -28,21 +29,31 @@ func NewContainer() (*Container, error) {
 	if err != nil {
 		return nil, fmt.Errorf("open gateway db: %w", err)
 	}
-	if err := db.AutoMigrate(&model.AgentProfile{}, &model.AgentInstance{}); err != nil {
+	if err := db.AutoMigrate(&model.AgentProfile{}, &model.AgentInstance{}, &model.Conversation{}); err != nil {
 		return nil, fmt.Errorf("migrate gateway db: %w", err)
 	}
 
 	agentRepository := repository.NewGormAgentRepository(db)
 	instanceRepository := repository.NewGormAgentInstanceRepository(db)
+	conversationRepository := repository.NewGormConversationRepository(db)
 	agentService := service.NewAgentService(agentRepository)
 	instanceService := service.NewAgentInstanceService(cfg, agentRepository, instanceRepository, service.NewLocalProcessSupervisor())
+	chatService := service.NewChatService(
+		conversationRepository,
+		agentRepository,
+		instanceRepository,
+		client.NewSessionStoreClient(cfg.SessionStoreURL, nil),
+		client.NewClawClient(nil),
+	)
 	healthController := controller.NewHealthController()
 	agentController := controller.NewAgentController(agentService)
 	instanceController := controller.NewAgentInstanceController(instanceService)
+	chatController := controller.NewChatController(chatService)
 	engine := router.New(router.Controllers{
 		Health:        healthController,
 		Agent:         agentController,
 		AgentInstance: instanceController,
+		Chat:          chatController,
 	})
 
 	return &Container{

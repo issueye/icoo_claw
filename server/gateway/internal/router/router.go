@@ -10,6 +10,7 @@ type Controllers struct {
 	Health        *controller.HealthController
 	Agent         *controller.AgentController
 	AgentInstance *controller.AgentInstanceController
+	Chat          *controller.ChatController
 }
 
 func New(controllers Controllers) *gin.Engine {
@@ -28,6 +29,12 @@ func New(controllers Controllers) *gin.Engine {
 	engine.POST("/v1/agent-instances/:id/stop", controllers.AgentInstance.Stop)
 	engine.POST("/v1/agent-instances/:id/restart", controllers.AgentInstance.Restart)
 	engine.POST("/v1/agent-instances/:id/drain", controllers.AgentInstance.Drain)
+	engine.POST("/v1/conversations", controllers.Chat.CreateConversation)
+	engine.GET("/v1/conversations", controllers.Chat.ListConversations)
+	engine.GET("/v1/conversations/:id/messages", controllers.Chat.ListMessages)
+	engine.POST("/v1/conversations/:id/messages", controllers.Chat.SendMessage)
+	engine.POST("/v1/conversations/:id/stream", controllers.Chat.StreamMessage)
+	engine.DELETE("/v1/conversations/:id", controllers.Chat.DeleteConversation)
 
 	return engine
 }

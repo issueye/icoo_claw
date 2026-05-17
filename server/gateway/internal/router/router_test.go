@@ -6,8 +6,10 @@ import (
 	"net/http/httptest"
 	"testing"
 
+	"icoo_claw/server/gateway/internal/client"
 	"icoo_claw/server/gateway/internal/config"
 	"icoo_claw/server/gateway/internal/controller"
+	"icoo_claw/server/gateway/internal/dto"
 	"icoo_claw/server/gateway/internal/model"
 	"icoo_claw/server/gateway/internal/repository"
 	"icoo_claw/server/gateway/internal/service"
@@ -32,6 +34,36 @@ func (f fakeInstanceRepo) Get(context.Context, string) (*model.AgentInstance, er
 func (f fakeInstanceRepo) List(context.Context) ([]model.AgentInstance, error) { return nil, nil }
 func (f fakeInstanceRepo) Update(context.Context, model.AgentInstance) error   { return nil }
 
+type fakeConversationRepo struct{}
+
+func (f fakeConversationRepo) Create(context.Context, model.Conversation) error { return nil }
+func (f fakeConversationRepo) Get(context.Context, string) (*model.Conversation, error) {
+	return nil, repository.ErrNotFound
+}
+func (f fakeConversationRepo) List(context.Context) ([]model.Conversation, error) { return nil, nil }
+func (f fakeConversationRepo) Update(context.Context, model.Conversation) error   { return nil }
+func (f fakeConversationRepo) Delete(context.Context, string) error               { return nil }
+
+type fakeSessionStore struct{}
+
+func (f fakeSessionStore) CreateSession(context.Context, client.CreateSessionRequest) error {
+	return nil
+}
+func (f fakeSessionStore) ListMessages(context.Context, string) ([]dto.SessionMessage, error) {
+	return nil, nil
+}
+
+type fakeClawRunner struct{}
+
+func (f fakeClawRunner) Run(context.Context, string, client.RunRequest) (*client.RunResponse, error) {
+	return &client.RunResponse{Output: "ok"}, nil
+}
+func (f fakeClawRunner) Stream(context.Context, string, client.RunRequest) (<-chan client.StreamEvent, error) {
+	out := make(chan client.StreamEvent)
+	close(out)
+	return out, nil
+}
+
 type fakeSupervisor struct{}
 
 func (f fakeSupervisor) Start(context.Context, service.StartAgentInstanceSpec) (*service.AgentProcess, error) {
@@ -42,14 +74,22 @@ func (f fakeSupervisor) Probe(context.Context, model.AgentInstance) error { retu
 
 func TestHealthRoute(t *testing.T) {
 	agentRepo := fakeAgentRepo{}
+	instanceRepo := fakeInstanceRepo{}
 	engine := New(Controllers{
 		Health: controller.NewHealthController(),
 		Agent:  controller.NewAgentController(service.NewAgentService(agentRepo)),
 		AgentInstance: controller.NewAgentInstanceController(service.NewAgentInstanceService(
 			config.Config{ClawPortStart: 8101, ClawPortEnd: 8102, MaxAgentInstances: 2},
 			agentRepo,
-			fakeInstanceRepo{},
+			instanceRepo,
 			fakeSupervisor{},
+		)),
+		Chat: controller.NewChatController(service.NewChatService(
+			fakeConversationRepo{},
+			agentRepo,
+			instanceRepo,
+			fakeSessionStore{},
+			fakeClawRunner{},
 		)),
 	})
 
