@@ -19,15 +19,30 @@ func (f fakeSessionRepo) Get(context.Context, string) (*model.Session, error) {
 	now := time.Now().UTC()
 	return &model.Session{SessionID: "sess_1", Status: "active", CreatedAt: now, UpdatedAt: now}, nil
 }
+func (f fakeSessionRepo) List(context.Context, model.SessionListFilter) (*model.SessionList, error) {
+	return &model.SessionList{}, nil
+}
 func (f fakeSessionRepo) Update(_ context.Context, session model.Session) error { return nil }
 func (f fakeSessionRepo) Delete(context.Context, string) error                  { return nil }
-func (f fakeSessionRepo) ListMessages(context.Context, string, model.MessagePage) ([]model.Message, error) {
-	return nil, nil
+func (f fakeSessionRepo) ListMessages(context.Context, string, model.MessagePage) (*model.MessageList, error) {
+	return &model.MessageList{}, nil
 }
 func (f fakeSessionRepo) AppendMessages(context.Context, string, []model.Message) error {
 	return nil
 }
-func (f fakeSessionRepo) ReplaceMessages(context.Context, string, []model.Message) error {
+func (f fakeSessionRepo) ReplaceMessages(context.Context, string, []model.Message, *int64) error {
+	return nil
+}
+func (f fakeSessionRepo) ListRuns(context.Context, string, model.RunPage) ([]model.Run, error) {
+	return nil, nil
+}
+func (f fakeSessionRepo) AppendRuns(context.Context, string, []model.Run) error {
+	return nil
+}
+func (f fakeSessionRepo) ListRunEvents(context.Context, string, string, model.RunEventPage) ([]model.RunEvent, error) {
+	return nil, nil
+}
+func (f fakeSessionRepo) AppendRunEvents(context.Context, string, string, []model.RunEvent) error {
 	return nil
 }
 

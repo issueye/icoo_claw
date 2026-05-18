@@ -1,6 +1,8 @@
 package di
 
 import (
+	"strings"
+
 	"icoo_claw/server/claw/internal/config"
 	"icoo_claw/server/claw/internal/controller"
 	"icoo_claw/server/claw/internal/router"
@@ -21,8 +23,12 @@ func NewContainer() (*Container, error) {
 
 	sessionClient := sessionstore.NewClient(cfg.SessionStoreURL, nil)
 	historyAdapter := agent_sdk.NewHistoryAdapter(sessionClient)
-	runtimeFactory := agent_sdk.NewRuntimeFactory(historyAdapter, nil)
-	agentService := service.NewAgentService(agent_sdk.NewSDKRunner(runtimeFactory, historyAdapter))
+	runner := agent_sdk.Runner(agent_sdk.NewFakeRunner(historyAdapter))
+	if strings.ToLower(strings.TrimSpace(cfg.RunnerMode)) != "fake" {
+		runtimeFactory := agent_sdk.NewRuntimeFactory(historyAdapter, nil)
+		runner = agent_sdk.NewSDKRunner(runtimeFactory, historyAdapter)
+	}
+	agentService := service.NewAgentService(runner)
 	healthController := controller.NewHealthController()
 	agentController := controller.NewAgentController(agentService)
 

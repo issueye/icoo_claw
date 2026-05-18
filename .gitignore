@@ -1,1 +1,9 @@
 go_pkg/agentsdk-go/
+
+*.exe
+*.txt
+*.log
+*.sqlite
+data/
+config/*.toml
+!config/*.toml.example

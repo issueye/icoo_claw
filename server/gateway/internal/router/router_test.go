@@ -33,6 +33,7 @@ func (f fakeInstanceRepo) Get(context.Context, string) (*model.AgentInstance, er
 }
 func (f fakeInstanceRepo) List(context.Context) ([]model.AgentInstance, error) { return nil, nil }
 func (f fakeInstanceRepo) Update(context.Context, model.AgentInstance) error   { return nil }
+func (f fakeInstanceRepo) AdjustInflight(context.Context, string, int) error   { return nil }
 
 type fakeConversationRepo struct{}
 
@@ -75,19 +76,21 @@ func (f fakeSupervisor) Probe(context.Context, model.AgentInstance) error { retu
 func TestHealthRoute(t *testing.T) {
 	agentRepo := fakeAgentRepo{}
 	instanceRepo := fakeInstanceRepo{}
+	conversationRepo := fakeConversationRepo{}
+	instanceService := service.NewAgentInstanceService(
+		config.Config{ClawPortStart: 8101, ClawPortEnd: 8102, MaxAgentInstances: 2},
+		agentRepo,
+		instanceRepo,
+		fakeSupervisor{},
+	)
 	engine := New(Controllers{
-		Health: controller.NewHealthController(),
-		Agent:  controller.NewAgentController(service.NewAgentService(agentRepo)),
-		AgentInstance: controller.NewAgentInstanceController(service.NewAgentInstanceService(
-			config.Config{ClawPortStart: 8101, ClawPortEnd: 8102, MaxAgentInstances: 2},
-			agentRepo,
-			instanceRepo,
-			fakeSupervisor{},
-		)),
+		Health:        controller.NewHealthController(),
+		Agent:         controller.NewAgentController(service.NewAgentService(agentRepo)),
+		AgentInstance: controller.NewAgentInstanceController(instanceService),
 		Chat: controller.NewChatController(service.NewChatService(
-			fakeConversationRepo{},
+			conversationRepo,
 			agentRepo,
-			instanceRepo,
+			service.NewDefaultRouterPolicy(conversationRepo, instanceRepo, instanceService),
 			fakeSessionStore{},
 			fakeClawRunner{},
 		)),

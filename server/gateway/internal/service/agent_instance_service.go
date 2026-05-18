@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"fmt"
+	"log"
 	"time"
 
 	"icoo_claw/server/gateway/internal/config"
@@ -58,11 +59,12 @@ func (s *AgentInstanceService) Start(ctx context.Context, req dto.StartAgentInst
 		CreatedAt: now,
 		UpdatedAt: now,
 	}
-	probeCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
+	probeCtx, cancel := context.WithTimeout(ctx, startupTimeout(s.cfg))
 	defer cancel()
-	if err := s.supervisor.Probe(probeCtx, instance); err != nil {
+	if err := s.waitUntilReady(probeCtx, instance); err != nil {
 		instance.Status = "failed"
 		instance.LastError = err.Error()
+		_ = s.supervisor.Stop(context.Background(), instance)
 		_ = s.instances.Create(ctx, instance)
 		return nil, err
 	}
@@ -74,7 +76,34 @@ func (s *AgentInstanceService) Start(ctx context.Context, req dto.StartAgentInst
 	return toAgentInstanceDTO(instance), nil
 }
 
+func (s *AgentInstanceService) waitUntilReady(ctx context.Context, instance model.AgentInstance) error {
+	ticker := time.NewTicker(100 * time.Millisecond)
+	defer ticker.Stop()
+	for {
+		if err := s.supervisor.Probe(ctx, instance); err == nil {
+			return nil
+		} else if ctx.Err() != nil {
+			return err
+		}
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case <-ticker.C:
+		}
+	}
+}
+
+func startupTimeout(cfg config.Config) time.Duration {
+	if cfg.HealthInterval > 0 && cfg.HealthInterval < 5*time.Second {
+		return 5 * time.Second
+	}
+	return 10 * time.Second
+}
+
 func (s *AgentInstanceService) List(ctx context.Context) ([]dto.AgentInstance, error) {
+	if err := s.ProbeInstances(ctx); err != nil {
+		return nil, err
+	}
 	instances, err := s.instances.List(ctx)
 	if err != nil {
 		return nil, err
@@ -91,10 +120,21 @@ func (s *AgentInstanceService) Stop(ctx context.Context, id string) error {
 	if err != nil {
 		return err
 	}
+	if instance.Status != "stopped" {
+		instance.Status = "draining"
+		instance.UpdatedAt = time.Now().UTC()
+		if err := s.instances.Update(ctx, *instance); err != nil {
+			return err
+		}
+	}
+	if err := s.waitForInflight(ctx, id); err != nil {
+		return err
+	}
 	if err := s.supervisor.Stop(ctx, *instance); err != nil {
 		return err
 	}
 	instance.Status = "stopped"
+	instance.Inflight = 0
 	instance.UpdatedAt = time.Now().UTC()
 	return s.instances.Update(ctx, *instance)
 }
@@ -128,10 +168,93 @@ func (s *AgentInstanceService) Drain(ctx context.Context, id string) (*dto.Agent
 	return toAgentInstanceDTO(*instance), nil
 }
 
+func (s *AgentInstanceService) ProbeInstances(ctx context.Context) error {
+	instances, err := s.instances.List(ctx)
+	if err != nil {
+		return err
+	}
+	for _, instance := range instances {
+		if instance.Status != "ready" && instance.Status != "starting" && instance.Status != "draining" {
+			continue
+		}
+
+		probeCtx, cancel := context.WithTimeout(ctx, 2*time.Second)
+		err := s.supervisor.Probe(probeCtx, instance)
+		cancel()
+
+		now := time.Now().UTC()
+		if err != nil {
+			instance.Status = "failed"
+			instance.LastError = err.Error()
+			instance.UpdatedAt = now
+		} else {
+			if instance.Status == "starting" {
+				instance.Status = "ready"
+			}
+			instance.LastError = ""
+			instance.LastHeartbeatAt = &now
+			instance.UpdatedAt = now
+		}
+		if updateErr := s.instances.Update(ctx, instance); updateErr != nil {
+			return updateErr
+		}
+	}
+	return nil
+}
+
+func (s *AgentInstanceService) StartHealthLoop(ctx context.Context) {
+	interval := s.cfg.HealthInterval
+	if interval <= 0 {
+		interval = 10 * time.Second
+	}
+	ticker := time.NewTicker(interval)
+	go func() {
+		defer ticker.Stop()
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case <-ticker.C:
+				if err := s.ProbeInstances(ctx); err != nil {
+					log.Printf("agent instance health probe failed: %v", err)
+				}
+			}
+		}
+	}()
+}
+
+func (s *AgentInstanceService) waitForInflight(ctx context.Context, id string) error {
+	timeout := s.cfg.ShutdownTimeout
+	if timeout <= 0 {
+		timeout = 10 * time.Second
+	}
+	deadline := time.NewTimer(timeout)
+	defer deadline.Stop()
+	ticker := time.NewTicker(100 * time.Millisecond)
+	defer ticker.Stop()
+
+	for {
+		instance, err := s.instances.Get(ctx, id)
+		if err != nil {
+			return err
+		}
+		if instance.Inflight <= 0 {
+			return nil
+		}
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case <-deadline.C:
+			return fmt.Errorf("timeout waiting for instance %s inflight requests to finish", id)
+		case <-ticker.C:
+		}
+	}
+}
+
 func (s *AgentInstanceService) allocatePort(instances []model.AgentInstance) (int, error) {
 	used := map[int]struct{}{}
 	for _, instance := range instances {
-		if instance.Status == "ready" || instance.Status == "starting" || instance.Status == "draining" {
+		if instance.Status != "stopped" {
 			used[instance.Port] = struct{}{}
 		}
 	}

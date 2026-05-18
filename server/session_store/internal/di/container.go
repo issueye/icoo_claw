@@ -5,34 +5,37 @@ import (
 
 	"icoo_claw/server/session_store/internal/config"
 	"icoo_claw/server/session_store/internal/controller"
-	redkainternal "icoo_claw/server/session_store/internal/redka"
 	"icoo_claw/server/session_store/internal/repository"
 	"icoo_claw/server/session_store/internal/router"
 	"icoo_claw/server/session_store/internal/service"
 
 	"github.com/gin-gonic/gin"
+	"github.com/glebarez/sqlite"
+	"gorm.io/gorm"
 )
 
 type Container struct {
-	Config      config.Config
-	Router      *gin.Engine
-	RedkaServer *redkainternal.Server
+	Config config.Config
+	Router *gin.Engine
+	DB     *gorm.DB
 }
 
 func NewContainer() (*Container, error) {
 	cfg := config.Load()
 
-	redkaServer, err := redkainternal.NewServer(cfg.DBPath, cfg.RESPAddr)
+	db, err := gorm.Open(sqlite.Open(cfg.DBPath), &gorm.Config{})
 	if err != nil {
-		return nil, fmt.Errorf("create redka server: %w", err)
+		return nil, fmt.Errorf("open session store sqlite: %w", err)
+	}
+	if err := repository.AutoMigrate(db); err != nil {
+		sqlDB, _ := db.DB()
+		if sqlDB != nil {
+			_ = sqlDB.Close()
+		}
+		return nil, fmt.Errorf("migrate session store sqlite: %w", err)
 	}
 
-	if err := redkaServer.Start(); err != nil {
-		_ = redkaServer.Close()
-		return nil, fmt.Errorf("start redka server: %w", err)
-	}
-
-	sessionRepository := repository.NewRedkaSessionRepository(redkaServer.DB())
+	sessionRepository := repository.NewGormSessionRepository(db)
 	sessionService := service.NewSessionService(sessionRepository)
 	healthController := controller.NewHealthController()
 	sessionController := controller.NewSessionController(sessionService)
@@ -42,9 +45,9 @@ func NewContainer() (*Container, error) {
 	})
 
 	return &Container{
-		Config:      cfg,
-		Router:      engine,
-		RedkaServer: redkaServer,
+		Config: cfg,
+		Router: engine,
+		DB:     db,
 	}, nil
 }
 
@@ -53,8 +56,12 @@ func (c *Container) Run() error {
 }
 
 func (c *Container) Close() error {
-	if c == nil || c.RedkaServer == nil {
+	if c == nil || c.DB == nil {
 		return nil
 	}
-	return c.RedkaServer.Close()
+	sqlDB, err := c.DB.DB()
+	if err != nil {
+		return err
+	}
+	return sqlDB.Close()
 }

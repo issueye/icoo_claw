@@ -1,6 +1,7 @@
 package di
 
 import (
+	"context"
 	"fmt"
 
 	"icoo_claw/server/gateway/internal/client"
@@ -17,9 +18,10 @@ import (
 )
 
 type Container struct {
-	Config config.Config
-	DB     *gorm.DB
-	Router *gin.Engine
+	Config          config.Config
+	DB              *gorm.DB
+	Router          *gin.Engine
+	instanceService *service.AgentInstanceService
 }
 
 func NewContainer() (*Container, error) {
@@ -38,10 +40,11 @@ func NewContainer() (*Container, error) {
 	conversationRepository := repository.NewGormConversationRepository(db)
 	agentService := service.NewAgentService(agentRepository)
 	instanceService := service.NewAgentInstanceService(cfg, agentRepository, instanceRepository, service.NewLocalProcessSupervisor())
+	routerPolicy := service.NewDefaultRouterPolicy(conversationRepository, instanceRepository, instanceService)
 	chatService := service.NewChatService(
 		conversationRepository,
 		agentRepository,
-		instanceRepository,
+		routerPolicy,
 		client.NewSessionStoreClient(cfg.SessionStoreURL, nil),
 		client.NewClawClient(nil, cfg.InternalToken),
 	)
@@ -57,12 +60,16 @@ func NewContainer() (*Container, error) {
 	})
 
 	return &Container{
-		Config: cfg,
-		DB:     db,
-		Router: engine,
+		Config:          cfg,
+		DB:              db,
+		Router:          engine,
+		instanceService: instanceService,
 	}, nil
 }
 
 func (c *Container) Run() error {
+	if c.instanceService != nil {
+		c.instanceService.StartHealthLoop(context.Background())
+	}
 	return c.Router.Run(c.Config.HTTPAddr)
 }

@@ -2,7 +2,6 @@ package service
 
 import (
 	"context"
-	"fmt"
 	"time"
 
 	"icoo_claw/server/gateway/internal/client"
@@ -24,16 +23,16 @@ type AgentRunner interface {
 type ChatService struct {
 	conversations repository.ConversationRepository
 	agents        repository.AgentRepository
-	instances     repository.AgentInstanceRepository
+	router        RouterPolicy
 	sessionStore  SessionStore
 	claw          AgentRunner
 }
 
-func NewChatService(conversations repository.ConversationRepository, agents repository.AgentRepository, instances repository.AgentInstanceRepository, sessionStore SessionStore, claw AgentRunner) *ChatService {
+func NewChatService(conversations repository.ConversationRepository, agents repository.AgentRepository, router RouterPolicy, sessionStore SessionStore, claw AgentRunner) *ChatService {
 	return &ChatService{
 		conversations: conversations,
 		agents:        agents,
-		instances:     instances,
+		router:        router,
 		sessionStore:  sessionStore,
 		claw:          claw,
 	}
@@ -95,10 +94,10 @@ func (s *ChatService) SendMessage(ctx context.Context, conversationID string, re
 		return nil, err
 	}
 
-	if err := s.markInflight(ctx, instance, 1); err != nil {
+	if err := s.router.MarkInflight(ctx, instance.ID, 1); err != nil {
 		return nil, err
 	}
-	defer func() { _ = s.markInflight(context.Background(), instance, -1) }()
+	defer func() { _ = s.router.MarkInflight(context.Background(), instance.ID, -1) }()
 
 	resp, err := s.claw.Run(ctx, instance.BaseURL, client.RunRequest{
 		SessionID:     conversation.SessionID,
@@ -133,7 +132,7 @@ func (s *ChatService) StreamMessage(ctx context.Context, conversationID string, 
 	if err != nil {
 		return nil, err
 	}
-	if err := s.markInflight(ctx, instance, 1); err != nil {
+	if err := s.router.MarkInflight(ctx, instance.ID, 1); err != nil {
 		return nil, err
 	}
 
@@ -146,14 +145,14 @@ func (s *ChatService) StreamMessage(ctx context.Context, conversationID string, 
 		Metadata:      req.Metadata,
 	})
 	if err != nil {
-		_ = s.markInflight(context.Background(), instance, -1)
+		_ = s.router.MarkInflight(context.Background(), instance.ID, -1)
 		return nil, err
 	}
 
 	out := make(chan client.StreamEvent, 128)
 	go func() {
 		defer close(out)
-		defer func() { _ = s.markInflight(context.Background(), instance, -1) }()
+		defer func() { _ = s.router.MarkInflight(context.Background(), instance.ID, -1) }()
 		defer func() {
 			now := time.Now().UTC()
 			conversation.LastMessageAt = &now
@@ -180,45 +179,11 @@ func (s *ChatService) prepareRun(ctx context.Context, conversationID string) (*m
 	if err != nil {
 		return nil, nil, nil, err
 	}
-	instance, err := s.selectInstance(ctx, conversation.AgentID)
+	instance, err := s.router.SelectInstance(ctx, conversation)
 	if err != nil {
 		return nil, nil, nil, err
 	}
 	return conversation, agent, instance, nil
-}
-
-func (s *ChatService) selectInstance(ctx context.Context, agentID string) (*model.AgentInstance, error) {
-	instances, err := s.instances.List(ctx)
-	if err != nil {
-		return nil, err
-	}
-	var selected *model.AgentInstance
-	for i := range instances {
-		instance := instances[i]
-		if instance.AgentID != agentID || instance.Status != "ready" {
-			continue
-		}
-		if selected == nil || instance.Inflight < selected.Inflight {
-			selected = &instance
-		}
-	}
-	if selected == nil {
-		return nil, fmt.Errorf("no ready agent instance for agent %s", agentID)
-	}
-	return selected, nil
-}
-
-func (s *ChatService) markInflight(ctx context.Context, instance *model.AgentInstance, delta int) error {
-	current, err := s.instances.Get(ctx, instance.ID)
-	if err != nil {
-		return err
-	}
-	current.Inflight += delta
-	if current.Inflight < 0 {
-		current.Inflight = 0
-	}
-	current.UpdatedAt = time.Now().UTC()
-	return s.instances.Update(ctx, *current)
 }
 
 func toConversationDTO(conversation model.Conversation) *dto.Conversation {

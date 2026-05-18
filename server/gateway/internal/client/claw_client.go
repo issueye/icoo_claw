@@ -1,11 +1,9 @@
 package client
 
 import (
-	"bufio"
 	"bytes"
 	"context"
 	"encoding/json"
-	"fmt"
 	"io"
 	"net/http"
 	"strings"
@@ -57,16 +55,22 @@ func (c *ClawClient) Stream(ctx context.Context, baseURL string, req RunRequest)
 	if resp.StatusCode != http.StatusOK {
 		defer resp.Body.Close()
 		body, _ := io.ReadAll(io.LimitReader(resp.Body, 4096))
-		return nil, fmt.Errorf("claw stream status %d: %s", resp.StatusCode, strings.TrimSpace(string(body)))
+		return nil, newHTTPError("claw", http.MethodPost, "/internal/agent/run/stream", resp.StatusCode, body)
 	}
 
 	out := make(chan StreamEvent, 128)
 	go func() {
 		defer close(out)
 		defer resp.Body.Close()
-		scanner := bufio.NewScanner(resp.Body)
-		for scanner.Scan() {
-			line := scanner.Text()
+		reader := newSSELineReader(resp.Body)
+		for {
+			line, err := reader.readLine()
+			if err != nil {
+				if err != io.EOF {
+					out <- StreamEvent{Type: "error", Output: err.Error()}
+				}
+				return
+			}
 			if !strings.HasPrefix(line, "data:") {
 				continue
 			}
@@ -81,6 +85,40 @@ func (c *ClawClient) Stream(ctx context.Context, baseURL string, req RunRequest)
 		}
 	}()
 	return out, nil
+}
+
+type sseLineReader struct {
+	reader io.Reader
+	buf    []byte
+}
+
+func newSSELineReader(reader io.Reader) *sseLineReader {
+	return &sseLineReader{reader: reader, buf: make([]byte, 0, 4096)}
+}
+
+func (r *sseLineReader) readLine() (string, error) {
+	tmp := make([]byte, 1024)
+	for {
+		for i, b := range r.buf {
+			if b == '\n' {
+				line := strings.TrimRight(string(r.buf[:i]), "\r")
+				r.buf = append([]byte(nil), r.buf[i+1:]...)
+				return line, nil
+			}
+		}
+		n, err := r.reader.Read(tmp)
+		if n > 0 {
+			r.buf = append(r.buf, tmp[:n]...)
+		}
+		if err != nil {
+			if err == io.EOF && len(r.buf) > 0 {
+				line := strings.TrimRight(string(r.buf), "\r")
+				r.buf = r.buf[:0]
+				return line, nil
+			}
+			return "", err
+		}
+	}
 }
 
 func (c *ClawClient) doJSON(ctx context.Context, baseURL, path string, body any, out any) error {
@@ -104,7 +142,7 @@ func (c *ClawClient) doJSON(ctx context.Context, baseURL, path string, body any,
 	defer resp.Body.Close()
 	if resp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(io.LimitReader(resp.Body, 4096))
-		return fmt.Errorf("claw %s status %d: %s", path, resp.StatusCode, strings.TrimSpace(string(body)))
+		return newHTTPError("claw", http.MethodPost, path, resp.StatusCode, body)
 	}
 	return json.NewDecoder(resp.Body).Decode(out)
 }

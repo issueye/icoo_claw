@@ -1,0 +1,4 @@
+http_addr = ":8081"
+session_store_url = "http://127.0.0.1:8082"
+internal_token = "dev-internal-token"
+runner_mode = "sdk"

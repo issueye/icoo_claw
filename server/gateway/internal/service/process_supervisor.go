@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"strconv"
 	"time"
 
@@ -24,6 +25,8 @@ type StartAgentInstanceSpec struct {
 	WorkDir         string
 	SessionStoreURL string
 	InternalToken   string
+	ConfigDir       string
+	RunnerMode      string
 }
 
 type AgentProcess struct {
@@ -51,15 +54,14 @@ func (s *LocalProcessSupervisor) Start(ctx context.Context, spec StartAgentInsta
 	if err := ctx.Err(); err != nil {
 		return nil, err
 	}
-	cmd := exec.Command(spec.BinaryPath)
+	configPath, err := writeClawConfig(spec)
+	if err != nil {
+		return nil, err
+	}
+	cmd := exec.Command(spec.BinaryPath, "--config", configPath)
 	if spec.WorkDir != "" {
 		cmd.Dir = spec.WorkDir
 	}
-	cmd.Env = append(os.Environ(),
-		"CLAW_HTTP_ADDR="+spec.Host+":"+strconv.Itoa(spec.Port),
-		"SESSION_STORE_URL="+spec.SessionStoreURL,
-		"INTERNAL_TOKEN="+spec.InternalToken,
-	)
 	if err := cmd.Start(); err != nil {
 		return nil, fmt.Errorf("start claw process: %w", err)
 	}
@@ -111,5 +113,29 @@ func processSpecFromConfig(cfg config.Config, instanceID, agentID string, port i
 		WorkDir:         cfg.ClawWorkDir,
 		SessionStoreURL: cfg.SessionStoreURL,
 		InternalToken:   cfg.InternalToken,
+		ConfigDir:       cfg.ClawConfigDir,
+		RunnerMode:      cfg.ClawRunnerMode,
 	}
+}
+
+func writeClawConfig(spec StartAgentInstanceSpec) (string, error) {
+	dir := spec.ConfigDir
+	if dir == "" {
+		dir = filepath.Join(os.TempDir(), "icoo_claw")
+	}
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		return "", fmt.Errorf("create claw config dir: %w", err)
+	}
+	path := filepath.Join(dir, spec.InstanceID+".toml")
+	payload := fmt.Sprintf(
+		"http_addr = %q\nsession_store_url = %q\ninternal_token = %q\nrunner_mode = %q\n",
+		spec.Host+":"+strconv.Itoa(spec.Port),
+		spec.SessionStoreURL,
+		spec.InternalToken,
+		spec.RunnerMode,
+	)
+	if err := os.WriteFile(path, []byte(payload), 0o600); err != nil {
+		return "", fmt.Errorf("write claw config: %w", err)
+	}
+	return path, nil
 }

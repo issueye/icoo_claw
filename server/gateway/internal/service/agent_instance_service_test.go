@@ -2,7 +2,9 @@ package service
 
 import (
 	"context"
+	"errors"
 	"testing"
+	"time"
 
 	"icoo_claw/server/gateway/internal/config"
 	"icoo_claw/server/gateway/internal/dto"
@@ -46,6 +48,18 @@ func (r *memoryInstanceRepo) Update(_ context.Context, instance model.AgentInsta
 	}
 	return nil
 }
+func (r *memoryInstanceRepo) AdjustInflight(_ context.Context, id string, delta int) error {
+	for i := range r.instances {
+		if r.instances[i].ID == id {
+			r.instances[i].Inflight += delta
+			if r.instances[i].Inflight < 0 {
+				r.instances[i].Inflight = 0
+			}
+			return nil
+		}
+	}
+	return nil
+}
 
 type memorySupervisor struct{}
 
@@ -54,6 +68,31 @@ func (s memorySupervisor) Start(context.Context, StartAgentInstanceSpec) (*Agent
 }
 func (s memorySupervisor) Stop(context.Context, model.AgentInstance) error  { return nil }
 func (s memorySupervisor) Probe(context.Context, model.AgentInstance) error { return nil }
+
+type probeSupervisor struct {
+	err error
+}
+
+func (s probeSupervisor) Start(context.Context, StartAgentInstanceSpec) (*AgentProcess, error) {
+	return &AgentProcess{PID: 42}, nil
+}
+func (s probeSupervisor) Stop(context.Context, model.AgentInstance) error { return nil }
+func (s probeSupervisor) Probe(context.Context, model.AgentInstance) error {
+	return s.err
+}
+
+type stopSupervisor struct {
+	stopped bool
+}
+
+func (s *stopSupervisor) Start(context.Context, StartAgentInstanceSpec) (*AgentProcess, error) {
+	return &AgentProcess{PID: 42}, nil
+}
+func (s *stopSupervisor) Stop(context.Context, model.AgentInstance) error {
+	s.stopped = true
+	return nil
+}
+func (s *stopSupervisor) Probe(context.Context, model.AgentInstance) error { return nil }
 
 func TestAgentInstanceServiceStartAllocatesPort(t *testing.T) {
 	repo := &memoryInstanceRepo{}
@@ -74,5 +113,87 @@ func TestAgentInstanceServiceStartAllocatesPort(t *testing.T) {
 	}
 	if first.Port != 8101 || second.Port != 8102 {
 		t.Fatalf("ports = %d, %d", first.Port, second.Port)
+	}
+}
+
+func TestAgentInstanceServiceProbeInstancesUpdatesStatus(t *testing.T) {
+	now := time.Now().UTC()
+	repo := &memoryInstanceRepo{instances: []model.AgentInstance{
+		{ID: "inst_1", AgentID: "agent_1", Status: "starting", BaseURL: "http://127.0.0.1:8101", CreatedAt: now, UpdatedAt: now},
+	}}
+	svc := NewAgentInstanceService(
+		config.Config{},
+		instanceAgentRepo{},
+		repo,
+		probeSupervisor{},
+	)
+
+	if err := svc.ProbeInstances(context.Background()); err != nil {
+		t.Fatalf("probe: %v", err)
+	}
+	if repo.instances[0].Status != "ready" {
+		t.Fatalf("status = %q, want ready", repo.instances[0].Status)
+	}
+	if repo.instances[0].LastHeartbeatAt == nil {
+		t.Fatal("expected heartbeat")
+	}
+}
+
+func TestAgentInstanceServiceProbeInstancesMarksFailed(t *testing.T) {
+	probeErr := errors.New("down")
+	repo := &memoryInstanceRepo{instances: []model.AgentInstance{
+		{ID: "inst_1", AgentID: "agent_1", Status: "ready", BaseURL: "http://127.0.0.1:8101"},
+	}}
+	svc := NewAgentInstanceService(
+		config.Config{},
+		instanceAgentRepo{},
+		repo,
+		probeSupervisor{err: probeErr},
+	)
+
+	if err := svc.ProbeInstances(context.Background()); err != nil {
+		t.Fatalf("probe: %v", err)
+	}
+	if repo.instances[0].Status != "failed" || repo.instances[0].LastError != "down" {
+		t.Fatalf("instance = %+v, want failed with error", repo.instances[0])
+	}
+}
+
+func TestAgentInstanceServiceStopWaitsForInflight(t *testing.T) {
+	repo := &memoryInstanceRepo{instances: []model.AgentInstance{
+		{ID: "inst_1", AgentID: "agent_1", Status: "ready", PID: 42, Inflight: 1},
+	}}
+	supervisor := &stopSupervisor{}
+	svc := NewAgentInstanceService(
+		config.Config{ShutdownTimeout: time.Second},
+		instanceAgentRepo{},
+		repo,
+		supervisor,
+	)
+
+	done := make(chan error, 1)
+	go func() {
+		done <- svc.Stop(context.Background(), "inst_1")
+	}()
+
+	time.Sleep(20 * time.Millisecond)
+	if repo.instances[0].Status != "draining" {
+		t.Fatalf("status = %q, want draining", repo.instances[0].Status)
+	}
+	repo.instances[0].Inflight = 0
+
+	select {
+	case err := <-done:
+		if err != nil {
+			t.Fatalf("stop: %v", err)
+		}
+	case <-time.After(time.Second):
+		t.Fatal("stop did not finish")
+	}
+	if !supervisor.stopped {
+		t.Fatal("expected supervisor stop")
+	}
+	if repo.instances[0].Status != "stopped" {
+		t.Fatalf("status = %q, want stopped", repo.instances[0].Status)
 	}
 }

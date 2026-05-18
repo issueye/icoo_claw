@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"sync"
 
 	"icoo_claw/server/claw/pkg/sessionstore"
 
@@ -15,21 +16,41 @@ type HistoryStore interface {
 	ReplaceMessages(ctx context.Context, sessionID string, messages []sessionstore.Message) error
 }
 
+type RevisionedHistoryStore interface {
+	ListMessagesWithRevision(ctx context.Context, sessionID string) ([]sessionstore.Message, int64, error)
+	ReplaceMessagesWithRevision(ctx context.Context, sessionID string, messages []sessionstore.Message, expectedRevision *int64) error
+}
+
 type HistoryAdapter struct {
-	store HistoryStore
+	store     HistoryStore
+	mu        sync.Mutex
+	revisions map[string]int64
 }
 
 func NewHistoryAdapter(store HistoryStore) *HistoryAdapter {
-	return &HistoryAdapter{store: store}
+	return &HistoryAdapter{store: store, revisions: map[string]int64{}}
 }
 
 func (h *HistoryAdapter) Load(ctx context.Context, sessionID string) ([]sdkmessage.Message, error) {
 	if h == nil || h.store == nil {
 		return nil, nil
 	}
-	messages, err := h.store.ListMessages(ctx, sessionID)
-	if err != nil {
-		return nil, err
+	var messages []sessionstore.Message
+	if store, ok := h.store.(RevisionedHistoryStore); ok {
+		loaded, revision, err := store.ListMessagesWithRevision(ctx, sessionID)
+		if err != nil {
+			return nil, err
+		}
+		messages = loaded
+		h.mu.Lock()
+		h.revisions[sessionID] = revision
+		h.mu.Unlock()
+	} else {
+		loaded, err := h.store.ListMessages(ctx, sessionID)
+		if err != nil {
+			return nil, err
+		}
+		messages = loaded
 	}
 	return toSDKMessages(messages)
 }
@@ -38,7 +59,21 @@ func (h *HistoryAdapter) SaveSnapshot(ctx context.Context, sessionID string, mes
 	if h == nil || h.store == nil {
 		return nil
 	}
+	if store, ok := h.store.(RevisionedHistoryStore); ok {
+		expected := h.expectedRevision(sessionID)
+		return store.ReplaceMessagesWithRevision(ctx, sessionID, fromSDKMessages(messages), expected)
+	}
 	return h.store.ReplaceMessages(ctx, sessionID, fromSDKMessages(messages))
+}
+
+func (h *HistoryAdapter) expectedRevision(sessionID string) *int64 {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	revision, ok := h.revisions[sessionID]
+	if !ok {
+		return nil
+	}
+	return &revision
 }
 
 func toSDKMessages(messages []sessionstore.Message) ([]sdkmessage.Message, error) {

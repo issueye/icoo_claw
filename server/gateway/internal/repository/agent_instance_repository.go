@@ -3,6 +3,7 @@ package repository
 import (
 	"context"
 	"errors"
+	"time"
 
 	"icoo_claw/server/gateway/internal/model"
 
@@ -14,6 +15,7 @@ type AgentInstanceRepository interface {
 	Get(ctx context.Context, id string) (*model.AgentInstance, error)
 	List(ctx context.Context) ([]model.AgentInstance, error)
 	Update(ctx context.Context, instance model.AgentInstance) error
+	AdjustInflight(ctx context.Context, id string, delta int) error
 }
 
 type GormAgentInstanceRepository struct {
@@ -48,6 +50,22 @@ func (r *GormAgentInstanceRepository) List(ctx context.Context) ([]model.AgentIn
 
 func (r *GormAgentInstanceRepository) Update(ctx context.Context, instance model.AgentInstance) error {
 	result := r.db.WithContext(ctx).Save(&instance)
+	if result.Error != nil {
+		return result.Error
+	}
+	if result.RowsAffected == 0 {
+		return ErrNotFound
+	}
+	return nil
+}
+
+func (r *GormAgentInstanceRepository) AdjustInflight(ctx context.Context, id string, delta int) error {
+	result := r.db.WithContext(ctx).Model(&model.AgentInstance{}).
+		Where("id = ?", id).
+		Updates(map[string]any{
+			"inflight":   gorm.Expr("CASE WHEN inflight + ? < 0 THEN 0 ELSE inflight + ? END", delta, delta),
+			"updated_at": time.Now().UTC(),
+		})
 	if result.Error != nil {
 		return result.Error
 	}

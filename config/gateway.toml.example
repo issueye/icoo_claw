@@ -1,0 +1,15 @@
+http_addr = ":8080"
+db_path = "./data/gateway.sqlite"
+
+session_store_url = "http://127.0.0.1:8082"
+internal_token = "dev-internal-token"
+
+claw_binary_path = "./bin/claw.exe"
+claw_work_dir = "."
+claw_config_dir = "./data/claw_configs"
+claw_runner_mode = "sdk"
+claw_port_start = 8101
+claw_port_end = 8199
+max_agent_instances = 4
+health_interval_seconds = 10
+shutdown_timeout_seconds = 10
