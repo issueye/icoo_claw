@@ -382,6 +382,7 @@ func TestRuntimeFactoryExposesCoreBuiltinTools(t *testing.T) {
 				"bash",
 				"find",
 				"fetch",
+				"web_search",
 			},
 		},
 	})
@@ -390,12 +391,12 @@ func TestRuntimeFactoryExposesCoreBuiltinTools(t *testing.T) {
 	}
 	defer func() { _ = rt.Close() }()
 
-	defs := rt.AvailableToolsForWhitelist([]string{"read", "write", "bash", "find", "fetch"})
+	defs := rt.AvailableToolsForWhitelist([]string{"read", "write", "bash", "find", "fetch", "web_search"})
 	names := make(map[string]bool, len(defs))
 	for _, def := range defs {
 		names[def.Name] = true
 	}
-	for _, name := range []string{"read", "write", "bash", "find", "fetch"} {
+	for _, name := range []string{"read", "write", "bash", "find", "fetch", "web_search"} {
 		if !names[name] {
 			t.Fatalf("available tools = %+v, missing %s", defs, name)
 		}

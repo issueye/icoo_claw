@@ -186,12 +186,16 @@ func builtinToolFactories(root string, networkAllow []string, sandboxDisabled bo
 	fetchCtor := func() tool.Tool {
 		return toolbuiltin.NewFetchToolWithNetworkPolicy(networkPolicy)
 	}
+	webSearchCtor := func() tool.Tool {
+		return toolbuiltin.NewWebSearchToolWithNetworkPolicy(networkPolicy)
+	}
 	factories["bash"] = bashCtor
 	factories["read"] = readCtor
 	factories["write"] = writeCtor
 	factories["edit"] = editCtor
 	factories["find"] = findCtor
 	factories["fetch"] = fetchCtor
+	factories["web_search"] = webSearchCtor
 	factories["grep"] = grepCtor
 	factories["glob"] = globCtor
 	factories["skill"] = func() tool.Tool { return toolbuiltin.NewSkillTool(skReg, nil) }
@@ -201,7 +205,7 @@ func builtinToolFactories(root string, networkAllow []string, sandboxDisabled bo
 
 func builtinOrder(entry EntryPoint) []string {
 	_ = entry
-	return []string{"bash", "read", "write", "edit", "find", "fetch", "glob", "grep", "skill"}
+	return []string{"bash", "read", "write", "edit", "find", "fetch", "web_search", "glob", "grep", "skill"}
 }
 
 func filterBuiltinNames(enabled []string, order []string) []string {
