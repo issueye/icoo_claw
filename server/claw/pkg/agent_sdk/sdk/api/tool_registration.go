@@ -26,7 +26,7 @@ func registerTools(registry *tool.Registry, opts Options, settings *config.Setti
 			skReg = skills.NewRegistry()
 		}
 
-		factories := builtinToolFactories(opts.ProjectRoot, sandboxDisabled, entry, settings, skReg)
+		factories := builtinToolFactories(opts.ProjectRoot, opts.Sandbox.NetworkAllow, sandboxDisabled, entry, settings, skReg)
 		names := builtinOrder(entry)
 		selectedNames := filterBuiltinNames(opts.EnabledBuiltinTools, names)
 		for _, name := range selectedNames {
@@ -107,8 +107,15 @@ func withToolSearch(tools []tool.Tool) []tool.Tool {
 	return append(tools, toolbuiltin.NewToolSearchTool(tools))
 }
 
-func builtinToolFactories(root string, sandboxDisabled bool, entry EntryPoint, settings *config.Settings, skReg *skills.Registry) map[string]func() tool.Tool {
+func builtinToolFactories(root string, networkAllow []string, sandboxDisabled bool, entry EntryPoint, settings *config.Settings, skReg *skills.Registry) map[string]func() tool.Tool {
 	factories := map[string]func() tool.Tool{}
+	var networkPolicy sandbox.NetworkPolicy
+	if !sandboxDisabled {
+		if len(networkAllow) == 0 {
+			networkAllow = defaultNetworkAllowList(entry)
+		}
+		networkPolicy = sandbox.NewDomainAllowList(networkAllow...)
+	}
 
 	bashCtor := func() tool.Tool {
 		var bash *toolbuiltin.BashTool
@@ -176,11 +183,15 @@ func builtinToolFactories(root string, sandboxDisabled bool, entry EntryPoint, s
 		find.SetRespectGitignore(respectGitignore)
 		return find
 	}
+	fetchCtor := func() tool.Tool {
+		return toolbuiltin.NewFetchToolWithNetworkPolicy(networkPolicy)
+	}
 	factories["bash"] = bashCtor
 	factories["read"] = readCtor
 	factories["write"] = writeCtor
 	factories["edit"] = editCtor
 	factories["find"] = findCtor
+	factories["fetch"] = fetchCtor
 	factories["grep"] = grepCtor
 	factories["glob"] = globCtor
 	factories["skill"] = func() tool.Tool { return toolbuiltin.NewSkillTool(skReg, nil) }
@@ -190,7 +201,7 @@ func builtinToolFactories(root string, sandboxDisabled bool, entry EntryPoint, s
 
 func builtinOrder(entry EntryPoint) []string {
 	_ = entry
-	return []string{"bash", "read", "write", "edit", "find", "glob", "grep", "skill"}
+	return []string{"bash", "read", "write", "edit", "find", "fetch", "glob", "grep", "skill"}
 }
 
 func filterBuiltinNames(enabled []string, order []string) []string {

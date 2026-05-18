@@ -28,6 +28,9 @@ func (f *RuntimeFactory) New(ctx context.Context, req RunRequest) (*api.Runtime,
 		MaxIterations:       profile.MaxIterations,
 		EnabledBuiltinTools: profile.EnabledBuiltinTools,
 		MCPServers:          profile.MCPServers,
+		Sandbox: api.SandboxOptions{
+			NetworkAllow: profile.NetworkAllow,
+		},
 		HistoryLoader: func(sessionID string) ([]sdkmessage.Message, error) {
 			if f.history == nil {
 				return nil, nil
@@ -66,6 +69,7 @@ type AgentProfile struct {
 	MaxIterations       int
 	EnabledBuiltinTools []string
 	MCPServers          []string
+	NetworkAllow        []string
 }
 
 func parseAgentProfile(input map[string]any) AgentProfile {
@@ -79,6 +83,7 @@ func parseAgentProfile(input map[string]any) AgentProfile {
 		MaxIterations:       intValue(input, "max_iterations"),
 		EnabledBuiltinTools: stringSlice(input, "enabled_builtin_tools"),
 		MCPServers:          stringSlice(input, "mcp_servers"),
+		NetworkAllow:        firstStringSlice(input, "network_allow", "allowed_domains"),
 	}
 }
 
@@ -141,4 +146,13 @@ func stringSlice(input map[string]any, key string) []string {
 		}
 	}
 	return out
+}
+
+func firstStringSlice(input map[string]any, keys ...string) []string {
+	for _, key := range keys {
+		if values := stringSlice(input, key); len(values) > 0 {
+			return values
+		}
+	}
+	return nil
 }

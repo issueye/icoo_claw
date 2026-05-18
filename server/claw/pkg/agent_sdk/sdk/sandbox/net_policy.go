@@ -103,10 +103,17 @@ func matchesHost(target, allowed string) bool {
 	if target == allowed {
 		return true
 	}
+	if allowed == "*" {
+		return true
+	}
 	// wildcard prefix
 	if strings.HasPrefix(allowed, "*.") {
 		suffix := strings.TrimPrefix(allowed, "*.")
 		return strings.HasSuffix(target, suffix)
+	}
+	if strings.HasSuffix(allowed, ".*") {
+		prefix := strings.TrimSuffix(allowed, "*")
+		return strings.HasPrefix(target, prefix)
 	}
 	return strings.HasSuffix(target, "."+allowed)
 }

@@ -22,6 +22,7 @@ func (r chatAgentRepo) Get(context.Context, string) (*model.AgentProfile, error)
 		Name:              "Default",
 		ModelProvider:     "openai",
 		ToolWhitelistJSON: `["read"]`,
+		NetworkAllowJSON:  `["example.com"]`,
 		MCPServerIDsJSON:  `[]`,
 		SkillIDsJSON:      `[]`,
 		Enabled:           true,
@@ -143,6 +144,9 @@ func TestChatServiceCreateAndSendMessage(t *testing.T) {
 	}
 	if claw.req.SessionID != conv.SessionID || claw.req.ToolWhitelist[0] != "read" {
 		t.Fatalf("claw request = %+v", claw.req)
+	}
+	if got := claw.req.Agent["network_allow"].([]string); len(got) != 1 || got[0] != "example.com" {
+		t.Fatalf("network_allow = %+v", claw.req.Agent["network_allow"])
 	}
 	if instances.instance.Inflight != 0 {
 		t.Fatalf("inflight = %d, want 0", instances.instance.Inflight)

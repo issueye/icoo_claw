@@ -11,6 +11,7 @@ type AgentProfile struct {
 	SystemPrompt  string    `json:"system_prompt"`
 	MaxIterations int       `json:"max_iterations"`
 	ToolWhitelist []string  `json:"tool_whitelist"`
+	NetworkAllow  []string  `json:"network_allow"`
 	MCPServerIDs  []string  `json:"mcp_server_ids"`
 	SkillIDs      []string  `json:"skill_ids"`
 	Enabled       bool      `json:"enabled"`
@@ -27,6 +28,7 @@ type CreateAgentRequest struct {
 	SystemPrompt  string   `json:"system_prompt"`
 	MaxIterations int      `json:"max_iterations"`
 	ToolWhitelist []string `json:"tool_whitelist"`
+	NetworkAllow  []string `json:"network_allow"`
 	MCPServerIDs  []string `json:"mcp_server_ids"`
 	SkillIDs      []string `json:"skill_ids"`
 	Enabled       *bool    `json:"enabled"`
@@ -40,6 +42,7 @@ type UpdateAgentRequest struct {
 	SystemPrompt  *string  `json:"system_prompt"`
 	MaxIterations *int     `json:"max_iterations"`
 	ToolWhitelist []string `json:"tool_whitelist"`
+	NetworkAllow  []string `json:"network_allow"`
 	MCPServerIDs  []string `json:"mcp_server_ids"`
 	SkillIDs      []string `json:"skill_ids"`
 	Enabled       *bool    `json:"enabled"`

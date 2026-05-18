@@ -11,6 +11,7 @@ type AgentProfile struct {
 	SystemPrompt      string `gorm:"type:text"`
 	MaxIterations     int
 	ToolWhitelistJSON string `gorm:"column:tool_whitelist;type:text"`
+	NetworkAllowJSON  string `gorm:"column:network_allow;type:text"`
 	MCPServerIDsJSON  string `gorm:"column:mcp_server_ids;type:text"`
 	SkillIDsJSON      string `gorm:"column:skill_ids;type:text"`
 	Enabled           bool

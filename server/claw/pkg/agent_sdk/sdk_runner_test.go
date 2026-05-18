@@ -3,6 +3,8 @@ package agent_sdk
 import (
 	"context"
 	"encoding/json"
+	"net/http"
+	"net/http/httptest"
 	"os"
 	"strings"
 	"testing"
@@ -153,6 +155,54 @@ func (m *writeFindModel) CompleteStream(_ context.Context, req sdkmodel.Request,
 	}
 }
 
+type fetchModel struct {
+	t         *testing.T
+	url       string
+	callCount int
+}
+
+func (m *fetchModel) Complete(context.Context, sdkmodel.Request) (*sdkmodel.Response, error) {
+	return nil, nil
+}
+
+func (m *fetchModel) CompleteStream(_ context.Context, req sdkmodel.Request, cb sdkmodel.StreamHandler) error {
+	m.callCount++
+	switch m.callCount {
+	case 1:
+		if !hasTool(req.Tools, "fetch") {
+			m.t.Fatalf("model request tools = %+v, missing fetch", req.Tools)
+		}
+		return cb(sdkmodel.StreamResult{
+			Final: true,
+			Response: &sdkmodel.Response{
+				Message: sdkmodel.Message{
+					Role: "assistant",
+					ToolCalls: []sdkmodel.ToolCall{{
+						ID:        "tool_call_fetch",
+						Name:      "fetch",
+						Arguments: map[string]any{"url": m.url},
+					}},
+				},
+				StopReason: "tool_calls",
+			},
+		})
+	case 2:
+		if !requestHasToolResult(req, "fetch", "network-secret") {
+			m.t.Fatalf("second model request missing fetch result: %+v", req.Messages)
+		}
+		return cb(sdkmodel.StreamResult{
+			Final: true,
+			Response: &sdkmodel.Response{
+				Message:    sdkmodel.Message{Role: "assistant", Content: "fetch ok"},
+				StopReason: "end_turn",
+			},
+		})
+	default:
+		m.t.Fatalf("unexpected model call count %d", m.callCount)
+		return nil
+	}
+}
+
 func (m staticModel) CompleteStream(_ context.Context, req sdkmodel.Request, cb sdkmodel.StreamHandler) error {
 	return cb(sdkmodel.StreamResult{
 		Final: true,
@@ -283,6 +333,41 @@ func TestSDKRunnerExecutesBuiltinWriteAndFindTools(t *testing.T) {
 	}
 }
 
+func TestSDKRunnerExecutesFetchTool(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_, _ = w.Write([]byte("network-secret"))
+	}))
+	defer server.Close()
+
+	root := t.TempDir()
+	store := &memoryHistoryStore{}
+	history := NewHistoryAdapter(store)
+	model := &fetchModel{t: t, url: server.URL}
+	factory := NewRuntimeFactory(history, model)
+	runner := NewSDKRunner(factory, history)
+
+	resp, err := runner.Run(context.Background(), RunRequest{
+		SessionID:     "sess_fetch",
+		Prompt:        "fetch the url",
+		ToolWhitelist: []string{"fetch"},
+		Agent: map[string]any{
+			"project_root":          root,
+			"enabled_builtin_tools": []any{"fetch"},
+			"network_allow":         []any{"127.0.0.1"},
+			"max_iterations":        float64(3),
+		},
+	})
+	if err != nil {
+		t.Fatalf("run: %v", err)
+	}
+	if resp.Output != "fetch ok" {
+		t.Fatalf("output = %q, want fetch ok", resp.Output)
+	}
+	if model.callCount != 2 {
+		t.Fatalf("model callCount=%d, want 2", model.callCount)
+	}
+}
+
 func TestRuntimeFactoryExposesCoreBuiltinTools(t *testing.T) {
 	root := t.TempDir()
 	history := NewHistoryAdapter(&memoryHistoryStore{})
@@ -296,6 +381,7 @@ func TestRuntimeFactoryExposesCoreBuiltinTools(t *testing.T) {
 				"write",
 				"bash",
 				"find",
+				"fetch",
 			},
 		},
 	})
@@ -304,12 +390,12 @@ func TestRuntimeFactoryExposesCoreBuiltinTools(t *testing.T) {
 	}
 	defer func() { _ = rt.Close() }()
 
-	defs := rt.AvailableToolsForWhitelist([]string{"read", "write", "bash", "find"})
+	defs := rt.AvailableToolsForWhitelist([]string{"read", "write", "bash", "find", "fetch"})
 	names := make(map[string]bool, len(defs))
 	for _, def := range defs {
 		names[def.Name] = true
 	}
-	for _, name := range []string{"read", "write", "bash", "find"} {
+	for _, name := range []string{"read", "write", "bash", "find", "fetch"} {
 		if !names[name] {
 			t.Fatalf("available tools = %+v, missing %s", defs, name)
 		}

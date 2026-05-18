@@ -208,6 +208,7 @@ func agentProfileMap(agent model.AgentProfile) map[string]any {
 		"system_prompt":         agent.SystemPrompt,
 		"max_iterations":        agent.MaxIterations,
 		"enabled_builtin_tools": parseStringSlice(agent.ToolWhitelistJSON),
+		"network_allow":         parseStringSlice(agent.NetworkAllowJSON),
 		"mcp_servers":           parseStringSlice(agent.MCPServerIDsJSON),
 	}
 }
