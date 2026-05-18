@@ -166,10 +166,21 @@ func builtinToolFactories(root string, sandboxDisabled bool, entry EntryPoint, s
 		glob.SetRespectGitignore(respectGitignore)
 		return glob
 	}
+	findCtor := func() tool.Tool {
+		if sandboxDisabled {
+			find := toolbuiltin.NewFindToolWithSandbox(root, nil)
+			find.SetRespectGitignore(respectGitignore)
+			return find
+		}
+		find := toolbuiltin.NewFindToolWithRoot(root)
+		find.SetRespectGitignore(respectGitignore)
+		return find
+	}
 	factories["bash"] = bashCtor
 	factories["read"] = readCtor
 	factories["write"] = writeCtor
 	factories["edit"] = editCtor
+	factories["find"] = findCtor
 	factories["grep"] = grepCtor
 	factories["glob"] = globCtor
 	factories["skill"] = func() tool.Tool { return toolbuiltin.NewSkillTool(skReg, nil) }
@@ -179,7 +190,7 @@ func builtinToolFactories(root string, sandboxDisabled bool, entry EntryPoint, s
 
 func builtinOrder(entry EntryPoint) []string {
 	_ = entry
-	return []string{"bash", "read", "write", "edit", "glob", "grep", "skill"}
+	return []string{"bash", "read", "write", "edit", "find", "glob", "grep", "skill"}
 }
 
 func filterBuiltinNames(enabled []string, order []string) []string {

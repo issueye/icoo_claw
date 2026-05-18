@@ -2,6 +2,9 @@ package agent_sdk
 
 import (
 	"context"
+	"encoding/json"
+	"os"
+	"strings"
 	"testing"
 
 	"icoo_claw/server/claw/pkg/sessionstore"
@@ -26,6 +29,128 @@ type staticModel struct{}
 
 func (m staticModel) Complete(context.Context, sdkmodel.Request) (*sdkmodel.Response, error) {
 	return nil, nil
+}
+
+type toolCallingModel struct {
+	t            *testing.T
+	callCount    int
+	toolResultOK bool
+}
+
+func (m *toolCallingModel) Complete(context.Context, sdkmodel.Request) (*sdkmodel.Response, error) {
+	return nil, nil
+}
+
+func (m *toolCallingModel) CompleteStream(_ context.Context, req sdkmodel.Request, cb sdkmodel.StreamHandler) error {
+	m.callCount++
+	switch m.callCount {
+	case 1:
+		if !hasTool(req.Tools, "read") {
+			m.t.Fatalf("model request tools = %+v, want read", req.Tools)
+		}
+		return cb(sdkmodel.StreamResult{
+			Final: true,
+			Response: &sdkmodel.Response{
+				Message: sdkmodel.Message{
+					Role: "assistant",
+					ToolCalls: []sdkmodel.ToolCall{{
+						ID:        "tool_call_1",
+						Name:      "read",
+						Arguments: map[string]any{"file_path": "fixture.txt"},
+					}},
+				},
+				StopReason: "tool_calls",
+			},
+		})
+	case 2:
+		m.toolResultOK = requestHasToolResult(req, "read", "tool-call-secret")
+		if !m.toolResultOK {
+			m.t.Fatalf("second model request missing read result: %+v", req.Messages)
+		}
+		return cb(sdkmodel.StreamResult{
+			Final: true,
+			Response: &sdkmodel.Response{
+				Message:    sdkmodel.Message{Role: "assistant", Content: "read tool-call-secret"},
+				StopReason: "end_turn",
+			},
+		})
+	default:
+		m.t.Fatalf("unexpected model call count %d", m.callCount)
+		return nil
+	}
+}
+
+type writeFindModel struct {
+	t         *testing.T
+	callCount int
+}
+
+func (m *writeFindModel) Complete(context.Context, sdkmodel.Request) (*sdkmodel.Response, error) {
+	return nil, nil
+}
+
+func (m *writeFindModel) CompleteStream(_ context.Context, req sdkmodel.Request, cb sdkmodel.StreamHandler) error {
+	m.callCount++
+	switch m.callCount {
+	case 1:
+		for _, name := range []string{"write", "find", "bash"} {
+			if !hasTool(req.Tools, name) {
+				m.t.Fatalf("model request tools = %+v, missing %s", req.Tools, name)
+			}
+		}
+		return cb(sdkmodel.StreamResult{
+			Final: true,
+			Response: &sdkmodel.Response{
+				Message: sdkmodel.Message{
+					Role: "assistant",
+					ToolCalls: []sdkmodel.ToolCall{{
+						ID:   "tool_call_write",
+						Name: "write",
+						Arguments: map[string]any{
+							"file_path": "generated.txt",
+							"content":   "write-find-secret\n",
+						},
+					}},
+				},
+				StopReason: "tool_calls",
+			},
+		})
+	case 2:
+		if !requestHasToolResult(req, "write", "generated.txt") {
+			m.t.Fatalf("second model request missing write result: %+v", req.Messages)
+		}
+		return cb(sdkmodel.StreamResult{
+			Final: true,
+			Response: &sdkmodel.Response{
+				Message: sdkmodel.Message{
+					Role: "assistant",
+					ToolCalls: []sdkmodel.ToolCall{{
+						ID:   "tool_call_find",
+						Name: "find",
+						Arguments: map[string]any{
+							"pattern": "generated",
+							"type":    "file",
+						},
+					}},
+				},
+				StopReason: "tool_calls",
+			},
+		})
+	case 3:
+		if !requestHasToolResult(req, "find", "generated.txt") {
+			m.t.Fatalf("third model request missing find result: %+v", req.Messages)
+		}
+		return cb(sdkmodel.StreamResult{
+			Final: true,
+			Response: &sdkmodel.Response{
+				Message:    sdkmodel.Message{Role: "assistant", Content: "write and find ok"},
+				StopReason: "end_turn",
+			},
+		})
+	default:
+		m.t.Fatalf("unexpected model call count %d", m.callCount)
+		return nil
+	}
 }
 
 func (m staticModel) CompleteStream(_ context.Context, req sdkmodel.Request, cb sdkmodel.StreamHandler) error {
@@ -65,4 +190,160 @@ func TestSDKRunnerRunLoadsAndSavesHistory(t *testing.T) {
 	if store.messages[0].Content != "previous" || store.messages[1].Content != "next" || store.messages[2].Content != "ok" {
 		t.Fatalf("unexpected saved messages = %+v", store.messages)
 	}
+}
+
+func TestSDKRunnerExecutesBuiltinReadToolAndSavesResult(t *testing.T) {
+	root := t.TempDir()
+	if err := os.WriteFile(root+"/fixture.txt", []byte("tool-call-secret\n"), 0o600); err != nil {
+		t.Fatalf("write fixture: %v", err)
+	}
+
+	store := &memoryHistoryStore{}
+	history := NewHistoryAdapter(store)
+	model := &toolCallingModel{t: t}
+	factory := NewRuntimeFactory(history, model)
+	runner := NewSDKRunner(factory, history)
+
+	resp, err := runner.Run(context.Background(), RunRequest{
+		SessionID:     "sess_tool",
+		Prompt:        "read the fixture",
+		ToolWhitelist: []string{"read"},
+		Agent: map[string]any{
+			"project_root":          root,
+			"enabled_builtin_tools": []any{"read"},
+			"max_iterations":        float64(3),
+		},
+	})
+	if err != nil {
+		t.Fatalf("run: %v", err)
+	}
+	if resp.Output != "read tool-call-secret" {
+		t.Fatalf("output = %q, want final tool-informed response", resp.Output)
+	}
+	if model.callCount != 2 || !model.toolResultOK {
+		t.Fatalf("model callCount=%d toolResultOK=%v", model.callCount, model.toolResultOK)
+	}
+	if len(store.messages) != 4 {
+		t.Fatalf("saved messages = %+v, want user + assistant tool call + tool result + assistant", store.messages)
+	}
+	assistantToolCall := mustJSON(t, store.messages[1].ToolCalls)
+	if store.messages[1].Role != "assistant" || !strings.Contains(assistantToolCall, `"Name":"read"`) {
+		t.Fatalf("assistant tool call message = %+v", store.messages[1])
+	}
+	toolResult := mustJSON(t, store.messages[2].ToolCalls)
+	if store.messages[2].Role != "tool" || !strings.Contains(toolResult, "tool-call-secret") {
+		t.Fatalf("tool result message = %+v", store.messages[2])
+	}
+	if store.messages[3].Role != "assistant" || store.messages[3].Content != "read tool-call-secret" {
+		t.Fatalf("final assistant message = %+v", store.messages[3])
+	}
+}
+
+func TestSDKRunnerExecutesBuiltinWriteAndFindTools(t *testing.T) {
+	root := t.TempDir()
+
+	store := &memoryHistoryStore{}
+	history := NewHistoryAdapter(store)
+	model := &writeFindModel{t: t}
+	factory := NewRuntimeFactory(history, model)
+	runner := NewSDKRunner(factory, history)
+
+	resp, err := runner.Run(context.Background(), RunRequest{
+		SessionID:     "sess_write_find",
+		Prompt:        "write and find a file",
+		ToolWhitelist: []string{"write", "find", "bash"},
+		Agent: map[string]any{
+			"project_root": root,
+			"enabled_builtin_tools": []any{
+				"write",
+				"find",
+				"bash",
+			},
+			"max_iterations": float64(4),
+		},
+	})
+	if err != nil {
+		t.Fatalf("run: %v", err)
+	}
+	if resp.Output != "write and find ok" {
+		t.Fatalf("output = %q, want write and find ok", resp.Output)
+	}
+	content, err := os.ReadFile(root + "/generated.txt")
+	if err != nil {
+		t.Fatalf("read generated file: %v", err)
+	}
+	if string(content) != "write-find-secret\n" {
+		t.Fatalf("generated file = %q", content)
+	}
+	if model.callCount != 3 {
+		t.Fatalf("model callCount=%d, want 3", model.callCount)
+	}
+	if len(store.messages) != 6 {
+		t.Fatalf("saved messages = %+v, want user + two tool rounds + final assistant", store.messages)
+	}
+}
+
+func TestRuntimeFactoryExposesCoreBuiltinTools(t *testing.T) {
+	root := t.TempDir()
+	history := NewHistoryAdapter(&memoryHistoryStore{})
+	factory := NewRuntimeFactory(history, staticModel{})
+	rt, err := factory.New(context.Background(), RunRequest{
+		SessionID: "sess_tools",
+		Agent: map[string]any{
+			"project_root": root,
+			"enabled_builtin_tools": []any{
+				"read",
+				"write",
+				"bash",
+				"find",
+			},
+		},
+	})
+	if err != nil {
+		t.Fatalf("create runtime: %v", err)
+	}
+	defer func() { _ = rt.Close() }()
+
+	defs := rt.AvailableToolsForWhitelist([]string{"read", "write", "bash", "find"})
+	names := make(map[string]bool, len(defs))
+	for _, def := range defs {
+		names[def.Name] = true
+	}
+	for _, name := range []string{"read", "write", "bash", "find"} {
+		if !names[name] {
+			t.Fatalf("available tools = %+v, missing %s", defs, name)
+		}
+	}
+	if names["grep"] || names["glob"] || names["edit"] {
+		t.Fatalf("available tools = %+v, expected only requested core tools", defs)
+	}
+}
+
+func mustJSON(t *testing.T, value any) string {
+	t.Helper()
+	payload, err := json.Marshal(value)
+	if err != nil {
+		t.Fatalf("marshal value: %v", err)
+	}
+	return string(payload)
+}
+
+func hasTool(tools []sdkmodel.ToolDefinition, name string) bool {
+	for _, tool := range tools {
+		if tool.Name == name {
+			return true
+		}
+	}
+	return false
+}
+
+func requestHasToolResult(req sdkmodel.Request, name string, content string) bool {
+	for _, msg := range req.Messages {
+		for _, call := range msg.ToolCalls {
+			if call.Name == name && strings.Contains(call.Result, content) {
+				return true
+			}
+		}
+	}
+	return false
 }
