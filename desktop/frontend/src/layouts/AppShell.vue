@@ -1,7 +1,7 @@
 <script setup>
 import { computed } from 'vue'
 import { RouterView, useRoute, useRouter } from 'vue-router'
-import { Clock3, MessageSquareText, PlugZap, RefreshCw, Search, Settings2, Wrench } from 'lucide-vue-next'
+import { LayoutTemplate, MessageSquareText, PlugZap, RefreshCw, Search, Settings2, Wrench } from 'lucide-vue-next'
 import AppSidebar from '@/components/chrome/AppSidebar.vue'
 import ConversationList from '@/components/conversation/ConversationList.vue'
 import { useAppStore } from '@/stores/app'
@@ -18,10 +18,10 @@ const router = useRouter()
 
 const navItems = [
   { name: 'chat-home', label: 'Chat', icon: MessageSquareText, to: '/chat' },
+  { name: 'ued', label: 'UED', icon: LayoutTemplate, to: '/ued' },
   { name: 'search', label: 'Search', icon: Search, to: '/search' },
   { name: 'skills', label: 'Skills', icon: Wrench, to: '/skills' },
   { name: 'plugins', label: 'Plugins', icon: PlugZap, to: '/plugins' },
-  { name: 'automations', label: 'Automations', icon: Clock3, to: '/automations' },
   { name: 'settings', label: 'Settings', icon: Settings2, to: '/settings' },
 ]
 

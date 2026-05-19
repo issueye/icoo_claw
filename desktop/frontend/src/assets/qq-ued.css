@@ -1,0 +1,184 @@
+:root {
+  --qq-bg-top: #0d8b84;
+  --qq-bg-mid: #1ea68f;
+  --qq-bg-bottom: #7a8f1f;
+  --qq-surface-strong: rgba(38, 77, 68, 0.72);
+  --qq-surface: rgba(255, 255, 255, 0.14);
+  --qq-surface-soft: rgba(255, 255, 255, 0.08);
+  --qq-surface-softer: rgba(255, 255, 255, 0.05);
+  --qq-border: rgba(255, 255, 255, 0.18);
+  --qq-border-strong: rgba(255, 255, 255, 0.28);
+  --qq-text-primary: #f1fffb;
+  --qq-text-secondary: rgba(235, 255, 248, 0.78);
+  --qq-text-tertiary: rgba(224, 245, 239, 0.56);
+  --qq-accent: #36dcc8;
+  --qq-accent-strong: #13c08e;
+  --qq-accent-pink: #f38ad5;
+  --qq-accent-yellow: #ffd968;
+  --qq-danger: #ff8d8d;
+  --qq-shadow: 0 26px 60px rgba(11, 36, 28, 0.24);
+}
+
+.qq-theme {
+  color: var(--qq-text-primary);
+  background:
+    radial-gradient(circle at top left, rgba(255, 255, 255, 0.15), transparent 22%),
+    radial-gradient(circle at top right, rgba(78, 242, 206, 0.16), transparent 28%),
+    linear-gradient(135deg, var(--qq-bg-top) 0%, var(--qq-bg-mid) 48%, var(--qq-bg-bottom) 100%);
+}
+
+.qq-mesh {
+  position: relative;
+  overflow: hidden;
+}
+
+.qq-mesh::before,
+.qq-mesh::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.qq-mesh::before {
+  background:
+    linear-gradient(115deg, rgba(255, 255, 255, 0.06), transparent 36%),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.05) 1px, transparent 1px),
+    linear-gradient(rgba(255, 255, 255, 0.04) 1px, transparent 1px);
+  background-size: auto, 22px 22px, 22px 22px;
+  mask-image: radial-gradient(circle at center, black 32%, transparent 90%);
+  opacity: 0.55;
+}
+
+.qq-mesh::after {
+  background:
+    radial-gradient(circle at 20% 18%, rgba(255, 255, 255, 0.16), transparent 18%),
+    radial-gradient(circle at 80% 0%, rgba(255, 255, 255, 0.08), transparent 22%),
+    radial-gradient(circle at 70% 70%, rgba(247, 112, 200, 0.11), transparent 22%);
+  opacity: 0.6;
+}
+
+.qq-shell {
+  backdrop-filter: blur(28px);
+  box-shadow: var(--qq-shadow);
+}
+
+.qq-panel {
+  border: 1px solid var(--qq-border);
+  background: linear-gradient(180deg, var(--qq-surface) 0%, var(--qq-surface-softer) 100%);
+  backdrop-filter: blur(22px);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08);
+}
+
+.qq-panel-strong {
+  border: 1px solid var(--qq-border);
+  background: linear-gradient(180deg, rgba(29, 71, 61, 0.9) 0%, var(--qq-surface-strong) 100%);
+  backdrop-filter: blur(26px);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.1);
+}
+
+.qq-punch {
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.16) 0%, rgba(255, 255, 255, 0.08) 100%);
+  backdrop-filter: blur(18px);
+}
+
+.qq-badge {
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--qq-text-secondary);
+}
+
+.qq-grid {
+  display: grid;
+  gap: 24px;
+}
+
+.qq-field-control {
+  min-height: 44px;
+  width: 100%;
+  border: 1px solid var(--qq-border);
+  border-radius: 16px;
+  background: rgba(17, 56, 48, 0.38);
+  color: var(--qq-text-primary);
+  backdrop-filter: blur(14px);
+  transition:
+    border-color 160ms ease,
+    background-color 160ms ease,
+    box-shadow 160ms ease,
+    transform 160ms ease;
+}
+
+.qq-field-control::placeholder {
+  color: var(--qq-text-tertiary);
+}
+
+.qq-field-control:hover {
+  border-color: rgba(255, 255, 255, 0.25);
+}
+
+.qq-field-control:focus-visible {
+  outline: none;
+  border-color: rgba(72, 255, 209, 0.62);
+  box-shadow: 0 0 0 3px rgba(53, 223, 197, 0.16);
+  background: rgba(19, 64, 54, 0.45);
+}
+
+.qq-field-control:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+.qq-option-card {
+  border: 1px solid var(--qq-border);
+  background: rgba(16, 52, 45, 0.28);
+  transition:
+    border-color 160ms ease,
+    background-color 160ms ease,
+    transform 160ms ease,
+    box-shadow 160ms ease;
+}
+
+.qq-option-card:hover {
+  border-color: var(--qq-border-strong);
+  background: rgba(20, 65, 56, 0.4);
+}
+
+.qq-option-card.is-active {
+  border-color: rgba(75, 239, 201, 0.52);
+  background: rgba(31, 82, 69, 0.56);
+  box-shadow: 0 16px 36px rgba(8, 30, 25, 0.18);
+}
+
+.qq-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.qq-table th {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--qq-text-tertiary);
+  text-align: left;
+}
+
+.qq-table th,
+.qq-table td {
+  border-bottom: 1px solid rgba(255, 255, 255, 0.09);
+  padding: 14px 16px;
+}
+
+.qq-table tbody tr {
+  transition: background-color 160ms ease;
+}
+
+.qq-table tbody tr:hover {
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.qq-status-dot {
+  height: 8px;
+  width: 8px;
+  border-radius: 999px;
+  display: inline-block;
+}
