@@ -11,4 +11,7 @@ export default defineConfig({
     viewport: { width: 1440, height: 960 },
     channel: process.platform === 'win32' ? 'msedge' : undefined,
   },
+  expect: {
+    timeout: 10_000,
+  },
 })

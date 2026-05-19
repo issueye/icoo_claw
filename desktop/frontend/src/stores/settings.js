@@ -54,6 +54,8 @@ export const useSettingsStore = defineStore('settings', {
           ...this.settings.ui,
           ...(partial.ui || {}),
         },
+        projects: partial.projects || this.settings.projects,
+        currentProjectId: Object.prototype.hasOwnProperty.call(partial, 'currentProjectId') ? partial.currentProjectId : this.settings.currentProjectId,
       })
       return this.save(nextSettings)
     },

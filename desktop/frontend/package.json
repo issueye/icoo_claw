@@ -9,7 +9,8 @@
     "build": "vite build --mode production",
     "preview": "vite preview",
     "test": "vitest run",
-    "test:e2e": "playwright test"
+    "test:e2e": "playwright test",
+    "test:e2e:stack": "powershell -ExecutionPolicy Bypass -File ../../scripts/dev/run-ui-smoke.ps1"
   },
   "dependencies": {
     "@wailsio/runtime": "latest",

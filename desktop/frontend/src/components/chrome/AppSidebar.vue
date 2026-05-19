@@ -1,5 +1,6 @@
 <script setup>
 import { useRoute } from 'vue-router'
+import ProjectSwitcher from '@/components/project/ProjectSwitcher.vue'
 
 defineProps({
   items: {
@@ -40,5 +41,7 @@ function isActive(item) {
         <span class="text-center leading-tight">{{ item.label }}</span>
       </RouterLink>
     </nav>
+
+    <ProjectSwitcher compact />
   </aside>
 </template>

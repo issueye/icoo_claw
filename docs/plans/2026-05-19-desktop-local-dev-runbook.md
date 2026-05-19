@@ -8,7 +8,7 @@ Provide a repeatable local path for validating the desktop chat client against t
 
 - Build `session_store`, `claw`, and `gateway`
 - Start `session_store` and `gateway`
-- Let `gateway` auto-start `claw` instances on demand
+- Ensure one ready fake `claw` agent instance is available
 - Force `claw_runner_mode = "fake"`
 - Seed one default agent for the desktop app
 
@@ -34,7 +34,18 @@ All generated runtime files live under:
 
 This keeps local binaries, SQLite files, generated TOML, logs, and pid files out of the repo root.
 
+By default, `start-fake-stack.ps1` refreshes only the generated SQLite/config files under `.local/fake-stack/data/` after it stops processes it owns. Use `-PreserveData` when a manual debugging session needs to keep local fake-stack conversations.
+
 ## Start Flow
+
+Install dependencies once before running the UI smoke chain:
+
+```powershell
+Push-Location .\desktop\frontend
+npm ci
+npx playwright install
+Pop-Location
+```
 
 Run:
 
@@ -51,6 +62,7 @@ The script will:
 5. Start `gateway`
 6. Wait for `/health`
 7. Create or reuse default agent `agent_desktop_default`
+8. Create or reuse a ready fake agent instance for that agent
 
 ## Desktop Settings
 
@@ -72,8 +84,10 @@ Run:
 This will:
 
 1. Start the fake stack
-2. Start the frontend preview at `http://127.0.0.1:4173`
-3. Reuse browser fallback settings storage when the app is not running inside Wails
+2. Build the desktop frontend
+3. Start the frontend preview at `http://127.0.0.1:4173`
+4. Proxy `/health`, `/v1/*`, and `/v1/ws/chat` from Vite to gateway so browser E2E does not require backend CORS
+5. Reuse browser fallback settings storage when the app is not running inside Wails
 
 ## Smoke Validation
 
@@ -100,11 +114,32 @@ Run:
 
 This validates the preview UI against the fake stack:
 
-1. Gateway connects in the actual frontend
-2. Default Agent is selected
+1. Gateway health and default test agent exist before the browser opens
+2. The chat composer becomes editable and sendable
 3. First prompt creates a conversation
 4. Assistant response streams and renders
 5. Deleting the current conversation returns to `/chat`
+
+The Playwright test avoids asserting status copy such as `Gateway Online`. It writes browser fallback settings with the preview origin as the gateway base URL, then uses the Vite proxy to reach the gateway and websocket endpoint.
+
+## Half-Automatic E2E
+
+Keep services and preview running in one terminal:
+
+```powershell
+.\scripts\dev\start-fake-stack.ps1 -StartPreview
+```
+
+Run Playwright in another terminal:
+
+```powershell
+Push-Location .\desktop\frontend
+$env:GATEWAY_BASE_URL = "http://127.0.0.1:8080"
+$env:E2E_DEFAULT_AGENT_ID = "agent_desktop_default"
+$env:PLAYWRIGHT_BASE_URL = "http://127.0.0.1:4173"
+npm run test:e2e
+Pop-Location
+```
 
 ## Stop Flow
 

@@ -15,6 +15,7 @@ import { useAppStore } from '@/stores/app'
 import { useChatStore } from '@/stores/chat'
 import { useConversationsStore } from '@/stores/conversations'
 import { useNotificationsStore } from '@/stores/notifications'
+import { useProjectsStore } from '@/stores/projects'
 import { useSettingsStore } from '@/stores/settings'
 
 const appStore = useAppStore()
@@ -22,6 +23,7 @@ const agentsStore = useAgentsStore()
 const chatStore = useChatStore()
 const conversationsStore = useConversationsStore()
 const notificationsStore = useNotificationsStore()
+const projectsStore = useProjectsStore()
 const settingsStore = useSettingsStore()
 const route = useRoute()
 const router = useRouter()
@@ -74,6 +76,7 @@ const statusToneClass = computed(() => {
 })
 const gatewayBaseUrlLabel = computed(() => settingsStore.settings.gateway.baseUrl || '未配置网关地址')
 const defaultAgentLabel = computed(() => agentsStore.selectedAgent?.name || settingsStore.settings.gateway.defaultAgentId || '未选择 Agent')
+const currentProjectLabel = computed(() => projectsStore.currentProject?.name || '无项目')
 const lastRefreshedLabel = computed(() => (appStore.lastRefreshedAt ? new Date(appStore.lastRefreshedAt).toLocaleTimeString() : '未刷新'))
 const gatewayActionLabel = computed(() => (appStore.gatewayStatus === 'unconfigured' ? '配置网关' : '重连网关'))
 const gatewayDialogTitle = computed(() => (appStore.gatewayStatus === 'unconfigured' ? '配置网关地址' : '网关连接异常'))
@@ -325,7 +328,7 @@ watch(
           {{ shellStatusLabel }}
         </span>
         <span class="hidden truncate md:inline">{{ gatewayBaseUrlLabel }}</span>
-        <span class="hidden lg:inline">{{ currentSectionLabel }}</span>
+        <span class="hidden lg:inline">项目 {{ currentProjectLabel }}</span>
       </div>
       <div class="flex shrink-0 items-center gap-3">
         <span class="hidden md:inline">Agent {{ agentsStore.items.length }} · {{ defaultAgentLabel }}</span>

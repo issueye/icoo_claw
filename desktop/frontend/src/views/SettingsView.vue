@@ -1,6 +1,6 @@
 <script setup>
 import { reactive, watch } from 'vue'
-import { RefreshCw } from 'lucide-vue-next'
+import { Check, FolderOpen, Pencil, Plus, RefreshCw, Trash2, X } from 'lucide-vue-next'
 import QqButton from '@/components/ued/QqButton.vue'
 import QqFormField from '@/components/ued/QqFormField.vue'
 import QqFormSection from '@/components/ued/QqFormSection.vue'
@@ -18,6 +18,13 @@ const settingsStore = useSettingsStore()
 const agentsStore = useAgentsStore()
 
 const form = reactive(mergeSettings())
+const projectDraft = reactive({
+  mode: 'create',
+  editingId: '',
+  name: '',
+  rootDir: '',
+  error: '',
+})
 
 watch(
   () => settingsStore.settings,
@@ -25,6 +32,8 @@ watch(
     Object.assign(form.gateway, value.gateway)
     Object.assign(form.workspace, value.workspace)
     Object.assign(form.ui, value.ui)
+    form.projects = [...(value.projects || [])]
+    form.currentProjectId = value.currentProjectId || ''
   },
   { deep: true, immediate: true },
 )
@@ -33,6 +42,13 @@ async function pickDirectory() {
   const value = await chooseDirectory()
   if (value) {
     form.workspace.rootDir = value
+  }
+}
+
+async function pickProjectDirectory() {
+  const value = await chooseDirectory()
+  if (value) {
+    projectDraft.rootDir = value
   }
 }
 
@@ -53,6 +69,91 @@ async function pickGatewayConfig() {
 async function save() {
   await settingsStore.save(mergeSettings(form))
   await appStore.refreshGatewayData()
+}
+
+function upsertProject() {
+  projectDraft.error = ''
+  const name = projectDraft.name.trim()
+  const rootDir = projectDraft.rootDir.trim()
+  if (!name) {
+    projectDraft.error = '请输入项目名称。'
+    return
+  }
+  if (!rootDir) {
+    projectDraft.error = '请选择项目目录。'
+    return
+  }
+
+  if (projectDraft.mode === 'edit') {
+    form.projects = form.projects.map((project) => (project.id === projectDraft.editingId ? { ...project, name, rootDir } : project))
+  } else {
+    const project = {
+      id: createProjectId(),
+      name,
+      rootDir,
+    }
+    form.projects = [...form.projects, project]
+    form.currentProjectId = project.id
+  }
+
+  syncWorkspaceRootDir()
+  resetProjectDraft()
+}
+
+function editProject(project) {
+  projectDraft.mode = 'edit'
+  projectDraft.editingId = project.id
+  projectDraft.name = project.name
+  projectDraft.rootDir = project.rootDir
+  projectDraft.error = ''
+}
+
+function deleteProject(projectId) {
+  form.projects = form.projects.filter((project) => project.id !== projectId)
+  if (form.currentProjectId === projectId) {
+    form.currentProjectId = form.projects[0]?.id || ''
+  }
+  syncWorkspaceRootDir()
+  if (projectDraft.editingId === projectId) {
+    resetProjectDraft()
+  }
+}
+
+function selectProject(projectId) {
+  form.currentProjectId = projectId
+  syncWorkspaceRootDir()
+}
+
+function resetProjectDraft() {
+  projectDraft.mode = 'create'
+  projectDraft.editingId = ''
+  projectDraft.name = ''
+  projectDraft.rootDir = ''
+  projectDraft.error = ''
+}
+
+function syncWorkspaceRootDir() {
+  const project = form.projects.find((item) => item.id === form.currentProjectId)
+  if (project) {
+    form.workspace.rootDir = project.rootDir
+  }
+}
+
+function projectOptions() {
+  return [
+    { label: '不绑定项目', value: '' },
+    ...form.projects.map((project) => ({
+      label: project.name,
+      value: project.id,
+    })),
+  ]
+}
+
+function createProjectId() {
+  if (typeof globalThis.crypto !== 'undefined' && typeof globalThis.crypto.randomUUID === 'function') {
+    return `project_${globalThis.crypto.randomUUID()}`
+  }
+  return `project_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`
 }
 
 function agentOptions() {
@@ -76,6 +177,99 @@ function agentOptions() {
           当前只保留聊天主链路需要的本地设置。网关地址、默认 Agent 和工作目录使用 TOML 写入本机配置文件。
         </p>
       </section>
+
+      <QqFormSection
+        eyebrow="Projects"
+        title="本地项目"
+        description="项目只保存在本机配置里，用于标记当前聊天上下文；没有项目时聊天仍会照常工作。"
+      >
+        <div class="grid gap-5 xl:grid-cols-[0.9fr_1.1fr]">
+          <div class="grid content-start gap-4">
+            <QqFormField label="当前项目" helper="切换后会同步旧版 workspace.rootDir 字段。">
+              <QqSelect :model-value="form.currentProjectId" :options="projectOptions()" @update:model-value="selectProject" />
+            </QqFormField>
+
+            <div class="rounded-[6px] border border-white/10 bg-[rgba(9,32,28,0.22)] p-4">
+              <div class="mb-4 flex items-center justify-between gap-3">
+                <div>
+                  <p class="text-sm font-medium text-[color:var(--qq-text-primary)]">
+                    {{ projectDraft.mode === 'edit' ? '编辑项目' : '新增项目' }}
+                  </p>
+                  <p class="mt-1 text-xs text-[color:var(--qq-text-tertiary)]">名称和目录保存后会写入配置文件。</p>
+                </div>
+                <QqButton v-if="projectDraft.mode === 'edit'" variant="ghost" size="sm" @click="resetProjectDraft">
+                  <X class="h-4 w-4" />
+                  取消
+                </QqButton>
+              </div>
+
+              <div class="grid gap-4">
+                <QqFormField label="项目名称" :error="projectDraft.error && !projectDraft.name.trim() ? projectDraft.error : ''">
+                  <QqInput v-model="projectDraft.name" placeholder="例如：icoo_claw" />
+                </QqFormField>
+
+                <QqFormField label="项目目录" :error="projectDraft.error && projectDraft.name.trim() && !projectDraft.rootDir.trim() ? projectDraft.error : ''">
+                  <div class="flex flex-col gap-3 md:flex-row">
+                    <QqInput v-model="projectDraft.rootDir" class="flex-1" placeholder="选择本地项目目录" />
+                    <QqButton variant="secondary" @click="pickProjectDirectory">
+                      <FolderOpen class="h-4 w-4" />
+                      浏览
+                    </QqButton>
+                  </div>
+                </QqFormField>
+
+                <p v-if="projectDraft.error && projectDraft.name.trim() && projectDraft.rootDir.trim()" class="text-xs text-[var(--qq-danger)]">
+                  {{ projectDraft.error }}
+                </p>
+
+                <QqButton @click="upsertProject">
+                  <component :is="projectDraft.mode === 'edit' ? Check : Plus" class="h-4 w-4" />
+                  {{ projectDraft.mode === 'edit' ? '更新项目' : '新增项目' }}
+                </QqButton>
+              </div>
+            </div>
+          </div>
+
+          <div class="grid content-start gap-3">
+            <div
+              v-if="!form.projects.length"
+              class="rounded-[6px] border border-dashed border-white/15 bg-[rgba(9,32,28,0.16)] px-4 py-6 text-sm text-[color:var(--qq-text-secondary)]"
+            >
+              还没有本地项目。你可以先保存基础配置，之后再回来补项目。
+            </div>
+
+            <div
+              v-for="project in form.projects"
+              :key="project.id"
+              class="rounded-[6px] border px-4 py-3 transition"
+              :class="
+                form.currentProjectId === project.id
+                  ? 'border-[rgba(75,239,201,0.48)] bg-[rgba(31,82,69,0.50)]'
+                  : 'border-white/10 bg-[rgba(9,32,28,0.18)]'
+              "
+            >
+              <div class="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+                <div class="min-w-0">
+                  <div class="flex min-w-0 flex-wrap items-center gap-2">
+                    <p class="truncate text-sm font-semibold text-[color:var(--qq-text-primary)]">{{ project.name }}</p>
+                    <span v-if="form.currentProjectId === project.id" class="qq-badge rounded-[4px] px-2 py-0.5 text-[11px]">当前</span>
+                  </div>
+                  <p class="mt-2 break-all text-xs leading-5 text-[color:var(--qq-text-tertiary)]">{{ project.rootDir }}</p>
+                </div>
+                <div class="flex shrink-0 flex-wrap items-center gap-2">
+                  <QqButton variant="secondary" size="sm" @click="selectProject(project.id)">选择</QqButton>
+                  <QqButton variant="ghost" size="sm" @click="editProject(project)">
+                    <Pencil class="h-4 w-4" />
+                  </QqButton>
+                  <QqButton variant="danger" size="sm" @click="deleteProject(project.id)">
+                    <Trash2 class="h-4 w-4" />
+                  </QqButton>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </QqFormSection>
 
       <div class="grid gap-5 xl:grid-cols-[1.1fr_0.9fr]">
         <QqFormSection
@@ -106,7 +300,7 @@ function agentOptions() {
               </div>
             </QqFormField>
 
-            <QqFormField label="Workspace Directory" helper="当前版本不消费该目录，只为后续项目上下文预留入口。">
+            <QqFormField label="Workspace Directory" helper="兼容旧版配置；选择当前项目时会自动同步为项目目录。">
               <div class="flex flex-col gap-3 md:flex-row">
                 <QqInput v-model="form.workspace.rootDir" class="flex-1" type="text" />
                 <QqButton variant="secondary" @click="pickDirectory">浏览</QqButton>

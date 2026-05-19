@@ -23,7 +23,11 @@ function formatTimestamp(value) {
 </script>
 
 <template>
-  <article class="flex px-4 py-3" :class="message.role === 'user' ? 'justify-end' : 'justify-start'">
+  <article
+    class="flex px-4 py-3"
+    :class="message.role === 'user' ? 'justify-end' : 'justify-start'"
+    :data-testid="`chat-message-${message.role}`"
+  >
     <div class="max-w-[min(820px,78%)]">
       <header class="mb-2 flex items-center gap-2" :class="message.role === 'user' ? 'justify-end' : 'justify-start'">
         <span

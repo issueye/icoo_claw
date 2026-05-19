@@ -58,3 +58,41 @@ go test ./server/gateway/...
 go test ./server/claw/...
 go test ./server/session_store/...
 ```
+
+## Desktop Chat E2E
+
+The repeatable local path uses fake model execution, so no external model provider is required.
+
+First install frontend dependencies and Playwright browsers:
+
+```powershell
+Push-Location .\desktop\frontend
+npm ci
+npx playwright install
+Pop-Location
+```
+
+One-command smoke validation:
+
+```powershell
+.\scripts\dev\run-ui-smoke.ps1
+```
+
+That script builds the Go services, starts `session_store`, `gateway`, a default fake agent instance, builds the desktop frontend, starts Vite preview at `http://127.0.0.1:4173`, runs Playwright, then stops the local stack.
+
+By default the fake stack refreshes its own SQLite files under `.local/fake-stack/data/` so reruns do not inherit stale agent instances. Add `-PreserveData` to `start-fake-stack.ps1` when you intentionally want to keep local conversations.
+
+For a half-automatic run where you keep the stack open:
+
+```powershell
+.\scripts\dev\start-fake-stack.ps1 -StartPreview
+Push-Location .\desktop\frontend
+$env:GATEWAY_BASE_URL = "http://127.0.0.1:8080"
+$env:E2E_DEFAULT_AGENT_ID = "agent_desktop_default"
+$env:PLAYWRIGHT_BASE_URL = "http://127.0.0.1:4173"
+npm run test:e2e
+Pop-Location
+.\scripts\dev\stop-fake-stack.ps1
+```
+
+Runtime files and logs are written to `.local/fake-stack/`.
