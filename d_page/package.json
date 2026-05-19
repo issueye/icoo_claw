@@ -1,0 +1,36 @@
+{
+  "name": "@icoo-claw/d-page",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "main": "dist/d-page.cjs.js",
+  "module": "dist/d-page.es.js",
+  "exports": {
+    ".": {
+      "import": "./dist/d-page.es.js",
+      "require": "./dist/d-page.cjs.js"
+    },
+    "./style.css": "./dist/style.css"
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "dev": "vite --host 127.0.0.1 --port 9360",
+    "demo": "vite --host 127.0.0.1 --port 9360",
+    "build": "vite build",
+    "preview": "vite preview --host 127.0.0.1 --port 9361",
+    "test": "vitest run"
+  },
+  "peerDependencies": {
+    "pinia": "^3.0.0",
+    "vue": "^3.5.0"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-vue": "^5.1.5",
+    "vite": "^5.4.19",
+    "vitest": "^1.6.1",
+    "vue": "^3.5.22",
+    "pinia": "^3.0.3"
+  }
+}

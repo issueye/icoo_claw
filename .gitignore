@@ -1,5 +1,4 @@
 go_pkg/agentsdk-go/
-
 *.exe
 *.txt
 *.log
@@ -9,3 +8,9 @@ config/*.toml
 !config/*.toml.example
 .local/
 release/*
+desktop/frontend/dist/
+desktop/frontend/playwright-report/
+desktop/frontend/test-results/
+d_page/node_modules/
+d_page/dist/
+d_page/.vite/

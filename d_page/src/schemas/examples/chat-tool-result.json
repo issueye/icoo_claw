@@ -1,0 +1,141 @@
+{
+  "schemaVersion": "0.1.0",
+  "page": {
+    "id": "chatToolResultExample",
+    "title": "Chat Tool Result"
+  },
+  "state": {
+    "copied": false
+  },
+  "data": {
+    "title": "分析完成",
+    "summary": "当前项目已经具备 npm 组件包雏形，运行时、基础组件和注册表可继续复用。",
+    "status": "可以进入渲染闭环验收",
+    "nextStep": "补齐示例 schema、README 和 chat 预接入说明。"
+  },
+  "actions": {
+    "copySummary": {
+      "type": "copyText",
+      "payload": {
+        "text": "{{ data.summary }}"
+      }
+    },
+    "markCopied": {
+      "type": "setState",
+      "payload": {
+        "copied": true
+      }
+    },
+    "copyAndMark": {
+      "type": "chain",
+      "payload": {
+        "actions": ["copySummary", "markCopied"]
+      }
+    },
+    "emitOpenDetails": {
+      "type": "emit",
+      "payload": {
+        "event": "openDetails",
+        "payload": {
+          "source": "chat-tool-result",
+          "status": "{{ data.status }}"
+        }
+      }
+    }
+  },
+  "root": {
+    "id": "chatToolResultRoot",
+    "type": "card",
+    "kind": "page",
+    "layout": {
+      "mode": "block",
+      "gap": "lg"
+    },
+    "children": [
+      {
+        "id": "resultSurface",
+        "type": "card",
+        "kind": "display",
+        "component": {
+          "type": "cardSurface",
+          "props": {
+            "title": "{{ data.title }}",
+            "subtitle": "{{ data.status }}"
+          }
+        },
+        "children": [
+          {
+            "id": "summaryText",
+            "type": "card",
+            "kind": "display",
+            "component": {
+              "type": "text",
+              "props": {
+                "text": "{{ data.summary }}"
+              }
+            }
+          },
+          {
+            "id": "nextStepText",
+            "type": "card",
+            "kind": "display",
+            "component": {
+              "type": "text",
+              "props": {
+                "tone": "muted",
+                "text": "下一步：{{ data.nextStep }}"
+              }
+            }
+          }
+        ],
+        "slots": {
+          "actions": [
+            {
+              "id": "copyButton",
+              "type": "card",
+              "kind": "action",
+              "component": {
+                "type": "button",
+                "props": {
+                  "label": "复制摘要",
+                  "variant": "primary"
+                },
+                "events": {
+                  "click": "copyAndMark"
+                }
+              }
+            },
+            {
+              "id": "detailsButton",
+              "type": "card",
+              "kind": "action",
+              "component": {
+                "type": "button",
+                "props": {
+                  "label": "打开详情",
+                  "variant": "secondary"
+                },
+                "events": {
+                  "click": "emitOpenDetails"
+                }
+              }
+            },
+            {
+              "id": "copiedText",
+              "type": "card",
+              "kind": "display",
+              "visible": "{{ state.copied }}",
+              "component": {
+                "type": "text",
+                "props": {
+                  "tone": "accent",
+                  "text": "已复制"
+                }
+              }
+            }
+          ]
+        }
+      }
+    ]
+  }
+}

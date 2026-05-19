@@ -2,11 +2,13 @@
 
 日期：2026-05-19  
 适用项目：d_page  
-技术栈：Vite + Vue 3 + JavaScript + Tailwind CSS + Pinia
+技术栈：Vite library mode + Vue 3 + JavaScript + Tailwind CSS + Pinia
 
 ## 1. 标准目标
 
 本标准定义动态页面系统的核心渲染规则：以“卡片 Card”作为最小动态渲染单元。页面、区域、表单、表格、详情、统计块、弹窗内容、业务组件都应通过卡片协议描述和渲染。
+
+本标准的实现载体应优先是 npm 组件包 `@icoo-claw/d-page`，而不是只服务单一页面工程的内部模块。卡片协议、渲染器、组件注册表、动作系统和错误边界都应以包 API 的形式沉淀，供 `desktop/frontend` 的 chat 或其他 Vue 宿主应用复用。
 
 标准目标包括：
 
@@ -16,6 +18,7 @@
 - 支持卡片内承载表单、表格、图表、列表、自定义业务组件。
 - 支持页面本身作为一种特殊卡片渲染。
 - 支持通过注册机制扩展动态组件。
+- 支持宿主应用注入组件和动作，避免组件包直接依赖 chat、desktop stores 或具体业务模块。
 
 ## 2. 核心原则
 
@@ -53,6 +56,12 @@
 - 默认配置。
 - 支持的事件。
 - 可选校验规则。
+
+### 2.6 包与宿主解耦
+
+`d_page` 包只负责 schema 校验、卡片渲染、绑定解析、动作分发和基础组件。宿主应用负责提供业务 action、权限判断、网络请求能力和外部导航。
+
+chat 接入时，动态消息应通过 message metadata 携带 schema，并由 chat 注入安全 action。例如 `copyToComposer`、`sendChatPrompt`、`saveArtifact`。`d_page` 包不应直接 import chat store，也不应直接发起 chat 专属操作。
 
 ## 3. 标准术语
 
@@ -508,6 +517,19 @@ export const componentRegistry = {
 }
 ```
 
+组件包应提供 `createComponentRegistry()` 和 `defaultComponents`，宿主可以追加或覆盖组件：
+
+```js
+import { createComponentRegistry, defaultComponents } from '@icoo-claw/d-page'
+
+const registry = createComponentRegistry(defaultComponents)
+registry.register('chatArtifact', {
+  component: ChatArtifactCard,
+  category: 'custom',
+  events: ['open', 'save']
+})
+```
+
 ### 10.2 扩展组件约束
 
 动态组件必须遵守以下约束：
@@ -605,6 +627,8 @@ export const componentRegistry = {
 - 字符串数组：按顺序执行多个动作。
 - 内联动作对象：仅用于简单局部动作，复杂动作应放入全局 `actions`。
 
+当作为 npm 包被 chat 使用时，事件动作必须经过宿主注入的 action registry。包内默认 action 不应包含任意网络请求或任意代码执行能力。
+
 ## 14. 布局标准
 
 卡片布局由 `layout` 描述。
@@ -673,9 +697,35 @@ export const componentRegistry = {
 - 简单绑定表达式。
 - setState、request、showToast、openModal、closeModal 动作。
 
-## 18. 推荐结论
+如果 MVP 目标是先接入 chat 预览，建议将 `request` 降级为宿主注入 action，包内只内置 `setState`、`emit`、`copyText`、`openUrl`、`chain`。这样能减少动态 schema 直接访问网络带来的安全边界问题。
+
+## 18. npm 包标准
+
+包入口必须稳定，推荐导出：
+
+- `DPageRenderer`
+- `DCardRenderer`
+- `createDPageRuntime`
+- `createComponentRegistry`
+- `createActionRegistry`
+- `defaultComponents`
+- `defaultActions`
+- `normalizeSchema`
+- `validateSchema`
+- `resolveBinding`
+
+构建产物必须满足：
+
+- `vue` 和 `pinia` 作为 `peerDependencies`。
+- 支持 ESM import。
+- 输出 CSS 入口，例如 `@icoo-claw/d-page/style.css`。
+- 提供 examples，至少包含一个 chat 工具结果卡片示例。
+
+详细实施方案见：`docs/plans/2026-05-19-npm-component-package-plan.md`。
+
+## 19. 推荐结论
 
 建议将系统协议从“组件树渲染”调整为“卡片树渲染”。所有页面内容统一挂载在根卡片下，卡片作为最小动态渲染边界，内部通过 `component.type` 承载表单、表格、自定义组件等能力。
 
-这种方式能让渲染器保持稳定，同时给业务扩展留出清晰入口：新增业务能力时扩展组件注册表，不修改卡片渲染主流程。
+这种方式能让渲染器保持稳定，同时给业务扩展留出清晰入口：新增业务能力时扩展组件注册表，不修改卡片渲染主流程。实现层面应优先沉淀为 npm 组件包，再由 chat 按 metadata 分支渐进接入。
 

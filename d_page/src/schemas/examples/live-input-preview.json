@@ -1,0 +1,235 @@
+{
+  "schemaVersion": "0.1.0",
+  "page": {
+    "id": "liveInputPreviewExample",
+    "title": "Live Input Preview"
+  },
+  "state": {
+    "title": "组件包进度",
+    "tone": "success",
+    "notes": "输入内容会马上显示在右侧预览。"
+  },
+  "data": {
+    "quickTips": [
+      {
+        "label": "输入框",
+        "description": "修改标题后，预览标题立即变化。"
+      },
+      {
+        "label": "选择框",
+        "description": "切换提示状态后，alert 颜色立即变化。"
+      },
+      {
+        "label": "多行文本",
+        "description": "填写说明后，预览正文立即变化。"
+      }
+    ]
+  },
+  "actions": {
+    "updateTitle": {
+      "type": "setState",
+      "payload": {
+        "path": "title",
+        "value": "{{ context.value }}"
+      }
+    },
+    "updateTone": {
+      "type": "setState",
+      "payload": {
+        "path": "tone",
+        "value": "{{ context.value }}"
+      }
+    },
+    "updateNotes": {
+      "type": "setState",
+      "payload": {
+        "path": "notes",
+        "value": "{{ context.value }}"
+      }
+    }
+  },
+  "root": {
+    "id": "livePreviewRoot",
+    "type": "card",
+    "kind": "page",
+    "layout": {
+      "mode": "block",
+      "columns": 12,
+      "gap": "lg"
+    },
+    "children": [
+      {
+        "id": "livePreviewHeading",
+        "type": "card",
+        "kind": "display",
+        "layout": {
+          "span": 12
+        },
+        "component": {
+          "type": "heading",
+          "props": {
+            "level": 2,
+            "text": "即时输入预览",
+            "subtitle": "在左侧输入，右侧马上看到 schema 渲染结果。"
+          }
+        }
+      },
+      {
+        "id": "livePreviewColumns",
+        "type": "card",
+        "kind": "layout",
+        "layout": {
+          "mode": "grid",
+          "columns": 12,
+          "gap": "lg"
+        },
+        "children": [
+          {
+        "id": "liveEditorCard",
+        "type": "card",
+        "kind": "form",
+        "layout": {
+          "span": 6
+        },
+        "component": {
+          "type": "cardSurface",
+          "props": {
+            "title": "输入区",
+            "subtitle": "所有输入都通过 action 写入 runtime state。"
+          }
+        },
+        "children": [
+          {
+            "id": "titleInput",
+            "type": "card",
+            "kind": "form",
+            "component": {
+              "type": "input",
+              "props": {
+                "name": "title",
+                "label": "预览标题",
+                "modelValue": "{{ state.title }}",
+                "placeholder": "输入标题",
+                "clearable": true
+              },
+              "events": {
+                "input": "updateTitle"
+              }
+            }
+          },
+          {
+            "id": "toneSelect",
+            "type": "card",
+            "kind": "form",
+            "component": {
+              "type": "select",
+              "props": {
+                "name": "tone",
+                "label": "提示状态",
+                "modelValue": "{{ state.tone }}",
+                "options": [
+                  {
+                    "label": "成功",
+                    "value": "success"
+                  },
+                  {
+                    "label": "信息",
+                    "value": "info"
+                  },
+                  {
+                    "label": "提醒",
+                    "value": "warning"
+                  },
+                  {
+                    "label": "危险",
+                    "value": "danger"
+                  }
+                ]
+              },
+              "events": {
+                "change": "updateTone"
+              }
+            }
+          },
+          {
+            "id": "notesTextarea",
+            "type": "card",
+            "kind": "form",
+            "component": {
+              "type": "textarea",
+              "props": {
+                "name": "notes",
+                "label": "预览说明",
+                "modelValue": "{{ state.notes }}",
+                "placeholder": "输入说明内容",
+                "rows": 5
+              },
+              "events": {
+                "input": "updateNotes"
+              }
+            }
+          }
+        ]
+      },
+      {
+        "id": "livePreviewCard",
+        "type": "card",
+        "kind": "display",
+        "layout": {
+          "span": 6
+        },
+        "component": {
+          "type": "cardSurface",
+          "props": {
+            "title": "实时预览",
+            "subtitle": "这里是同一份 state 绑定出来的结果。"
+          }
+        },
+        "children": [
+          {
+            "id": "previewStat",
+            "type": "card",
+            "kind": "display",
+            "component": {
+              "type": "stat",
+              "props": {
+                "label": "MVP 完成度",
+                "value": 82,
+                "suffix": "%",
+                "tone": "accent",
+                "hint": "来自 stat 组件"
+              }
+            }
+          },
+          {
+            "id": "previewAlert",
+            "type": "card",
+            "kind": "display",
+            "component": {
+              "type": "alert",
+              "props": {
+                "title": "{{ state.title }}",
+                "message": "{{ state.notes }}",
+                "tone": "{{ state.tone }}"
+              }
+            }
+          },
+          {
+            "id": "tipsList",
+            "type": "card",
+            "kind": "display",
+            "component": {
+              "type": "list",
+              "props": {
+                "title": "新增组件说明",
+                "items": "{{ data.quickTips }}"
+              }
+            }
+          }
+        ]
+          }
+        ]
+      }
+    ]
+  }
+}

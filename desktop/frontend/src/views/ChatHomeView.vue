@@ -6,13 +6,16 @@ import ChatStatusBar from '@/components/chat/ChatStatusBar.vue'
 import { useAgentsStore } from '@/stores/agents'
 import { useAppStore } from '@/stores/app'
 import { useChatStore } from '@/stores/chat'
+import { useProjectsStore } from '@/stores/projects'
 
 const appStore = useAppStore()
 const chatStore = useChatStore()
 const agentsStore = useAgentsStore()
+const projectsStore = useProjectsStore()
 const draft = ref('')
 
 const selectedAgentName = computed(() => agentsStore.selectedAgent?.name || '未选择')
+const currentProjectContext = computed(() => projectsStore.currentProjectContext)
 
 async function submit() {
   const payload = draft.value
@@ -31,6 +34,7 @@ async function submit() {
     <ChatStatusBar
       :agent-name="selectedAgentName"
       :gateway-status="appStore.gatewayStatus"
+      :project-context="currentProjectContext"
       :socket-status="chatStore.socketState"
     />
 
@@ -40,6 +44,7 @@ async function submit() {
         v-model="draft"
         :busy="chatStore.streaming"
         :disabled="!draft.trim()"
+        :project-context="currentProjectContext"
         @cancel="chatStore.cancelStream"
         @send="submit"
       />

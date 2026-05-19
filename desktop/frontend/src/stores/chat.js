@@ -4,6 +4,7 @@ import { GatewayChatSocket } from '@/services/gateway/ws'
 import { buildConversationTitle } from '@/services/utils/title'
 import { useAgentsStore } from './agents'
 import { useConversationsStore } from './conversations'
+import { useProjectsStore } from './projects'
 import { useSettingsStore } from './settings'
 
 export const useChatStore = defineStore('chat', {
@@ -29,8 +30,10 @@ export const useChatStore = defineStore('chat', {
       const settingsStore = useSettingsStore()
       const agentsStore = useAgentsStore()
       const conversationsStore = useConversationsStore()
+      const projectsStore = useProjectsStore()
       const baseUrl = settingsStore.settings.gateway.baseUrl
       const agentId = settingsStore.settings.gateway.defaultAgentId
+      const metadata = projectsStore.currentProjectMetadata
 
       if (!agentId) {
         throw new Error('请先在设置页或 Agent 列表中确定默认 Agent')
@@ -64,6 +67,7 @@ export const useChatStore = defineStore('chat', {
           conversationId: targetConversationId,
           prompt: content,
           requestId: this.activeRequestId,
+          metadata,
         })
       } catch (error) {
         this.streaming = false

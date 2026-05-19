@@ -1,0 +1,129 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1400" height="980" viewBox="0 0 1400 980" role="img" aria-labelledby="title desc">
+  <title id="title">d_page 当前完成情况总览</title>
+  <desc id="desc">面向项目成员的 d_page npm 组件包完成度和下一步状态图。</desc>
+  <defs>
+    <style>
+      .bg { fill: #f7f8fb; }
+      .panel { fill: #ffffff; stroke: #d8dee9; stroke-width: 1.4; }
+      .soft { fill: #eef4ff; }
+      .ink { fill: #172033; font-family: "Microsoft YaHei", "PingFang SC", "Noto Sans CJK SC", Arial, sans-serif; }
+      .muted { fill: #5f6b7a; font-family: "Microsoft YaHei", "PingFang SC", "Noto Sans CJK SC", Arial, sans-serif; }
+      .small { font-size: 24px; }
+      .body { font-size: 28px; }
+      .label { font-size: 25px; font-weight: 700; }
+      .title { font-size: 46px; font-weight: 800; }
+      .subtitle { font-size: 26px; }
+      .percent { font-size: 76px; font-weight: 900; }
+      .pillText { font-size: 23px; font-weight: 700; }
+      .track { fill: #e6eaf0; }
+      .done { fill: #2f9d72; }
+      .progress { fill: #3b82f6; }
+      .todo { fill: #f59e0b; }
+      .blocked { fill: #ef4444; }
+      .line { stroke: #d8dee9; stroke-width: 2; }
+      .arrow { stroke: #8a94a6; stroke-width: 3; fill: none; marker-end: url(#arrowHead); }
+    </style>
+    <marker id="arrowHead" markerWidth="12" markerHeight="12" refX="10" refY="6" orient="auto">
+      <path d="M2,2 L10,6 L2,10 Z" fill="#8a94a6" />
+    </marker>
+    <filter id="shadow" x="-10%" y="-10%" width="120%" height="125%">
+      <feDropShadow dx="0" dy="10" stdDeviation="12" flood-color="#1f2937" flood-opacity="0.10" />
+    </filter>
+  </defs>
+
+  <rect class="bg" width="1400" height="980" />
+
+  <g transform="translate(64,52)">
+    <text class="ink title" x="0" y="0" dominant-baseline="hanging">d_page npm 组件包完成情况</text>
+    <text class="muted subtitle" x="0" y="66" dominant-baseline="hanging">更新时间：2026-05-19 · 当前定位：可独立测试构建的 Vue 动态卡片渲染 npm 包</text>
+  </g>
+
+  <g transform="translate(64,160)" filter="url(#shadow)">
+    <rect class="panel" rx="18" width="420" height="300" />
+    <text class="muted small" x="34" y="34" dominant-baseline="hanging">MVP 总体完成度</text>
+    <text class="ink percent" x="34" y="86" dominant-baseline="hanging">78%</text>
+    <rect class="track" x="34" y="188" width="352" height="24" rx="12" />
+    <rect class="progress" x="34" y="188" width="275" height="24" rx="12" />
+    <text class="muted small" x="34" y="238" dominant-baseline="hanging">已形成可渲染闭环，并通过包内测试与 library 构建；下一步进入浏览器预览和 chat 预接入设计。</text>
+  </g>
+
+  <g transform="translate(520,160)" filter="url(#shadow)">
+    <rect class="panel" rx="18" width="816" height="300" />
+    <text class="ink label" x="34" y="30" dominant-baseline="hanging">当前可以确认的项目状态</text>
+    <g transform="translate(34,90)">
+      <circle cx="10" cy="10" r="10" fill="#2f9d72" />
+      <text class="ink body" x="34" y="10" dominant-baseline="middle">组件包雏形已经建立，并可独立测试、构建和被外部 Vue 应用引用。</text>
+    </g>
+    <g transform="translate(34,145)">
+      <circle cx="10" cy="10" r="10" fill="#3b82f6" />
+      <text class="ink body" x="34" y="10" dominant-baseline="middle">安全运行时、基础组件、递归渲染器和示例 schema 已接通。</text>
+    </g>
+    <g transform="translate(34,200)">
+      <circle cx="10" cy="10" r="10" fill="#f59e0b" />
+      <text class="ink body" x="34" y="10" dominant-baseline="middle">chat 主流程尚未接入，下一阶段应先做 feature flag 和宿主 action 边界。</text>
+    </g>
+  </g>
+
+  <g transform="translate(64,500)">
+    <text class="ink label" x="0" y="0" dominant-baseline="hanging">模块完成度</text>
+
+    <g transform="translate(0,56)">
+      <rect class="panel" rx="14" width="1272" height="74" />
+      <text class="ink body" x="28" y="37" dominant-baseline="middle">包骨架与构建入口</text>
+      <rect class="track" x="410" y="25" width="620" height="24" rx="12" />
+      <rect class="done" x="410" y="25" width="558" height="24" rx="12" />
+      <text class="ink body" x="1060" y="37" dominant-baseline="middle">90%</text>
+      <text class="muted small" x="1140" y="37" dominant-baseline="middle">基本完成</text>
+    </g>
+
+    <g transform="translate(0,146)">
+      <rect class="panel" rx="14" width="1272" height="74" />
+      <text class="ink body" x="28" y="37" dominant-baseline="middle">Runtime 与安全动作</text>
+      <rect class="track" x="410" y="25" width="620" height="24" rx="12" />
+      <rect class="done" x="410" y="25" width="558" height="24" rx="12" />
+      <text class="ink body" x="1060" y="37" dominant-baseline="middle">90%</text>
+      <text class="muted small" x="1140" y="37" dominant-baseline="middle">基本完成</text>
+    </g>
+
+    <g transform="translate(0,236)">
+      <rect class="panel" rx="14" width="1272" height="74" />
+      <text class="ink body" x="28" y="37" dominant-baseline="middle">基础组件与注册表</text>
+      <rect class="track" x="410" y="25" width="620" height="24" rx="12" />
+      <rect class="done" x="410" y="25" width="508" height="24" rx="12" />
+      <text class="ink body" x="1060" y="37" dominant-baseline="middle">82%</text>
+      <text class="muted small" x="1140" y="37" dominant-baseline="middle">可用雏形</text>
+    </g>
+
+    <g transform="translate(0,326)">
+      <rect class="panel" rx="14" width="1272" height="74" />
+      <text class="ink body" x="28" y="37" dominant-baseline="middle">Vue 页面渲染器</text>
+      <rect class="track" x="410" y="25" width="620" height="24" rx="12" />
+      <rect class="progress" x="410" y="25" width="465" height="24" rx="12" />
+      <text class="ink body" x="1060" y="37" dominant-baseline="middle">75%</text>
+      <text class="muted small" x="1140" y="37" dominant-baseline="middle">已接通</text>
+    </g>
+
+    <g transform="translate(0,416)">
+      <rect class="panel" rx="14" width="1272" height="74" />
+      <text class="ink body" x="28" y="37" dominant-baseline="middle">示例、文档与体验验证</text>
+      <rect class="track" x="410" y="25" width="620" height="24" rx="12" />
+      <rect class="progress" x="410" y="25" width="484" height="24" rx="12" />
+      <text class="ink body" x="1060" y="37" dominant-baseline="middle">78%</text>
+      <text class="muted small" x="1140" y="37" dominant-baseline="middle">已补齐</text>
+    </g>
+
+    <g transform="translate(0,506)">
+      <rect class="panel" rx="14" width="1272" height="74" />
+      <text class="ink body" x="28" y="37" dominant-baseline="middle">chat 预接入准备</text>
+      <rect class="track" x="410" y="25" width="620" height="24" rx="12" />
+      <rect class="blocked" x="410" y="25" width="155" height="24" rx="12" />
+      <text class="ink body" x="1060" y="37" dominant-baseline="middle">25%</text>
+      <text class="muted small" x="1140" y="37" dominant-baseline="middle">后续阶段</text>
+    </g>
+  </g>
+
+  <g transform="translate(64,905)">
+    <rect class="soft" rx="14" width="1272" height="50" />
+    <text class="ink small" x="28" y="25" dominant-baseline="middle">下一步重点：启动浏览器预览页和 chat preview 方案，用 feature flag 接入 metadata 渲染并继续扩展表单/表格能力。</text>
+  </g>
+</svg>

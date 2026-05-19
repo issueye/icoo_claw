@@ -16,6 +16,10 @@ const props = defineProps({
     type: Boolean,
     default: false,
   },
+  projectContext: {
+    type: Object,
+    default: null,
+  },
 })
 
 const emit = defineEmits(['update:modelValue', 'send', 'cancel'])
@@ -43,8 +47,13 @@ function handleKeydown(event) {
         @keydown="handleKeydown"
       />
       <div class="mt-3 flex items-center justify-between gap-3 border-t border-white/10 pt-3">
-        <p class="text-xs text-[color:var(--qq-text-tertiary)]">
-          {{ busy ? '正在通过 WebSocket 接收增量响应' : '聊天标题将使用首条用户输入在本地生成' }}
+        <p class="min-w-0 text-xs text-[color:var(--qq-text-tertiary)]">
+          <span v-if="projectContext" class="block truncate">
+            当前项目：{{ projectContext.name }} · {{ projectContext.rootDir }}
+          </span>
+          <span v-else>
+            {{ busy ? '正在通过 WebSocket 接收增量响应' : '聊天标题将使用首条用户输入在本地生成' }}
+          </span>
         </p>
         <div class="flex items-center gap-2">
           <QqButton

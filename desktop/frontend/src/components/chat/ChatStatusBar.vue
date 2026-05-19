@@ -12,6 +12,10 @@ defineProps({
     type: String,
     default: '未选择',
   },
+  projectContext: {
+    type: Object,
+    default: null,
+  },
 })
 
 function gatewayLabel(status) {
@@ -34,5 +38,8 @@ function socketLabel(status) {
     <span class="qq-badge rounded-[4px] px-2 py-0.5">{{ gatewayLabel(gatewayStatus) }}</span>
     <span class="qq-badge rounded-[4px] px-2 py-0.5">{{ socketLabel(socketStatus) }}</span>
     <span class="qq-badge rounded-[4px] px-2 py-0.5">Agent {{ agentName }}</span>
+    <span v-if="projectContext" class="qq-badge max-w-full rounded-[4px] px-2 py-0.5">
+      Project {{ projectContext.name }} · {{ projectContext.rootDir }}
+    </span>
   </div>
 </template>

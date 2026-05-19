@@ -59,6 +59,35 @@ go test ./server/claw/...
 go test ./server/session_store/...
 ```
 
+Final delivery verification also includes the desktop app and UI smoke path:
+
+```powershell
+Push-Location .\desktop\frontend
+npm run test
+npm run build
+Pop-Location
+
+Push-Location .\desktop
+go test ./...
+Pop-Location
+
+Push-Location .\server\gateway
+go test ./...
+Pop-Location
+
+Push-Location .\server\claw
+go test ./...
+Pop-Location
+
+Push-Location .\server\session_store
+go test ./...
+Pop-Location
+
+.\scripts\dev\run-ui-smoke.ps1
+```
+
+Delivery boundary: generated runtime data under `.local/`, frontend build output under `desktop/frontend/dist/`, and Playwright transient output under `desktop/frontend/test-results/` or `desktop/frontend/playwright-report/` are ignored and should not be committed. External/vendor checkout content under `go_pkg/redka/` is also outside this desktop delivery phase.
+
 ## Desktop Chat E2E
 
 The repeatable local path uses fake model execution, so no external model provider is required.

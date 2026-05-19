@@ -4,6 +4,7 @@ import ChatConversationView from '@/views/ChatConversationView.vue'
 import ChatHomeView from '@/views/ChatHomeView.vue'
 import PlaceholderView from '@/views/PlaceholderView.vue'
 import QqUedView from '@/views/QqUedView.vue'
+import SearchView from '@/views/SearchView.vue'
 import SettingsView from '@/views/SettingsView.vue'
 
 const router = createRouter({
@@ -24,12 +25,7 @@ const router = createRouter({
         {
           path: '/search',
           name: 'search',
-          component: PlaceholderView,
-          meta: {
-            eyebrow: '占位模块',
-            title: 'Search',
-            description: '搜索面板保留路由和壳子，首版不承载检索工作流。',
-          },
+          component: SearchView,
         },
         {
           path: '/skills',

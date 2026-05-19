@@ -19,6 +19,39 @@ export const useConversationsStore = defineStore('conversations', {
   getters: {
     byId: (state) => (conversationId) => state.items.find((item) => item.id === conversationId) || null,
     messagesFor: (state) => (conversationId) => state.messagesByConversationId[conversationId] || [],
+    cachedMessageCount: (state) => Object.values(state.messagesByConversationId).reduce((total, messages) => total + messages.length, 0),
+    hasLoadingMessages: (state) => Object.keys(state.loadingMessagesByConversationId).length > 0,
+    localSearchDocuments: (state) => state.items.flatMap((conversation) => {
+      const title = conversation.title || 'Untitled Conversation'
+      const documents = [
+        {
+          id: `conversation:${conversation.id}:title`,
+          type: 'conversation',
+          conversationId: conversation.id,
+          conversationTitle: title,
+          text: title,
+          updatedAt: conversation.lastMessageAt || conversation.updatedAt || conversation.createdAt || '',
+        },
+      ]
+
+      for (const message of state.messagesByConversationId[conversation.id] || []) {
+        if (!message?.content) {
+          continue
+        }
+        documents.push({
+          id: `message:${conversation.id}:${message.id}`,
+          type: 'message',
+          conversationId: conversation.id,
+          conversationTitle: title,
+          messageId: message.id,
+          role: message.role || '',
+          text: message.content,
+          updatedAt: message.createdAt || conversation.lastMessageAt || conversation.updatedAt || conversation.createdAt || '',
+        })
+      }
+
+      return documents
+    }),
   },
 
   actions: {

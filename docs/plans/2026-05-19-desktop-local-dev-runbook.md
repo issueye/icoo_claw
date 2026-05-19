@@ -14,10 +14,10 @@ Provide a repeatable local path for validating the desktop chat client against t
 
 ## Scripts
 
-- Start: [scripts/dev/start-fake-stack.ps1](/E:/code/issueye/icoo_claw/scripts/dev/start-fake-stack.ps1)
-- Smoke chat flow: [scripts/dev/smoke-chat-flow.ps1](/E:/code/issueye/icoo_claw/scripts/dev/smoke-chat-flow.ps1)
-- UI smoke: [scripts/dev/run-ui-smoke.ps1](/E:/code/issueye/icoo_claw/scripts/dev/run-ui-smoke.ps1)
-- Stop: [scripts/dev/stop-fake-stack.ps1](/E:/code/issueye/icoo_claw/scripts/dev/stop-fake-stack.ps1)
+- Start: `scripts/dev/start-fake-stack.ps1`
+- Smoke chat flow: `scripts/dev/smoke-chat-flow.ps1`
+- UI smoke: `scripts/dev/run-ui-smoke.ps1`
+- Stop: `scripts/dev/stop-fake-stack.ps1`
 
 ## Runtime Layout
 
@@ -35,6 +35,8 @@ All generated runtime files live under:
 This keeps local binaries, SQLite files, generated TOML, logs, and pid files out of the repo root.
 
 By default, `start-fake-stack.ps1` refreshes only the generated SQLite/config files under `.local/fake-stack/data/` after it stops processes it owns. Use `-PreserveData` when a manual debugging session needs to keep local fake-stack conversations.
+
+Playwright status, traces, screenshots, and HTML reports are treated as transient rerun output. Keep `desktop/frontend/test-results/` and `desktop/frontend/playwright-report/` out of commits; the source of truth for delivery status is the verification command output, not the generated error-context files.
 
 ## Start Flow
 
@@ -121,6 +123,39 @@ This validates the preview UI against the fake stack:
 5. Deleting the current conversation returns to `/chat`
 
 The Playwright test avoids asserting status copy such as `Gateway Online`. It writes browser fallback settings with the preview origin as the gateway base URL, then uses the Vite proxy to reach the gateway and websocket endpoint.
+
+If a UI smoke run fails, inspect the transient Playwright output locally, fix or rerun as needed, and leave those generated files uncommitted.
+
+## Final Verification Checklist
+
+Run this command set from the repo root before handoff:
+
+```powershell
+Push-Location .\desktop\frontend
+npm run test
+npm run build
+Pop-Location
+
+Push-Location .\desktop
+go test ./...
+Pop-Location
+
+Push-Location .\server\gateway
+go test ./...
+Pop-Location
+
+Push-Location .\server\claw
+go test ./...
+Pop-Location
+
+Push-Location .\server\session_store
+go test ./...
+Pop-Location
+
+.\scripts\dev\run-ui-smoke.ps1
+```
+
+Before delivery, confirm `git status --short --untracked-files=all` contains only intentional source or documentation edits. Generated runtime folders (`.local/`), frontend build output (`desktop/frontend/dist/`), and Playwright transient folders (`desktop/frontend/test-results/`, `desktop/frontend/playwright-report/`) should stay absent from status. External/vendor checkout work under `go_pkg/redka/` is outside this phase and should not be mixed into the desktop handoff.
 
 ## Half-Automatic E2E
 

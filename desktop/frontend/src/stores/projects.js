@@ -10,6 +10,8 @@ export const useProjectsStore = defineStore('projects', () => {
   const currentProjectId = computed(() => settingsStore.settings.currentProjectId || '')
   const currentProject = computed(() => items.value.find((project) => project.id === currentProjectId.value) || null)
   const currentRootDir = computed(() => currentProject.value?.rootDir || settingsStore.settings.workspace.rootDir || '')
+  const currentProjectContext = computed(() => buildProjectContext(currentProject.value))
+  const currentProjectMetadata = computed(() => buildProjectChatMetadata(currentProject.value))
 
   async function createProject(payload) {
     const project = ensureUniqueId(normalizeProject({
@@ -73,6 +75,8 @@ export const useProjectsStore = defineStore('projects', () => {
     currentProjectId,
     currentProject,
     currentRootDir,
+    currentProjectContext,
+    currentProjectMetadata,
     createProject,
     updateProject,
     deleteProject,
@@ -85,6 +89,31 @@ export function createProjectId() {
     return `project_${globalThis.crypto.randomUUID()}`
   }
   return `project_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`
+}
+
+export function buildProjectContext(project) {
+  const id = String(project?.id || '').trim()
+  const name = String(project?.name || '').trim()
+  const rootDir = String(project?.rootDir || '').trim()
+
+  if (!id || !name || !rootDir) {
+    return null
+  }
+
+  return { id, name, rootDir }
+}
+
+export function buildProjectChatMetadata(project) {
+  const context = buildProjectContext(project)
+  if (!context) {
+    return {}
+  }
+
+  return {
+    project_id: context.id,
+    project_name: context.name,
+    project_root: context.rootDir,
+  }
 }
 
 function ensureUniqueId(project, projects) {
