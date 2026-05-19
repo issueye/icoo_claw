@@ -34,7 +34,7 @@ function statusTone(value) {
 </script>
 
 <template>
-  <div class="qq-panel overflow-hidden rounded-[28px]">
+  <div class="qq-panel overflow-hidden rounded-[6px]">
     <div class="scrollbar-thin overflow-x-auto">
       <table class="qq-table min-w-full">
         <thead>

@@ -14,11 +14,11 @@ const emit = defineEmits(['update:modelValue'])
 </script>
 
 <template>
-  <div class="qq-panel inline-flex flex-wrap gap-2 rounded-[24px] p-2">
+  <div class="qq-panel inline-flex flex-wrap gap-1.5 rounded-[6px] p-1">
     <button
       v-for="tab in tabs"
       :key="tab.value"
-      class="rounded-[18px] px-4 py-2.5 text-sm font-medium transition"
+      class="rounded-[4px] px-3 py-2 text-sm font-medium transition"
       :class="
         modelValue === tab.value
           ? 'bg-[rgba(255,255,255,0.18)] text-[color:var(--qq-text-primary)] shadow-[0_10px_24px_rgba(8,30,25,0.12)]'

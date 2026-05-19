@@ -35,7 +35,7 @@ func NewBundledGatewayManager() *BundledGatewayManager {
 	return &BundledGatewayManager{}
 }
 
-func (m *BundledGatewayManager) EnsureBundledGateway(baseURL string) (bool, error) {
+func (m *BundledGatewayManager) EnsureBundledGateway(baseURL, programPath, configPath string) (bool, error) {
 	target := normalizeGatewayBaseURL(baseURL)
 	appendBootstrapLog("", "ensure start", map[string]string{"base_url": target})
 	if !isLocalGatewayBaseURL(target) {
@@ -53,6 +53,13 @@ func (m *BundledGatewayManager) EnsureBundledGateway(baseURL string) (bool, erro
 	if healthCheck(target) == nil {
 		appendBootstrapLog("", "skip healthy gateway after lock", map[string]string{"base_url": target})
 		return false, nil
+	}
+
+	programPath = strings.TrimSpace(programPath)
+	configPath = strings.TrimSpace(configPath)
+	if programPath != "" {
+		appendBootstrapLog("", "attempt custom gateway start", map[string]string{"program_path": programPath, "config_path": configPath})
+		return ensureCustomGateway(target, programPath, configPath)
 	}
 
 	packageRoot, err := detectBundledPackageRoot()
@@ -104,6 +111,58 @@ func (m *BundledGatewayManager) EnsureBundledGateway(baseURL string) (bool, erro
 		return false, err
 	}
 	appendBootstrapLog(packageRoot, "ensure bundled gateway success", map[string]string{"base_url": target})
+	return true, nil
+}
+
+type customGatewayRuntime struct {
+	runtimeRoot string
+	logDir      string
+	runDir      string
+	programPath string
+	configPath  string
+}
+
+func ensureCustomGateway(baseURL, programPath, configPath string) (bool, error) {
+	if _, err := os.Stat(programPath); err != nil {
+		return false, fmt.Errorf("gateway program path is invalid: %w", err)
+	}
+	if configPath != "" {
+		if _, err := os.Stat(configPath); err != nil {
+			return false, fmt.Errorf("gateway config path is invalid: %w", err)
+		}
+	}
+
+	runtimeRoot, err := managedRuntimeRoot()
+	if err != nil {
+		return false, err
+	}
+	rt := &customGatewayRuntime{
+		runtimeRoot: runtimeRoot,
+		logDir:      filepath.Join(runtimeRoot, "logs"),
+		runDir:      filepath.Join(runtimeRoot, "run"),
+		programPath: programPath,
+		configPath:  configPath,
+	}
+
+	if err := rt.prepareDirectories(); err != nil {
+		return false, err
+	}
+	if err := rt.stopManagedProcess(); err != nil {
+		return false, err
+	}
+	args := []string{}
+	if configPath != "" {
+		args = []string{"--config", configPath}
+	}
+	if err := rt.startProcess("gateway", programPath, args); err != nil {
+		return false, err
+	}
+	if err := waitForHealthy(baseURL, 45*time.Second); err != nil {
+		return false, err
+	}
+	if err := ensureDefaultAgent(baseURL); err != nil {
+		return false, err
+	}
 	return true, nil
 }
 
@@ -169,6 +228,14 @@ func buildRuntimeConfig(packageRoot, baseURL string) (*runtimeConfig, error) {
 	return cfg, nil
 }
 
+func managedRuntimeRoot() (string, error) {
+	baseDir, err := os.UserConfigDir()
+	if err != nil {
+		return "", err
+	}
+	return filepath.Join(baseDir, appSlug, "runtime"), nil
+}
+
 func (c *runtimeConfig) prepareDirectories() error {
 	for _, path := range []string{c.binDir, c.configDir, c.dataDir, c.logDir, c.runDir} {
 		if err := os.MkdirAll(path, 0o755); err != nil {
@@ -220,6 +287,46 @@ func (c *runtimeConfig) writeConfigFiles() error {
 func (c *runtimeConfig) startProcess(name, binaryPath string, args []string) error {
 	cmd := exec.Command(binaryPath, args...)
 	cmd.Dir = c.packageRoot
+	configureBackgroundCommand(cmd)
+
+	stdout, err := os.OpenFile(filepath.Join(c.logDir, name+".out.log"), os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0o644)
+	if err != nil {
+		return err
+	}
+	defer stdout.Close()
+
+	stderr, err := os.OpenFile(filepath.Join(c.logDir, name+".err.log"), os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0o644)
+	if err != nil {
+		return err
+	}
+	defer stderr.Close()
+
+	cmd.Stdout = stdout
+	cmd.Stderr = stderr
+
+	if err := cmd.Start(); err != nil {
+		return err
+	}
+
+	return os.WriteFile(filepath.Join(c.runDir, name+".pid"), []byte(strconv.Itoa(cmd.Process.Pid)), 0o644)
+}
+
+func (c *customGatewayRuntime) prepareDirectories() error {
+	for _, path := range []string{c.runtimeRoot, c.logDir, c.runDir} {
+		if err := os.MkdirAll(path, 0o755); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (c *customGatewayRuntime) stopManagedProcess() error {
+	return stopProcessByPIDFile(filepath.Join(c.runDir, "gateway.pid"))
+}
+
+func (c *customGatewayRuntime) startProcess(name, binaryPath string, args []string) error {
+	cmd := exec.Command(binaryPath, args...)
+	cmd.Dir = filepath.Dir(binaryPath)
 	configureBackgroundCommand(cmd)
 
 	stdout, err := os.OpenFile(filepath.Join(c.logDir, name+".out.log"), os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0o644)

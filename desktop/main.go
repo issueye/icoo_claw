@@ -30,7 +30,7 @@ func main() {
 		Description: appDescription,
 		Services: []application.Service{
 			application.NewService(NewConfigService(store)),
-			application.NewService(NewSystemService()),
+			application.NewService(NewSystemService(store)),
 		},
 		Assets: application.AssetOptions{
 			Handler: application.AssetFileServerFS(assets),
@@ -41,7 +41,8 @@ func main() {
 	})
 
 	app.Window.NewWithOptions(application.WebviewWindowOptions{
-		Title: appName,
+		Title:     appName,
+		Frameless: true,
 		Mac: application.MacWindow{
 			InvisibleTitleBarHeight: 50,
 			Backdrop:                application.MacBackdropTranslucent,

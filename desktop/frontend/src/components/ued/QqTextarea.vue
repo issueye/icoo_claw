@@ -31,7 +31,7 @@ const props = defineProps({
 const emit = defineEmits(['update:modelValue'])
 
 const classes = computed(() => [
-  'qq-field-control px-4 py-3 text-sm leading-7',
+  'qq-field-control px-3 py-2.5 text-sm leading-6',
   props.resize ? 'resize-y' : 'resize-none',
   props.invalid ? 'border-[color:rgba(255,141,141,0.9)]' : '',
 ])

@@ -26,8 +26,8 @@ const colorTokens = [
 ]
 
 const spacingRules = [
-  '控件高度以 44 / 48 为主，避免 QQ 风格里常见的尺寸跳变。',
-  '圆角以 16、24、28 为主，按钮与输入框保持胶囊感但不做极端圆润。',
+  '控件高度以 36 / 40 为主，适配桌面端高频操作和紧凑表单。',
+  '输入、按钮、标签以 4px 圆角为主，面板控制在 6px / 8px，避免过度圆润。',
   '容器层级遵循「背景 > 玻璃面板 > 操作控件 > 状态标签」，边框始终轻于阴影。',
 ]
 
@@ -96,14 +96,14 @@ const currentTabLabel = computed(() => tabs.find((item) => item.value === curren
 </script>
 
 <template>
-  <section class="qq-theme qq-mesh scrollbar-thin h-full overflow-y-auto px-5 py-5 md:px-7 md:py-7">
+  <section class="scrollbar-thin h-full overflow-y-auto px-4 py-4 md:px-5 md:py-5">
     <div class="mx-auto flex max-w-7xl flex-col gap-6">
-      <section class="qq-panel-strong qq-shell overflow-hidden rounded-[34px] px-6 py-6 md:px-8 md:py-8">
+      <section class="qq-panel-strong qq-shell overflow-hidden rounded-[8px] px-5 py-5 md:px-6 md:py-6">
         <div class="flex flex-col gap-8 xl:flex-row xl:items-end xl:justify-between">
           <div class="max-w-3xl">
             <div class="flex flex-wrap items-center gap-3">
-              <span class="qq-badge inline-flex rounded-full px-3 py-1 text-xs">QQ UED</span>
-              <span class="qq-badge inline-flex rounded-full px-3 py-1 text-xs">Glass Messaging UI</span>
+              <span class="qq-badge inline-flex rounded-[4px] px-2 py-0.5 text-xs">QQ UED</span>
+              <span class="qq-badge inline-flex rounded-[4px] px-2 py-0.5 text-xs">Glass Messaging UI</span>
             </div>
             <h1 class="mt-5 text-3xl font-semibold md:text-5xl">QQ 风格设计规范与基础组件</h1>
             <p class="mt-4 max-w-2xl text-sm leading-7 text-[color:var(--qq-text-secondary)] md:text-base">
@@ -112,17 +112,17 @@ const currentTabLabel = computed(() => tabs.find((item) => item.value === curren
           </div>
 
           <div class="grid gap-3 sm:grid-cols-3 xl:min-w-[420px]">
-            <div class="qq-punch rounded-[26px] px-4 py-4">
+            <div class="qq-punch rounded-[6px] px-3 py-3">
               <p class="text-xs text-[color:var(--qq-text-tertiary)]">主色方向</p>
               <p class="mt-2 text-lg font-semibold">青绿 + 玻璃白</p>
               <p class="mt-3 text-xs leading-6 text-[color:var(--qq-text-secondary)]">保持聊天产品的轻盈和科技感。</p>
             </div>
-            <div class="qq-punch rounded-[26px] px-4 py-4">
+            <div class="qq-punch rounded-[6px] px-3 py-3">
               <p class="text-xs text-[color:var(--qq-text-tertiary)]">控件语言</p>
-              <p class="mt-2 text-lg font-semibold">胶囊圆角</p>
-              <p class="mt-3 text-xs leading-6 text-[color:var(--qq-text-secondary)]">输入、按钮、标签统一圆角节奏。</p>
+              <p class="mt-2 text-lg font-semibold">4px 小圆角</p>
+              <p class="mt-3 text-xs leading-6 text-[color:var(--qq-text-secondary)]">输入、按钮、标签保持紧凑利落。</p>
             </div>
-            <div class="qq-punch rounded-[26px] px-4 py-4">
+            <div class="qq-punch rounded-[6px] px-3 py-3">
               <p class="text-xs text-[color:var(--qq-text-tertiary)]">层次策略</p>
               <p class="mt-2 text-lg font-semibold">边框轻于阴影</p>
               <p class="mt-3 text-xs leading-6 text-[color:var(--qq-text-secondary)]">让内容浮起来，而不是被描死。</p>
@@ -138,13 +138,13 @@ const currentTabLabel = computed(() => tabs.find((item) => item.value === curren
           description="沿用 QQ 的高识别元素，但把风格压缩成可工程化的设计 token，方便组件和业务页面长期复用。"
         >
           <div class="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-            <div v-for="token in colorTokens" :key="token.name" class="qq-punch rounded-[24px] px-4 py-4">
+            <div v-for="token in colorTokens" :key="token.name" class="qq-punch rounded-[6px] px-3 py-3">
               <div class="flex items-center justify-between gap-4">
                 <div>
                   <p class="text-sm font-medium">{{ token.name }}</p>
                   <p class="mt-2 text-xs text-[color:var(--qq-text-tertiary)]">{{ token.role }}</p>
                 </div>
-                <span class="h-12 w-12 rounded-2xl border border-white/15" :style="{ background: token.value }" />
+                <span class="h-10 w-10 rounded-[4px] border border-white/15" :style="{ background: token.value }" />
               </div>
               <p class="mt-4 text-xs text-[color:var(--qq-text-secondary)]">{{ token.value }}</p>
             </div>
@@ -157,7 +157,7 @@ const currentTabLabel = computed(() => tabs.find((item) => item.value === curren
           description="QQ 风格不是重装饰，而是把高频操作放在稳定位置。规范里优先保证视觉秩序和状态反馈。"
         >
           <div class="space-y-4">
-            <div class="qq-punch rounded-[24px] px-4 py-4">
+            <div class="qq-punch rounded-[6px] px-3 py-3">
               <p class="text-sm font-medium">关键原则</p>
               <ul class="mt-3 space-y-2 text-sm leading-7 text-[color:var(--qq-text-secondary)]">
                 <li>主按钮只保留一个高饱和焦点，避免页面同时出现多个抢眼操作。</li>
@@ -165,7 +165,7 @@ const currentTabLabel = computed(() => tabs.find((item) => item.value === curren
                 <li>表格和列表优先用行高、留白、轻分割线组织，不依赖厚重卡片。</li>
               </ul>
             </div>
-            <div class="qq-punch rounded-[24px] px-4 py-4">
+            <div class="qq-punch rounded-[6px] px-3 py-3">
               <p class="text-sm font-medium">尺寸节奏</p>
               <ul class="mt-3 space-y-2 text-sm leading-7 text-[color:var(--qq-text-secondary)]">
                 <li v-for="rule in spacingRules" :key="rule">{{ rule }}</li>
@@ -181,7 +181,7 @@ const currentTabLabel = computed(() => tabs.find((item) => item.value === curren
         description="按钮、输入、下拉、单选、多选统一继承 QQ 主题 token。表单和表格保持一致的玻璃层、圆角和悬停逻辑。"
       >
         <div class="grid gap-4 lg:grid-cols-2 2xl:grid-cols-3">
-          <div class="qq-punch rounded-[26px] px-5 py-5">
+          <div class="qq-punch rounded-[6px] px-4 py-4">
             <p class="text-sm font-medium">按钮 Button</p>
             <div class="mt-4 flex flex-wrap gap-3">
               <QqButton>发送消息</QqButton>
@@ -191,7 +191,7 @@ const currentTabLabel = computed(() => tabs.find((item) => item.value === curren
             </div>
           </div>
 
-          <div class="qq-punch rounded-[26px] px-5 py-5">
+          <div class="qq-punch rounded-[6px] px-4 py-4">
             <p class="text-sm font-medium">输入框 Input</p>
             <div class="mt-4 space-y-3">
               <QqInput v-model="form.appName" placeholder="请输入规范名称">
@@ -203,7 +203,7 @@ const currentTabLabel = computed(() => tabs.find((item) => item.value === curren
             </div>
           </div>
 
-          <div class="qq-punch rounded-[26px] px-5 py-5">
+          <div class="qq-punch rounded-[6px] px-4 py-4">
             <p class="text-sm font-medium">下拉框 Select</p>
             <div class="mt-4">
               <QqSelect v-model="form.city" :options="cityOptions" />
@@ -212,13 +212,13 @@ const currentTabLabel = computed(() => tabs.find((item) => item.value === curren
         </div>
 
         <div class="mt-4 grid gap-4 xl:grid-cols-2">
-          <div class="qq-punch rounded-[26px] px-5 py-5">
+          <div class="qq-punch rounded-[6px] px-4 py-4">
             <p class="text-sm font-medium">单选 Radio</p>
             <div class="mt-4">
               <QqRadioGroup v-model="form.tone" :options="toneOptions" name="tone" />
             </div>
           </div>
-          <div class="qq-punch rounded-[26px] px-5 py-5">
+          <div class="qq-punch rounded-[6px] px-4 py-4">
             <p class="text-sm font-medium">多选 Checkbox</p>
             <div class="mt-4">
               <QqCheckboxGroup v-model="form.modules" :options="moduleOptions" />
@@ -227,14 +227,14 @@ const currentTabLabel = computed(() => tabs.find((item) => item.value === curren
         </div>
 
         <div class="mt-4 grid gap-4 xl:grid-cols-3">
-          <div class="qq-punch rounded-[26px] px-5 py-5 xl:col-span-2">
+          <div class="qq-punch rounded-[6px] px-4 py-4 xl:col-span-2">
             <p class="text-sm font-medium">多行输入 Textarea</p>
             <div class="mt-4">
               <QqTextarea v-model="form.introduction" :rows="4" placeholder="填写业务简介或群公告" />
             </div>
           </div>
 
-          <div class="qq-punch rounded-[26px] px-5 py-5">
+          <div class="qq-punch rounded-[6px] px-4 py-4">
             <p class="text-sm font-medium">标签 Tag</p>
             <div class="mt-4 flex flex-wrap gap-2">
               <QqTag tone="accent">消息</QqTag>
@@ -270,7 +270,7 @@ const currentTabLabel = computed(() => tabs.find((item) => item.value === curren
             </QqFormField>
           </div>
 
-          <div class="mt-5 rounded-[24px] border border-white/10 bg-[rgba(9,32,28,0.22)] px-4 py-4 text-sm text-[color:var(--qq-text-secondary)]">
+          <div class="mt-4 rounded-[4px] border border-white/10 bg-[rgba(9,32,28,0.22)] px-3 py-3 text-sm text-[color:var(--qq-text-secondary)]">
             {{ formSummary }}
           </div>
 
@@ -326,7 +326,7 @@ const currentTabLabel = computed(() => tabs.find((item) => item.value === curren
               </div>
             </template>
             <template #cell-coverage="{ value }">
-              <span class="qq-badge inline-flex rounded-full px-3 py-1 text-xs">{{ value }}</span>
+              <span class="qq-badge inline-flex rounded-[4px] px-2 py-0.5 text-xs">{{ value }}</span>
             </template>
           </QqTable>
 
@@ -358,7 +358,7 @@ const currentTabLabel = computed(() => tabs.find((item) => item.value === curren
       @confirm="modalOpen = false"
     >
       <div class="grid gap-4">
-        <div class="rounded-[22px] border border-white/10 bg-[rgba(9,32,28,0.22)] px-4 py-4">
+        <div class="rounded-[4px] border border-white/10 bg-[rgba(9,32,28,0.22)] px-3 py-3">
           <p class="text-sm font-medium text-[color:var(--qq-text-primary)]">{{ form.appName }}</p>
           <p class="mt-2 text-sm leading-7 text-[color:var(--qq-text-secondary)]">{{ form.introduction }}</p>
         </div>

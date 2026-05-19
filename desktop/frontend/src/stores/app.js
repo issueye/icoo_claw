@@ -44,7 +44,14 @@ export const useAppStore = defineStore('app', {
       const settingsStore = useSettingsStore()
       const agentsStore = useAgentsStore()
       const conversationsStore = useConversationsStore()
-      const baseUrl = settingsStore.settings.gateway.baseUrl
+      const baseUrl = String(settingsStore.settings.gateway.baseUrl || '').trim()
+
+      if (!baseUrl) {
+        this.gatewayStatus = 'unconfigured'
+        this.gatewayInfo = null
+        this.error = ''
+        return
+      }
 
       try {
         await this.loadGatewayData(baseUrl, agentsStore, conversationsStore)

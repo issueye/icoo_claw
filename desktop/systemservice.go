@@ -4,6 +4,8 @@ import (
 	"os"
 	"runtime"
 
+	desktopconfig "icoo_claw/desktop/internal/config"
+
 	"github.com/wailsapp/wails/v3/pkg/application"
 )
 
@@ -18,11 +20,13 @@ type AppInfo struct {
 
 type SystemService struct {
 	manager *BundledGatewayManager
+	store   *desktopconfig.Store
 }
 
-func NewSystemService() *SystemService {
+func NewSystemService(store *desktopconfig.Store) *SystemService {
 	return &SystemService{
 		manager: NewBundledGatewayManager(),
+		store:   store,
 	}
 }
 
@@ -52,9 +56,39 @@ func (s *SystemService) ChooseDirectory() (string, error) {
 		PromptForSingleSelection()
 }
 
+func (s *SystemService) ChooseGatewayProgram() (string, error) {
+	return application.Get().
+		Dialog.
+		OpenFile().
+		CanChooseDirectories(false).
+		CanChooseFiles(true).
+		SetTitle("Choose gateway program").
+		PromptForSingleSelection()
+}
+
+func (s *SystemService) ChooseGatewayConfig() (string, error) {
+	return application.Get().
+		Dialog.
+		OpenFile().
+		CanChooseDirectories(false).
+		CanChooseFiles(true).
+		SetTitle("Choose gateway config file").
+		PromptForSingleSelection()
+}
+
 func (s *SystemService) EnsureBundledGateway(baseURL string) (bool, error) {
 	if s.manager == nil {
 		s.manager = NewBundledGatewayManager()
 	}
-	return s.manager.EnsureBundledGateway(baseURL)
+	var programPath string
+	var configPath string
+	if s.store != nil {
+		settings, err := s.store.Load()
+		if err != nil {
+			return false, err
+		}
+		programPath = settings.Gateway.ProgramPath
+		configPath = settings.Gateway.ConfigPath
+	}
+	return s.manager.EnsureBundledGateway(baseURL, programPath, configPath)
 }

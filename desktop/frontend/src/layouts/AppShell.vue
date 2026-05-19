@@ -1,20 +1,37 @@
 <script setup>
-import { computed } from 'vue'
+import { computed, reactive, watch } from 'vue'
 import { RouterView, useRoute, useRouter } from 'vue-router'
-import { LayoutTemplate, MessageSquareText, PlugZap, RefreshCw, Search, Settings2, Wrench } from 'lucide-vue-next'
+import { LayoutTemplate, MessageSquareText, Minus, PlugZap, RefreshCw, Search, Settings2, Square, Wrench, X } from 'lucide-vue-next'
+import { Window } from '@wailsio/runtime'
 import AppSidebar from '@/components/chrome/AppSidebar.vue'
 import ConversationList from '@/components/conversation/ConversationList.vue'
+import QqButton from '@/components/ued/QqButton.vue'
+import QqFormField from '@/components/ued/QqFormField.vue'
+import QqInput from '@/components/ued/QqInput.vue'
+import QqModal from '@/components/ued/QqModal.vue'
+import { chooseGatewayConfig, chooseGatewayProgram } from '@/services/wails/config'
+import { useAgentsStore } from '@/stores/agents'
 import { useAppStore } from '@/stores/app'
 import { useChatStore } from '@/stores/chat'
 import { useConversationsStore } from '@/stores/conversations'
+import { useNotificationsStore } from '@/stores/notifications'
 import { useSettingsStore } from '@/stores/settings'
 
 const appStore = useAppStore()
+const agentsStore = useAgentsStore()
 const chatStore = useChatStore()
 const conversationsStore = useConversationsStore()
+const notificationsStore = useNotificationsStore()
 const settingsStore = useSettingsStore()
 const route = useRoute()
 const router = useRouter()
+const gatewayDialog = reactive({
+  open: false,
+  draftBaseUrl: '',
+  draftProgramPath: '',
+  draftConfigPath: '',
+  reconnecting: false,
+})
 
 const navItems = [
   { name: 'chat-home', label: 'Chat', icon: MessageSquareText, to: '/chat' },
@@ -26,6 +43,8 @@ const navItems = [
 ]
 
 const activeConversationId = computed(() => String(route.params.id || ''))
+const isChatRoute = computed(() => route.path === '/chat' || route.path.startsWith('/chat/'))
+const currentSectionLabel = computed(() => navItems.find((item) => route.path === item.to || route.path.startsWith(`${item.to}/`))?.label || 'Workspace')
 const shellStatusLabel = computed(() => {
   if (chatStore.streaming) {
     return '回答生成中'
@@ -33,14 +52,64 @@ const shellStatusLabel = computed(() => {
   if (appStore.gatewayStatus === 'connected') {
     return '网关已连接'
   }
+  if (appStore.gatewayStatus === 'unconfigured') {
+    return '网关未配置'
+  }
   if (appStore.gatewayStatus === 'offline') {
     return '网关离线'
   }
   return '等待初始化'
 })
+const statusToneClass = computed(() => {
+  if (appStore.gatewayStatus === 'connected') {
+    return 'bg-emerald-300'
+  }
+  if (appStore.gatewayStatus === 'offline') {
+    return 'bg-rose-300'
+  }
+  if (appStore.gatewayStatus === 'unconfigured') {
+    return 'bg-amber-300'
+  }
+  return 'bg-slate-300'
+})
+const gatewayBaseUrlLabel = computed(() => settingsStore.settings.gateway.baseUrl || '未配置网关地址')
+const defaultAgentLabel = computed(() => agentsStore.selectedAgent?.name || settingsStore.settings.gateway.defaultAgentId || '未选择 Agent')
+const lastRefreshedLabel = computed(() => (appStore.lastRefreshedAt ? new Date(appStore.lastRefreshedAt).toLocaleTimeString() : '未刷新'))
+const gatewayActionLabel = computed(() => (appStore.gatewayStatus === 'unconfigured' ? '配置网关' : '重连网关'))
+const gatewayDialogTitle = computed(() => (appStore.gatewayStatus === 'unconfigured' ? '配置网关地址' : '网关连接异常'))
+const gatewayDialogDescription = computed(() =>
+  appStore.gatewayStatus === 'unconfigured'
+    ? '当前还没有可用的网关地址。填写地址后即可保存并重连。'
+    : '当前无法连接网关。你可以直接重连，或者修改网关地址后重新连接。',
+)
+const shouldShowGatewayAction = computed(() => ['offline', 'unconfigured'].includes(appStore.gatewayStatus))
 
 async function refresh() {
   await appStore.refreshGatewayData()
+}
+
+async function minimiseWindow() {
+  try {
+    await Window.Minimise()
+  } catch {
+    // Browser preview has no native window bridge.
+  }
+}
+
+async function toggleMaximiseWindow() {
+  try {
+    await Window.ToggleMaximise()
+  } catch {
+    // Browser preview has no native window bridge.
+  }
+}
+
+async function closeWindow() {
+  try {
+    await Window.Close()
+  } catch {
+    // Browser preview has no native window bridge.
+  }
 }
 
 function newChat() {
@@ -53,39 +122,186 @@ async function deleteConversation(conversationId) {
     router.push('/chat')
   }
 }
+
+function openGatewayDialog() {
+  gatewayDialog.draftBaseUrl = settingsStore.settings.gateway.baseUrl || ''
+  gatewayDialog.draftProgramPath = settingsStore.settings.gateway.programPath || ''
+  gatewayDialog.draftConfigPath = settingsStore.settings.gateway.configPath || ''
+  gatewayDialog.open = true
+}
+
+function closeGatewayDialog() {
+  gatewayDialog.open = false
+}
+
+async function pickGatewayProgram() {
+  const value = await chooseGatewayProgram()
+  if (value) {
+    gatewayDialog.draftProgramPath = value
+  }
+}
+
+async function pickGatewayConfig() {
+  const value = await chooseGatewayConfig()
+  if (value) {
+    gatewayDialog.draftConfigPath = value
+  }
+}
+
+async function reconnectGateway() {
+  gatewayDialog.reconnecting = true
+  try {
+    await appStore.refreshGatewayData()
+    if (appStore.gatewayStatus === 'connected') {
+      notificationsStore.notify({
+        title: '网关已连接',
+        message: '网关状态恢复正常，已重新拉取基础数据。',
+        tone: 'success',
+      })
+      gatewayDialog.open = false
+      return
+    }
+
+    if (appStore.gatewayStatus === 'unconfigured') {
+      notificationsStore.error('请先填写网关地址，再执行重连。', { title: '网关未配置' })
+      gatewayDialog.open = true
+      return
+    }
+
+    notificationsStore.error('重连失败，请检查网关地址或确认服务是否已经启动。', { title: '网关离线' })
+    gatewayDialog.open = true
+  } catch (error) {
+    notificationsStore.error(error?.message || String(error), { title: '网关重连失败' })
+    gatewayDialog.open = true
+  } finally {
+    gatewayDialog.reconnecting = false
+  }
+}
+
+async function saveGatewayAndReconnect() {
+  try {
+    const nextBaseUrl = String(gatewayDialog.draftBaseUrl || '').trim()
+    await settingsStore.patch({
+      gateway: {
+        baseUrl: nextBaseUrl,
+        programPath: String(gatewayDialog.draftProgramPath || '').trim(),
+        configPath: String(gatewayDialog.draftConfigPath || '').trim(),
+      },
+    })
+    await reconnectGateway()
+  } catch (error) {
+    notificationsStore.error(error?.message || String(error), { title: '网关配置保存失败' })
+  }
+}
+
+watch(
+  () => settingsStore.settings.gateway.baseUrl,
+  (value) => {
+    gatewayDialog.draftBaseUrl = value || ''
+  },
+  { immediate: true },
+)
+
+watch(
+  () => settingsStore.settings.gateway.programPath,
+  (value) => {
+    gatewayDialog.draftProgramPath = value || ''
+  },
+  { immediate: true },
+)
+
+watch(
+  () => settingsStore.settings.gateway.configPath,
+  (value) => {
+    gatewayDialog.draftConfigPath = value || ''
+  },
+  { immediate: true },
+)
+
+watch(
+  () => appStore.gatewayStatus,
+  (status, previous) => {
+    if (status === 'unconfigured') {
+      gatewayDialog.open = true
+      return
+    }
+
+    if (status === 'offline' && previous !== 'offline' && !gatewayDialog.open) {
+      gatewayDialog.open = true
+    }
+  },
+)
 </script>
 
 <template>
-  <div class="flex h-screen flex-col bg-ink text-slate-100">
-    <header class="flex h-14 shrink-0 items-center justify-between border-b border-line bg-panel px-5">
-      <div class="min-w-0">
-        <p class="text-[11px] uppercase tracking-[0.2em] text-accent/80">Icoo Claw Desktop</p>
-        <div class="flex items-center gap-3">
-          <h1 class="truncate text-sm font-semibold text-slate-50">Gateway Chat Shell</h1>
-          <span class="rounded-full border border-line bg-panelSoft px-2 py-0.5 text-[11px] text-slate-300">
-            {{ shellStatusLabel }}
-          </span>
+  <div class="qq-theme qq-mesh relative flex h-screen flex-col text-slate-100">
+    <header
+      class="qq-panel-strong relative z-10 flex h-12 shrink-0 items-center justify-between border-b border-white/10 pl-4"
+      style="--wails-draggable: drag"
+    >
+      <div class="flex min-w-0 items-center gap-3">
+        <div class="flex h-7 w-7 shrink-0 items-center justify-center rounded-[4px] border border-white/10 bg-[rgba(255,255,255,0.10)] text-xs font-semibold text-[color:var(--qq-accent)]">
+          IC
+        </div>
+        <div class="min-w-0">
+          <p class="text-[10px] uppercase leading-4 tracking-[0.18em] text-[color:var(--qq-text-tertiary)]">Icoo Claw Desktop</p>
+          <div class="flex min-w-0 items-center gap-2">
+            <h1 class="truncate text-sm font-semibold text-slate-50">{{ currentSectionLabel }}</h1>
+            <span class="qq-badge hidden rounded-[4px] px-2 py-0.5 text-[11px] md:inline-flex">
+              {{ shellStatusLabel }}
+            </span>
+          </div>
         </div>
       </div>
-      <div class="flex items-center gap-3">
-        <span v-if="appStore.lastRefreshedAt" class="hidden text-xs text-slate-400 md:inline">
+      <div class="flex h-full items-center gap-2" style="--wails-draggable: no-drag">
+        <span v-if="appStore.lastRefreshedAt" class="hidden text-xs text-[color:var(--qq-text-tertiary)] md:inline">
           {{ new Date(appStore.lastRefreshedAt).toLocaleTimeString() }}
         </span>
+        <QqButton v-if="shouldShowGatewayAction" variant="secondary" size="sm" @click="openGatewayDialog">
+          {{ gatewayActionLabel }}
+        </QqButton>
         <button
-          class="inline-flex h-9 w-9 items-center justify-center rounded-md border border-line bg-panelSoft text-slate-300 transition hover:border-accent/60 hover:text-accent"
+          class="inline-flex h-9 w-9 items-center justify-center rounded-[4px] border border-white/10 bg-[rgba(255,255,255,0.08)] text-[color:var(--qq-text-secondary)] transition hover:border-white/20 hover:bg-[rgba(255,255,255,0.14)] hover:text-white"
           type="button"
           title="刷新网关状态"
           @click="refresh"
         >
           <RefreshCw class="h-4 w-4" />
         </button>
+        <div class="ml-1 flex h-full border-l border-white/10">
+          <button
+            class="inline-flex h-full w-11 items-center justify-center text-[color:var(--qq-text-secondary)] transition hover:bg-white/10 hover:text-white"
+            type="button"
+            title="最小化"
+            @click="minimiseWindow"
+          >
+            <Minus class="h-4 w-4" />
+          </button>
+          <button
+            class="inline-flex h-full w-11 items-center justify-center text-[color:var(--qq-text-secondary)] transition hover:bg-white/10 hover:text-white"
+            type="button"
+            title="最大化"
+            @click="toggleMaximiseWindow"
+          >
+            <Square class="h-3.5 w-3.5" />
+          </button>
+          <button
+            class="inline-flex h-full w-11 items-center justify-center text-[color:var(--qq-text-secondary)] transition hover:bg-rose-500/80 hover:text-white"
+            type="button"
+            title="关闭"
+            @click="closeWindow"
+          >
+            <X class="h-4 w-4" />
+          </button>
+        </div>
       </div>
     </header>
 
-    <div class="flex min-h-0 flex-1">
+    <div class="relative z-10 flex min-h-0 flex-1">
       <AppSidebar :items="navItems" />
 
       <ConversationList
+        v-if="isChatRoute"
         class="hidden md:flex"
         :active-id="activeConversationId"
         :conversations="conversationsStore.items"
@@ -97,9 +313,71 @@ async function deleteConversation(conversationId) {
         @refresh="refresh"
       />
 
-      <main class="relative min-w-0 flex-1 bg-[linear-gradient(180deg,rgba(255,255,255,0.02),transparent)]">
+      <main class="relative min-h-0 min-w-0 flex-1 overflow-hidden bg-transparent">
         <RouterView />
       </main>
     </div>
+
+    <footer class="qq-panel-strong relative z-10 flex h-8 shrink-0 items-center justify-between gap-3 border-t border-white/10 px-3 text-[11px] text-[color:var(--qq-text-tertiary)]">
+      <div class="flex min-w-0 items-center gap-3">
+        <span class="inline-flex items-center gap-1.5 text-[color:var(--qq-text-secondary)]">
+          <span class="h-1.5 w-1.5 rounded-full" :class="statusToneClass" />
+          {{ shellStatusLabel }}
+        </span>
+        <span class="hidden truncate md:inline">{{ gatewayBaseUrlLabel }}</span>
+        <span class="hidden lg:inline">{{ currentSectionLabel }}</span>
+      </div>
+      <div class="flex shrink-0 items-center gap-3">
+        <span class="hidden md:inline">Agent {{ agentsStore.items.length }} · {{ defaultAgentLabel }}</span>
+        <span class="hidden sm:inline">会话 {{ conversationsStore.items.length }}</span>
+        <span>刷新 {{ lastRefreshedLabel }}</span>
+      </div>
+    </footer>
+
+    <QqModal
+      v-model="gatewayDialog.open"
+      :description="gatewayDialogDescription"
+      :title="gatewayDialogTitle"
+      @confirm="saveGatewayAndReconnect"
+    >
+      <div class="grid gap-4">
+        <div
+          class="rounded-[6px] border border-white/10 bg-[rgba(9,32,28,0.22)] px-3 py-3 text-sm leading-6 text-[color:var(--qq-text-secondary)]"
+        >
+          <p class="font-medium text-[color:var(--qq-text-primary)]">{{ shellStatusLabel }}</p>
+          <p class="mt-2">
+            {{ appStore.error || '你可以直接重连，或者先调整网关地址后再尝试连接。' }}
+          </p>
+        </div>
+
+        <QqFormField label="Gateway URL" helper="例如：http://127.0.0.1:8080">
+          <QqInput v-model="gatewayDialog.draftBaseUrl" placeholder="请输入网关地址" />
+        </QqFormField>
+
+        <QqFormField label="Gateway Program Path" helper="可选。自定义网关程序路径。">
+          <div class="flex flex-col gap-3 md:flex-row">
+            <QqInput v-model="gatewayDialog.draftProgramPath" class="flex-1" placeholder="例如：C:\\gateway\\gateway.exe" />
+            <QqButton variant="secondary" @click="pickGatewayProgram">选择程序</QqButton>
+          </div>
+        </QqFormField>
+
+        <QqFormField label="Gateway Config Path" helper="可选。自定义网关配置文件路径。">
+          <div class="flex flex-col gap-3 md:flex-row">
+            <QqInput v-model="gatewayDialog.draftConfigPath" class="flex-1" placeholder="例如：C:\\gateway\\gateway.toml" />
+            <QqButton variant="secondary" @click="pickGatewayConfig">选择配置</QqButton>
+          </div>
+        </QqFormField>
+      </div>
+
+      <template #footer>
+        <QqButton variant="ghost" :disabled="gatewayDialog.reconnecting" @click="closeGatewayDialog">稍后处理</QqButton>
+        <QqButton variant="secondary" :disabled="gatewayDialog.reconnecting" @click="reconnectGateway">
+          {{ gatewayDialog.reconnecting ? '重连中...' : '立即重连' }}
+        </QqButton>
+        <QqButton :disabled="gatewayDialog.reconnecting" @click="saveGatewayAndReconnect">
+          {{ gatewayDialog.reconnecting ? '保存中...' : '保存并重连' }}
+        </QqButton>
+      </template>
+    </QqModal>
   </div>
 </template>

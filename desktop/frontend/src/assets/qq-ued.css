@@ -95,10 +95,10 @@
 }
 
 .qq-field-control {
-  min-height: 44px;
+  min-height: 40px;
   width: 100%;
   border: 1px solid var(--qq-border);
-  border-radius: 16px;
+  border-radius: 4px;
   background: rgba(17, 56, 48, 0.38);
   color: var(--qq-text-primary);
   backdrop-filter: blur(14px);
@@ -165,7 +165,7 @@
 .qq-table th,
 .qq-table td {
   border-bottom: 1px solid rgba(255, 255, 255, 0.09);
-  padding: 14px 16px;
+  padding: 10px 12px;
 }
 
 .qq-table tbody tr {

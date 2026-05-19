@@ -22,7 +22,7 @@ const emit = defineEmits(['update:modelValue'])
     <label
       v-for="option in options"
       :key="option.value"
-      class="qq-option-card flex cursor-pointer items-start gap-3 rounded-3xl px-4 py-4"
+      class="qq-option-card flex cursor-pointer items-start gap-3 rounded-[6px] px-3 py-3"
       :class="{ 'is-active': modelValue === option.value }"
     >
       <input

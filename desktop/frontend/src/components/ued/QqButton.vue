@@ -32,9 +32,9 @@ const variantClassMap = {
 }
 
 const sizeClassMap = {
-  sm: 'h-9 rounded-[14px] px-4 text-sm',
-  md: 'h-11 rounded-2xl px-5 text-sm',
-  lg: 'h-12 rounded-2xl px-6 text-base',
+  sm: 'h-8 rounded-[4px] px-3 text-sm',
+  md: 'h-9 rounded-[4px] px-4 text-sm',
+  lg: 'h-10 rounded-[4px] px-5 text-base',
 }
 
 const classes = computed(() => [

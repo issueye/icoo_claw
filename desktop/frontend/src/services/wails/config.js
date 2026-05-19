@@ -36,6 +36,22 @@ export async function chooseDirectory() {
   }
 }
 
+export async function chooseGatewayProgram() {
+  try {
+    return await SystemService.ChooseGatewayProgram()
+  } catch {
+    return ''
+  }
+}
+
+export async function chooseGatewayConfig() {
+  try {
+    return await SystemService.ChooseGatewayConfig()
+  } catch {
+    return ''
+  }
+}
+
 export async function getAppInfo() {
   try {
     return await SystemService.GetAppInfo()

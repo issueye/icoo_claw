@@ -32,7 +32,7 @@ function confirm() {
   <Teleport to="body">
     <div v-if="modelValue" class="fixed inset-0 z-50 flex items-center justify-center p-5">
       <button class="absolute inset-0 bg-[rgba(7,18,15,0.58)] backdrop-blur-[10px]" type="button" @click="close" />
-      <div class="qq-panel-strong relative z-10 w-full max-w-xl rounded-[30px] px-6 py-6">
+      <div class="qq-panel-strong relative z-10 w-full max-w-xl rounded-[6px] px-5 py-5">
         <div class="flex items-start justify-between gap-4">
           <div>
             <h3 class="text-2xl font-semibold text-[color:var(--qq-text-primary)]">{{ title }}</h3>
@@ -41,7 +41,7 @@ function confirm() {
             </p>
           </div>
           <button
-            class="inline-flex h-10 w-10 items-center justify-center rounded-2xl border border-[color:var(--qq-border)] bg-[rgba(255,255,255,0.08)] text-[color:var(--qq-text-secondary)] transition hover:bg-[rgba(255,255,255,0.14)] hover:text-[color:var(--qq-text-primary)]"
+            class="inline-flex h-9 w-9 items-center justify-center rounded-[4px] border border-[color:var(--qq-border)] bg-[rgba(255,255,255,0.08)] text-[color:var(--qq-text-secondary)] transition hover:bg-[rgba(255,255,255,0.14)] hover:text-[color:var(--qq-text-primary)]"
             type="button"
             @click="close"
           >

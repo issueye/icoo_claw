@@ -7,6 +7,8 @@ describe('settings schema helpers', () => {
       gateway: {
         baseUrl: 'http://127.0.0.1:8080',
         defaultAgentId: '',
+        programPath: '',
+        configPath: '',
       },
       workspace: {
         rootDir: '',
@@ -20,12 +22,14 @@ describe('settings schema helpers', () => {
   it('merges partial values over defaults', () => {
     expect(
       mergeSettings({
-        gateway: { defaultAgentId: 'agent_1' },
+      gateway: { defaultAgentId: 'agent_1' },
       }),
     ).toEqual({
       gateway: {
         baseUrl: 'http://127.0.0.1:8080',
         defaultAgentId: 'agent_1',
+        programPath: '',
+        configPath: '',
       },
       workspace: {
         rootDir: '',

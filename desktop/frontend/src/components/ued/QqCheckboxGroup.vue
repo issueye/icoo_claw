@@ -28,12 +28,12 @@ function toggle(value) {
     <label
       v-for="option in options"
       :key="option.value"
-      class="qq-option-card flex cursor-pointer items-start gap-3 rounded-3xl px-4 py-4"
+      class="qq-option-card flex cursor-pointer items-start gap-3 rounded-[6px] px-3 py-3"
       :class="{ 'is-active': modelValue.includes(option.value) }"
     >
       <input class="sr-only" :checked="modelValue.includes(option.value)" type="checkbox" @change="toggle(option.value)" />
       <span
-        class="mt-1 flex h-5 w-5 shrink-0 items-center justify-center rounded-[7px] border text-[11px] font-semibold"
+        class="mt-1 flex h-5 w-5 shrink-0 items-center justify-center rounded-[4px] border text-[11px] font-semibold"
         :class="
           modelValue.includes(option.value)
             ? 'border-transparent bg-[var(--qq-accent-pink)] text-slate-950'

@@ -27,7 +27,7 @@ const props = defineProps({
 const emit = defineEmits(['update:modelValue'])
 
 const classes = computed(() => [
-  'qq-field-control px-4 text-sm',
+  'qq-field-control px-3 text-sm',
   props.invalid ? 'border-[color:rgba(255,141,141,0.9)] focus-visible:ring-[rgba(255,141,141,0.18)]' : '',
 ])
 
@@ -45,7 +45,7 @@ function handleInput(event) {
       <slot name="prefix" />
     </div>
     <input
-      :class="[classes, $slots.prefix ? 'pl-11' : '']"
+      :class="[classes, $slots.prefix ? 'pl-9' : '']"
       :disabled="disabled"
       :placeholder="placeholder"
       :type="type"

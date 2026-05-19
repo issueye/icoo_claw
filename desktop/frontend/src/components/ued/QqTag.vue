@@ -20,7 +20,7 @@ const classes = computed(() => toneMap[props.tone] || toneMap.default)
 </script>
 
 <template>
-  <span class="inline-flex items-center gap-1 rounded-full border px-3 py-1 text-xs font-medium" :class="classes">
+  <span class="inline-flex items-center gap-1 rounded-[4px] border px-2.5 py-1 text-xs font-medium" :class="classes">
     <slot />
   </span>
 </template>

@@ -26,7 +26,7 @@ function handleChange(event) {
 <template>
   <div class="relative">
     <select
-      class="qq-field-control appearance-none px-4 pr-11 text-sm"
+      class="qq-field-control appearance-none px-3 pr-9 text-sm"
       :disabled="disabled"
       :value="modelValue"
       @change="handleChange"
@@ -35,7 +35,7 @@ function handleChange(event) {
         {{ option.label }}
       </option>
     </select>
-    <span class="pointer-events-none absolute inset-y-0 right-4 flex items-center text-[color:var(--qq-text-tertiary)]">
+    <span class="pointer-events-none absolute inset-y-0 right-3 flex items-center text-[color:var(--qq-text-tertiary)]">
       <ChevronDown class="h-4 w-4" />
     </span>
   </div>

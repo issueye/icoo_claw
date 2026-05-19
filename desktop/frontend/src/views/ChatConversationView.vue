@@ -58,14 +58,14 @@ async function submit() {
       :socket-status="chatStore.socketState"
     />
 
-    <header class="border-b border-line bg-panel px-5 py-4">
-      <p class="text-xs uppercase tracking-[0.2em] text-slate-500">Conversation</p>
+    <header class="border-b border-white/10 bg-[rgba(18,58,51,0.34)] px-4 py-3 backdrop-blur-xl">
+      <p class="text-xs uppercase tracking-[0.2em] text-[color:var(--qq-text-tertiary)]">Conversation</p>
       <h2 class="mt-1 text-lg font-semibold text-slate-50">
         <span data-testid="conversation-header-title">{{ conversation?.title || 'Untitled Conversation' }}</span>
       </h2>
     </header>
 
-    <div class="min-h-0 flex-1 bg-[linear-gradient(180deg,rgba(255,255,255,0.02),transparent)]">
+    <div class="min-h-0 flex-1 bg-transparent">
       <ChatMessageList :messages="messages" :show-timestamps="settingsStore.settings.ui.showTimestamps" />
     </div>
 
