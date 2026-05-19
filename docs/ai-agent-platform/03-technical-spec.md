@@ -4,7 +4,7 @@
 
 | 领域 | 选型 | 说明 |
 |---|---|---|
-| HTTP | Gin | 三服务统一 REST/SSE 框架 |
+| HTTP / Stream | Gin + Gorilla WebSocket | 三服务统一 REST，Gateway 对外流式使用 WebSocket |
 | ORM | GORM | Gateway 与 Session Store 元数据/业务数据 |
 | SQLite(no cgo) | `github.com/glebarez/sqlite` | GORM 纯 Go SQLite driver |
 | Agent Runtime | `server/claw/pkg/agent_sdk/sdk` | agentsdk-go 源码已抽取为项目内模块 |
@@ -84,6 +84,37 @@ RouterPolicy：
 - sticky 不可用时选 inflight 最少实例。
 - 无 ready 实例时自动拉起。
 - 选实例前刷新健康状态。
+
+Gateway 外部流式协议：
+
+```text
+GET /v1/ws/chat
+```
+
+客户端消息：
+
+```json
+{"type":"ping"}
+{"type":"chat.start","conversation_id":"conv_1","request_id":"req_1","prompt":"hello","metadata":{}}
+{"type":"chat.cancel","conversation_id":"conv_1","request_id":"req_1"}
+```
+
+服务端消息：
+
+```json
+{"type":"pong"}
+{"type":"session.accepted","conversation_id":"conv_1","request_id":"req_1"}
+{"type":"message.delta","conversation_id":"conv_1","session_id":"sess_1","request_id":"req_1","output":"hello"}
+{"type":"message.completed","conversation_id":"conv_1","session_id":"sess_1","request_id":"req_1","stop_reason":"end_turn"}
+{"type":"message.error","conversation_id":"conv_1","request_id":"req_1","code":"session_busy","error":"session is already running"}
+{"type":"cancel.accepted","conversation_id":"conv_1","request_id":"req_1"}
+```
+
+约束：
+
+- 单个 WebSocket 连接一次只允许一个活动请求。
+- `chat.cancel` 只接受取消当前活动请求，不直接产出最终消息，最终完成事件仍由流生命周期结束时发出。
+- Gateway 对外使用 WebSocket，但对内仍可通过既有 `RunStream` / `Stream()` 管线与 Claw 交互。
 
 ## Claw: Agent SDK 封装
 
@@ -171,3 +202,4 @@ type SessionRepository interface {
 - Unit: config loader、repository、service、client。
 - Router: 三服务 HTTP route 基础行为。
 - E2E: Gateway 模块根的进程级测试构建并启动三服务，使用 Claw fake runner 完成创建 agent、创建 conversation、发送消息、查询历史。
+- WebSocket: Gateway controller 测试覆盖 `chat.start`、`ping`、错误传播、增量消息转发。

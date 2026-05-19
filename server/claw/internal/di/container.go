@@ -1,6 +1,7 @@
 package di
 
 import (
+	"fmt"
 	"strings"
 
 	"icoo_claw/server/claw/internal/config"
@@ -18,8 +19,11 @@ type Container struct {
 	Router *gin.Engine
 }
 
-func NewContainer() (*Container, error) {
-	cfg := config.Load()
+func NewContainer(cfgPath string) (*Container, error) {
+	cfg, err := config.LoadFile(cfgPath)
+	if err != nil {
+		return nil, fmt.Errorf("load claw config: %w", err)
+	}
 
 	sessionClient := sessionstore.NewClient(cfg.SessionStoreURL, nil)
 	historyAdapter := agent_sdk.NewHistoryAdapter(sessionClient)

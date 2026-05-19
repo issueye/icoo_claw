@@ -24,8 +24,11 @@ type Container struct {
 	instanceService *service.AgentInstanceService
 }
 
-func NewContainer() (*Container, error) {
-	cfg := config.Load()
+func NewContainer(cfgPath string) (*Container, error) {
+	cfg, err := config.LoadFile(cfgPath)
+	if err != nil {
+		return nil, fmt.Errorf("load gateway config: %w", err)
+	}
 
 	db, err := gorm.Open(sqlite.Open(cfg.DBPath), &gorm.Config{})
 	if err != nil {
@@ -52,11 +55,13 @@ func NewContainer() (*Container, error) {
 	agentController := controller.NewAgentController(agentService)
 	instanceController := controller.NewAgentInstanceController(instanceService)
 	chatController := controller.NewChatController(chatService)
+	chatWSController := controller.NewChatWSController(chatService)
 	engine := router.New(router.Controllers{
 		Health:        healthController,
 		Agent:         agentController,
 		AgentInstance: instanceController,
 		Chat:          chatController,
+		ChatWS:        chatWSController,
 	})
 
 	return &Container{

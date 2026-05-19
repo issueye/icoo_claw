@@ -20,8 +20,11 @@ type Container struct {
 	DB     *gorm.DB
 }
 
-func NewContainer() (*Container, error) {
-	cfg := config.Load()
+func NewContainer(cfgPath string) (*Container, error) {
+	cfg, err := config.LoadFile(cfgPath)
+	if err != nil {
+		return nil, fmt.Errorf("load session store config: %w", err)
+	}
 
 	db, err := gorm.Open(sqlite.Open(cfg.DBPath), &gorm.Config{})
 	if err != nil {

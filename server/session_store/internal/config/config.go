@@ -19,7 +19,7 @@ type fileConfig struct {
 }
 
 func Load() Config {
-	cfg, err := LoadFile(configPath("config/session_store.toml"))
+	cfg, err := LoadFile(configPath("runtime/config/session_store.toml"))
 	if err != nil {
 		panic(err)
 	}

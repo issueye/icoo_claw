@@ -1,0 +1,169 @@
+import { defineStore } from 'pinia'
+import {
+  createConversation,
+  deleteConversation as deleteConversationRequest,
+  listConversationMessages,
+  listConversations,
+} from '@/services/gateway/conversations'
+
+export const useConversationsStore = defineStore('conversations', {
+  state: () => ({
+    items: [],
+    loading: false,
+    error: '',
+    deletingId: '',
+    messagesByConversationId: {},
+    loadingMessagesByConversationId: {},
+  }),
+
+  getters: {
+    byId: (state) => (conversationId) => state.items.find((item) => item.id === conversationId) || null,
+    messagesFor: (state) => (conversationId) => state.messagesByConversationId[conversationId] || [],
+  },
+
+  actions: {
+    async fetchConversations(baseUrl) {
+      this.loading = true
+      this.error = ''
+      try {
+        this.items = sortConversations(await listConversations(baseUrl))
+        return this.items
+      } catch (error) {
+        this.error = error?.message || String(error)
+        throw error
+      } finally {
+        this.loading = false
+      }
+    },
+
+    async createConversation(baseUrl, input) {
+      const conversation = await createConversation(baseUrl, input)
+      this.upsertConversation(conversation)
+      this.messagesByConversationId[conversation.id] = []
+      return conversation
+    },
+
+    async loadMessages(baseUrl, conversationId, options = {}) {
+      if (!conversationId) {
+        return []
+      }
+      if (!options.force && this.messagesByConversationId[conversationId]) {
+        return this.messagesByConversationId[conversationId]
+      }
+      this.loadingMessagesByConversationId[conversationId] = true
+      try {
+        const messages = await listConversationMessages(baseUrl, conversationId)
+        this.messagesByConversationId[conversationId] = messages
+        return messages
+      } finally {
+        delete this.loadingMessagesByConversationId[conversationId]
+      }
+    },
+
+    appendLocalUserMessage(conversationId, content) {
+      this.ensureMessageBuffer(conversationId).push(buildLocalMessage('user', content))
+      this.bumpConversation(conversationId)
+    },
+
+    startAssistantDraft(conversationId) {
+      const draft = buildLocalMessage('assistant', '', { draft: true })
+      this.ensureMessageBuffer(conversationId).push(draft)
+      return draft.id
+    },
+
+    appendAssistantDelta(conversationId, delta) {
+      const messages = this.ensureMessageBuffer(conversationId)
+      let draft = [...messages].reverse().find((message) => message.role === 'assistant' && message.draft)
+      if (!draft) {
+        draft = buildLocalMessage('assistant', '', { draft: true })
+        messages.push(draft)
+      }
+      draft.content += delta
+      this.bumpConversation(conversationId)
+    },
+
+    markAssistantDraftComplete(conversationId) {
+      const messages = this.ensureMessageBuffer(conversationId)
+      const draft = [...messages].reverse().find((message) => message.role === 'assistant' && message.draft)
+      if (draft) {
+        draft.draft = false
+      }
+    },
+
+    markAssistantDraftError(conversationId, message) {
+      const messages = this.ensureMessageBuffer(conversationId)
+      const draft = [...messages].reverse().find((item) => item.role === 'assistant' && item.draft)
+      if (draft) {
+        draft.draft = false
+        draft.error = true
+        draft.content = draft.content || message
+      } else {
+        messages.push(buildLocalMessage('assistant', message, { error: true }))
+      }
+    },
+
+    upsertConversation(conversation) {
+      const index = this.items.findIndex((item) => item.id === conversation.id)
+      if (index >= 0) {
+        this.items[index] = {
+          ...this.items[index],
+          ...conversation,
+        }
+      } else {
+        this.items.unshift(conversation)
+      }
+      this.items = sortConversations(this.items)
+    },
+
+    async deleteConversation(baseUrl, conversationId) {
+      this.deletingId = conversationId
+      this.error = ''
+      try {
+        await deleteConversationRequest(baseUrl, conversationId)
+        this.items = this.items.filter((item) => item.id !== conversationId)
+        delete this.messagesByConversationId[conversationId]
+      } catch (error) {
+        this.error = error?.message || String(error)
+        throw error
+      } finally {
+        this.deletingId = ''
+      }
+    },
+
+    bumpConversation(conversationId) {
+      const conversation = this.byId(conversationId)
+      if (!conversation) {
+        return
+      }
+      conversation.updatedAt = new Date().toISOString()
+      conversation.lastMessageAt = conversation.updatedAt
+      this.items = sortConversations(this.items)
+    },
+
+    ensureMessageBuffer(conversationId) {
+      if (!this.messagesByConversationId[conversationId]) {
+        this.messagesByConversationId[conversationId] = []
+      }
+      return this.messagesByConversationId[conversationId]
+    },
+  },
+})
+
+function buildLocalMessage(role, content, extra = {}) {
+  return {
+    id: `local_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`,
+    role,
+    content,
+    createdAt: new Date().toISOString(),
+    metadata: {},
+    ...extra,
+  }
+}
+
+function sortConversations(items) {
+  return [...items].sort((left, right) => {
+    const leftTime = Date.parse(left.lastMessageAt || left.updatedAt || left.createdAt || 0)
+    const rightTime = Date.parse(right.lastMessageAt || right.updatedAt || right.createdAt || 0)
+    return rightTime - leftTime
+  })
+}

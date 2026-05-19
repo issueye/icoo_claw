@@ -19,6 +19,7 @@ Gateway:
 - 自动拉起 Claw 实例。
 - 创建 Conversation。
 - 发送同步消息。
+- 提供 WebSocket 流式聊天入口。
 - 查询会话消息。
 
 Claw:
@@ -74,9 +75,15 @@ POST   /v1/conversations
 GET    /v1/conversations
 GET    /v1/conversations/:id/messages
 POST   /v1/conversations/:id/messages
+GET    /v1/ws/chat
 POST   /v1/conversations/:id/stream
 DELETE /v1/conversations/:id
 ```
+
+说明：
+
+- `GET /v1/ws/chat` 是当前推荐的外部流式聊天入口。
+- `POST /v1/conversations/:id/stream` 在 MVP 中可暂时保留为兼容接口，但新桌面端不再依赖它。
 
 Claw:
 
@@ -127,10 +134,12 @@ POST   /v1/sessions/:session_id/runs/:run_id/events
 
 ### 用例 3：流式对话
 
-1. 调用 `POST /v1/conversations/:id/stream`。
-2. Gateway 返回 SSE。
-3. Claw 转发 stream event。
-4. 流结束后 messages 中保存最终 assistant 内容。
+1. 建立 `GET /v1/ws/chat` WebSocket 连接。
+2. 客户端发送 `chat.start`。
+3. Gateway 返回 `session.accepted`。
+4. Gateway 按增量返回 `message.delta`。
+5. 流结束后返回 `message.completed`。
+6. 查询 messages，能看到最终 assistant 内容。
 
 ### 用例 4：多个 Agent 服务实例
 

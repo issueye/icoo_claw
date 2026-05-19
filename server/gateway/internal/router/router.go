@@ -11,6 +11,7 @@ type Controllers struct {
 	Agent         *controller.AgentController
 	AgentInstance *controller.AgentInstanceController
 	Chat          *controller.ChatController
+	ChatWS        *controller.ChatWSController
 }
 
 func New(controllers Controllers) *gin.Engine {
@@ -34,6 +35,9 @@ func New(controllers Controllers) *gin.Engine {
 	engine.GET("/v1/conversations/:id/messages", controllers.Chat.ListMessages)
 	engine.POST("/v1/conversations/:id/messages", controllers.Chat.SendMessage)
 	engine.POST("/v1/conversations/:id/stream", controllers.Chat.StreamMessage)
+	if controllers.ChatWS != nil {
+		engine.GET("/v1/ws/chat", controllers.ChatWS.Serve)
+	}
 	engine.DELETE("/v1/conversations/:id", controllers.Chat.DeleteConversation)
 
 	return engine

@@ -73,6 +73,8 @@ Session Store 使用 GORM + no-cgo SQLite 作为 MVP 唯一持久化方案。
 - 能健康巡检 Claw 实例并维护 `starting/ready/draining/stopped/failed` 状态。
 - 对话请求按 session sticky routing，并在无可用实例时按需拉起 Claw。
 - Gateway 启动 Claw 时生成实例专用 TOML 配置文件，而不是通过环境变量传配置。
+- 对外流式聊天入口使用 WebSocket，推荐路径 `GET /v1/ws/chat`。
+- Gateway 对外使用 WebSocket 事件协议，对内到 Claw 仍可复用现有流式执行链路。
 
 ### Session Store
 
@@ -106,6 +108,7 @@ Session Store 使用 GORM + no-cgo SQLite 作为 MVP 唯一持久化方案。
 ### P1
 
 - 流式消息端到端测试。
+- Gateway 外部 WebSocket 聊天协议稳定化。
 - 强类型 AgentProfile contract。
 - run/run event 完整写入。
 - 同 session 并发保护。

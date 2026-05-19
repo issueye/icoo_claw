@@ -70,7 +70,7 @@ server/
 - `controller`: HTTP 入参、响应码、DTO 转换。
 - `service`: 业务流程、跨 repository/client 编排。
 - `repository`: 数据访问。Gateway 和 Session Store 都使用 GORM repository。
-- `client`: 服务间 HTTP/SSE 客户端。
+- `client`: 服务间 HTTP / WebSocket / 内部流式客户端。
 - `di`: 手动组装 config、DB、repository、service、controller、router。
 - `model`: GORM 或业务实体，不直接暴露到 HTTP。
 - `dto`: 对外 API request/response。
@@ -100,7 +100,7 @@ flowchart TB
 
 ```mermaid
 flowchart TB
-  API["External REST/SSE API"] --> Controllers["Controllers"]
+  API["External REST/WebSocket API"] --> Controllers["Controllers"]
   Controllers --> Services["Services"]
   Services --> Repos["GORM Repositories"]
   Services --> InstanceSvc["Agent Instance Service"]
@@ -126,6 +126,14 @@ flowchart TB
 - `failed`: 健康检查失败或启动失败。
 
 Gateway 启动 Claw 时会生成实例专用 TOML 配置文件，并使用 `claw --config <file>` 启动。
+
+Gateway 外部流式通道使用 WebSocket：
+
+- `GET /v1/ws/chat`
+- client -> gateway: `chat.start` / `chat.cancel` / `ping`
+- gateway -> client: `session.accepted` / `message.delta` / `message.completed` / `message.error` / `cancel.accepted` / `pong`
+
+Gateway 当前仍复用到 Claw 的既有流式执行链路，对外只负责把内部 stream event 翻译成 WebSocket 事件。
 
 ## Session Store 内部架构
 

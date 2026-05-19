@@ -1,13 +1,21 @@
 package main
 
 import (
+	"flag"
 	"log"
 
 	"icoo_claw/server/session_store/internal/di"
 )
 
+var (
+	cfgPath string
+)
+
 func main() {
-	container, err := di.NewContainer()
+	flag.StringVar(&cfgPath, "config", "runtime/config/session_store.toml", "config file path")
+	flag.Parse()
+
+	container, err := di.NewContainer(cfgPath)
 	if err != nil {
 		log.Fatalf("session store init failed: %v", err)
 	}

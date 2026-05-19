@@ -1,0 +1,21 @@
+package dto
+
+type ChatWSRequest struct {
+	Type           string         `json:"type"`
+	ConversationID string         `json:"conversation_id,omitempty"`
+	Prompt         string         `json:"prompt,omitempty"`
+	RequestID      string         `json:"request_id,omitempty"`
+	Metadata       map[string]any `json:"metadata,omitempty"`
+}
+
+type ChatWSResponse struct {
+	Type           string         `json:"type"`
+	ConversationID string         `json:"conversation_id,omitempty"`
+	SessionID      string         `json:"session_id,omitempty"`
+	RequestID      string         `json:"request_id,omitempty"`
+	Output         string         `json:"output,omitempty"`
+	StopReason     string         `json:"stop_reason,omitempty"`
+	Code           string         `json:"code,omitempty"`
+	Error          string         `json:"error,omitempty"`
+	Metadata       map[string]any `json:"metadata,omitempty"`
+}
