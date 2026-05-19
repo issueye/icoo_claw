@@ -34,6 +34,8 @@
 
 下一步优先做“可视化验收和 chat preview 设计”，而不是直接替换 chat 主消息渲染：
 
+2026-05-20 的具体执行计划见：`docs/plans/2026-05-20-development-plan.md`。
+
 1. 补自动化浏览器测试，覆盖 button click、input update、table rowSelect 这些真实事件路径。
 2. 设计 `0.2.0 chat preview` 的 feature flag、metadata 协议、宿主 action 注入清单和失败回退策略。
 3. 继续增强基础组件：checkbox、switch、tag、divider、image，并补充主题变量和移动端布局验证。
