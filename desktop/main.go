@@ -43,6 +43,10 @@ func main() {
 	app.Window.NewWithOptions(application.WebviewWindowOptions{
 		Title:     appName,
 		Frameless: true,
+		MinWidth:  1200,
+		MinHeight: 900,
+		Width:     1200,
+		Height:    900,
 		Mac: application.MacWindow{
 			InvisibleTitleBarHeight: 50,
 			Backdrop:                application.MacBackdropTranslucent,
