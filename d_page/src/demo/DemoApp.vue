@@ -5,6 +5,7 @@ import chatToolResultSchema from '../schemas/examples/chat-tool-result.json'
 import simpleFormSchema from '../schemas/examples/simple-form.json'
 import tableCardSchema from '../schemas/examples/table-card.json'
 import liveInputPreviewSchema from '../schemas/examples/live-input-preview.json'
+import componentGallerySchema from '../schemas/examples/component-gallery.json'
 
 const examples = [
   {
@@ -30,6 +31,12 @@ const examples = [
     label: '即时输入预览',
     description: '验证 input、select、textarea、alert、stat、list 等组件的实时绑定效果。',
     schema: liveInputPreviewSchema,
+  },
+  {
+    id: 'component-gallery',
+    label: '组件 Gallery',
+    description: '验证 tag、divider、checkbox、switch、image 的基础展示和降级状态。',
+    schema: componentGallerySchema,
   },
 ]
 

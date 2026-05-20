@@ -7,7 +7,9 @@
   "state": {
     "title": "组件包进度",
     "tone": "success",
-    "notes": "输入内容会马上显示在右侧预览。"
+    "notes": "输入内容会马上显示在右侧预览。",
+    "confirmed": true,
+    "compactMode": false
   },
   "data": {
     "quickTips": [
@@ -44,6 +46,20 @@
       "type": "setState",
       "payload": {
         "path": "notes",
+        "value": "{{ context.value }}"
+      }
+    },
+    "updateConfirmed": {
+      "type": "setState",
+      "payload": {
+        "path": "confirmed",
+        "value": "{{ context.value }}"
+      }
+    },
+    "updateCompactMode": {
+      "type": "setState",
+      "payload": {
+        "path": "compactMode",
         "value": "{{ context.value }}"
       }
     }
@@ -168,6 +184,41 @@
                 "input": "updateNotes"
               }
             }
+          },
+          {
+            "id": "confirmedCheckbox",
+            "type": "card",
+            "kind": "form",
+            "component": {
+              "type": "checkbox",
+              "props": {
+                "name": "confirmed",
+                "label": "确认预览内容可用",
+                "modelValue": "{{ state.confirmed }}",
+                "hint": "布尔值通过 change 事件写入 state。"
+              },
+              "events": {
+                "change": "updateConfirmed"
+              }
+            }
+          },
+          {
+            "id": "compactSwitch",
+            "type": "card",
+            "kind": "form",
+            "component": {
+              "type": "switch",
+              "props": {
+                "name": "compactMode",
+                "label": "紧凑模式",
+                "modelValue": "{{ state.compactMode }}",
+                "onText": "已开启",
+                "offText": "未开启"
+              },
+              "events": {
+                "change": "updateCompactMode"
+              }
+            }
           }
         ]
       },
@@ -200,6 +251,41 @@
                 "hint": "来自 stat 组件"
               }
             }
+          },
+          {
+            "id": "previewStatusTags",
+            "type": "card",
+            "kind": "layout",
+            "layout": {
+              "mode": "flex",
+              "gap": "sm"
+            },
+            "children": [
+              {
+                "id": "confirmedTag",
+                "type": "card",
+                "kind": "display",
+                "component": {
+                  "type": "tag",
+                  "props": {
+                    "label": "{{ state.confirmed }}",
+                    "tone": "success"
+                  }
+                }
+              },
+              {
+                "id": "compactTag",
+                "type": "card",
+                "kind": "display",
+                "component": {
+                  "type": "tag",
+                  "props": {
+                    "label": "紧凑模式：{{ state.compactMode }}",
+                    "tone": "accent"
+                  }
+                }
+              }
+            ]
           },
           {
             "id": "previewAlert",
