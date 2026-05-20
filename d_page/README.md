@@ -25,7 +25,7 @@ npm run test
 npm run build
 ```
 
-`npm run demo` starts a local playground at [http://127.0.0.1:9360](http://127.0.0.1:9360). It lets you switch between the three bundled schemas and inspect runtime state, data, host events, and adapter calls.
+`npm run demo` starts a local playground at [http://127.0.0.1:9360](http://127.0.0.1:9360). It lets you switch between the bundled schemas and inspect runtime state, data, host events, and adapter calls.
 
 ## Basic Usage
 
@@ -70,28 +70,29 @@ const runtime = createDPageRuntime({
 - `createDPageRuntime`: creates schema, state, data, context and action runtime.
 - `createComponentRegistry`: lets hosts register or replace renderable components.
 - `createActionRegistry`: lets hosts register safe action handlers.
-- `defaultComponents`: built-in `text`, `heading`, `button`, `input`, `textarea`, `select`, `cardSurface`, `table`, `alert`, `stat`, `list`.
+- `defaultComponents`: built-in `text`, `heading`, `button`, `input`, `textarea`, `select`, `checkbox`, `switch`, `cardSurface`, `table`, `alert`, `stat`, `list`, `tag`, `divider`, `image`.
 - `defaultActions`: built-in `setState`, `emit`, `copyText`, `openUrl`, `chain`.
 - `normalizeSchema`, `validateSchema`, `resolveBinding`, `executeAction`: runtime utilities.
 
 ## Example Schemas
 
-The package includes three MVP examples under `src/schemas/examples`:
+The package includes MVP examples under `src/schemas/examples`:
 
 - `chat-tool-result.json`: a chat-friendly result card with copy and detail actions.
 - `simple-form.json`: an input and button flow backed by `setState`.
 - `table-card.json`: a table bound to `data.rows` with row selection.
 - `live-input-preview.json`: a live editing demo using input, select, textarea, alert, stat and list.
+- `component-gallery.json`: a compact gallery for tag, divider, checkbox, switch and image fallbacks.
 
 ## Built-in Components
 
 The current MVP component set includes:
 
-- Display: `text`, `heading`, `alert`, `stat`, `list`, `cardSurface`.
-- Controls: `button`, `input`, `textarea`, `select`.
+- Display: `text`, `heading`, `alert`, `stat`, `list`, `cardSurface`, `tag`, `divider`, `image`.
+- Controls: `button`, `input`, `textarea`, `select`, `checkbox`, `switch`.
 - Data: `table`.
 
-Controls emit interaction events such as `input`, `change`, `click`, and `rowSelect`. They do not mutate global state directly; schema actions decide how events update runtime state.
+Controls emit interaction events such as `input`, `change`, `click`, and `rowSelect`. They do not mutate global state directly; schema actions decide how events update runtime state. Image and display components provide empty or failure fallback text through props such as `emptyText` and `errorText`.
 
 The schema entry point is always `root`, and every rendered node is a card:
 

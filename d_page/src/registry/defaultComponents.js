@@ -9,6 +9,11 @@ import DTable from '../components/base/DTable.vue'
 import DAlert from '../components/base/DAlert.vue'
 import DStat from '../components/base/DStat.vue'
 import DList from '../components/base/DList.vue'
+import DTag from '../components/base/DTag.vue'
+import DDivider from '../components/base/DDivider.vue'
+import DCheckbox from '../components/base/DCheckbox.vue'
+import DSwitch from '../components/base/DSwitch.vue'
+import DImage from '../components/base/DImage.vue'
 
 export const defaultComponents = {
   text: DText,
@@ -22,6 +27,11 @@ export const defaultComponents = {
   alert: DAlert,
   stat: DStat,
   list: DList,
+  tag: DTag,
+  divider: DDivider,
+  checkbox: DCheckbox,
+  switch: DSwitch,
+  image: DImage,
 }
 
 export default defaultComponents

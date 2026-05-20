@@ -10,6 +10,7 @@ const exampleNames = [
   'simple-form.json',
   'table-card.json',
   'live-input-preview.json',
+  'component-gallery.json',
 ]
 
 describe('example schemas', () => {
