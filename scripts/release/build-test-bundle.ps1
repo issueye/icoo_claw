@@ -35,6 +35,24 @@ function Assert-Command {
   }
 }
 
+function Invoke-Native {
+  param(
+    [string]$FilePath,
+    [string[]]$ArgumentList,
+    [string]$WorkingDirectory = $repoRoot
+  )
+
+  Push-Location $WorkingDirectory
+  try {
+    & $FilePath @ArgumentList
+    if ($LASTEXITCODE -ne 0) {
+      throw "$FilePath failed with exit code $LASTEXITCODE"
+    }
+  } finally {
+    Pop-Location
+  }
+}
+
 Assert-Command "go"
 Assert-Command "wails3"
 
@@ -65,18 +83,13 @@ foreach ($dir in @(
 }
 
 Write-Host "Building claw.exe..."
-& go build -o (Join-Path $binDir "claw.exe") "./server/claw/cmd/claw"
+Invoke-Native -FilePath "go" -ArgumentList @("build", "-o", (Join-Path $binDir "claw.exe"), "./server/claw/cmd/claw")
 
 Write-Host "Building gateway.exe..."
-& go build -o (Join-Path $binDir "gateway.exe") "./server/gateway/cmd/gateway"
+Invoke-Native -FilePath "go" -ArgumentList @("build", "-o", (Join-Path $binDir "gateway.exe"), "./server/gateway/cmd/gateway")
 
 Write-Host "Building desktop.exe..."
-Push-Location (Join-Path $repoRoot "desktop")
-try {
-  & wails3 build
-} finally {
-  Pop-Location
-}
+Invoke-Native -FilePath "wails3" -ArgumentList @("build") -WorkingDirectory (Join-Path $repoRoot "desktop")
 
 $desktopExe = Join-Path $repoRoot "desktop\bin\desktop.exe"
 if (-not (Test-Path $desktopExe)) {

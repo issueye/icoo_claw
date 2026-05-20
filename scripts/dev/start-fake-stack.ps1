@@ -36,6 +36,24 @@ function Write-Utf8NoBom {
   [System.IO.File]::WriteAllText($Path, $Content, $encoding)
 }
 
+function Invoke-Native {
+  param(
+    [string]$FilePath,
+    [string[]]$ArgumentList,
+    [string]$WorkingDirectory = $repoRoot
+  )
+
+  Push-Location $WorkingDirectory
+  try {
+    & $FilePath @ArgumentList
+    if ($LASTEXITCODE -ne 0) {
+      throw "$FilePath failed with exit code $LASTEXITCODE"
+    }
+  } finally {
+    Pop-Location
+  }
+}
+
 function Stop-ByPidFile {
   param([string]$Name)
 
@@ -81,8 +99,8 @@ if (-not $PreserveData) {
 }
 
 Write-Host "Building local binaries..."
-& go build -o (Join-Path $binDir "claw.exe") "./server/claw/cmd/claw"
-& go build -o (Join-Path $binDir "gateway.exe") "./server/gateway/cmd/gateway"
+Invoke-Native -FilePath "go" -ArgumentList @("build", "-o", (Join-Path $binDir "claw.exe"), "./server/claw/cmd/claw")
+Invoke-Native -FilePath "go" -ArgumentList @("build", "-o", (Join-Path $binDir "gateway.exe"), "./server/gateway/cmd/gateway")
 
 $gatewayConfig = @"
 http_addr = "127.0.0.1:$gatewayPort"
@@ -221,7 +239,7 @@ if ($StartPreview) {
     Write-Host "Building desktop frontend..."
     Push-Location $frontendDir
     try {
-      npm run build
+      Invoke-Native -FilePath "npm.cmd" -ArgumentList @("run", "build") -WorkingDirectory $frontendDir
     } finally {
       Pop-Location
     }

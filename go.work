@@ -2,7 +2,6 @@ go 1.25.0
 
 use (
 	./desktop
-	./desktop_spike
 	./server/claw
 	./server/gateway
 )
