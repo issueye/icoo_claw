@@ -10,9 +10,17 @@ import (
 	"icoo_claw/server/gateway/internal/repository"
 )
 
-type SessionStore interface {
-	CreateSession(ctx context.Context, req client.CreateSessionRequest) error
+type SessionBackend interface {
+	CreateSession(ctx context.Context, req SessionCreateRequest) error
 	ListMessages(ctx context.Context, sessionID string) ([]dto.SessionMessage, error)
+}
+
+type SessionCreateRequest struct {
+	SessionID string
+	UserID    string
+	AgentID   string
+	Title     string
+	Metadata  map[string]any
 }
 
 type AgentRunner interface {
@@ -24,16 +32,16 @@ type ChatService struct {
 	conversations repository.ConversationRepository
 	agents        repository.AgentRepository
 	router        RouterPolicy
-	sessionStore  SessionStore
+	sessions      SessionBackend
 	claw          AgentRunner
 }
 
-func NewChatService(conversations repository.ConversationRepository, agents repository.AgentRepository, router RouterPolicy, sessionStore SessionStore, claw AgentRunner) *ChatService {
+func NewChatService(conversations repository.ConversationRepository, agents repository.AgentRepository, router RouterPolicy, sessions SessionBackend, claw AgentRunner) *ChatService {
 	return &ChatService{
 		conversations: conversations,
 		agents:        agents,
 		router:        router,
-		sessionStore:  sessionStore,
+		sessions:      sessions,
 		claw:          claw,
 	}
 }
@@ -53,7 +61,7 @@ func (s *ChatService) CreateConversation(ctx context.Context, req dto.CreateConv
 		CreatedAt: now,
 		UpdatedAt: now,
 	}
-	if err := s.sessionStore.CreateSession(ctx, client.CreateSessionRequest{
+	if err := s.sessions.CreateSession(ctx, SessionCreateRequest{
 		SessionID: conversation.SessionID,
 		UserID:    conversation.UserID,
 		AgentID:   conversation.AgentID,
@@ -85,7 +93,7 @@ func (s *ChatService) ListMessages(ctx context.Context, conversationID string) (
 	if err != nil {
 		return nil, err
 	}
-	return s.sessionStore.ListMessages(ctx, conversation.SessionID)
+	return s.sessions.ListMessages(ctx, conversation.SessionID)
 }
 
 func (s *ChatService) SendMessage(ctx context.Context, conversationID string, req dto.SendMessageRequest) (*dto.ChatResponse, error) {

@@ -24,7 +24,7 @@ type childProcess struct {
 	done chan error
 }
 
-func TestThreeServiceConversationE2E(t *testing.T) {
+func TestGatewayConversationE2E(t *testing.T) {
 	if testing.Short() {
 		t.Skip("skipping e2e process test in short mode")
 	}
@@ -37,31 +37,18 @@ func TestThreeServiceConversationE2E(t *testing.T) {
 
 	gatewayBin := filepath.Join(binDir, exeName("gateway"))
 	clawBin := filepath.Join(binDir, exeName("claw"))
-	sessionStoreBin := filepath.Join(binDir, exeName("session_store"))
 	buildBinary(t, gatewayBin, "./cmd/gateway")
 	buildBinary(t, clawBin, "../claw/cmd/claw")
-	buildBinary(t, sessionStoreBin, "../session_store/cmd/session_store")
 
-	sessionPort := freePort(t)
 	gatewayPort := freePort(t)
 	clawPort := freePort(t)
 	token := "e2e-token"
-
-	sessionConfig := filepath.Join(tmp, "session_store.toml")
-	writeFile(t, sessionConfig, fmt.Sprintf(`
-http_addr = "127.0.0.1:%d"
-db_path = %q
-`, sessionPort, slashPath(filepath.Join(tmp, "session_store.sqlite"))))
-
-	sessionProc := startProcess(t, "session_store", sessionStoreBin, "--config", sessionConfig)
-	defer sessionProc.stop()
-	waitHealth(t, sessionProc, fmt.Sprintf("http://127.0.0.1:%d/health", sessionPort))
 
 	gatewayConfig := filepath.Join(tmp, "gateway.toml")
 	writeFile(t, gatewayConfig, fmt.Sprintf(`
 http_addr = "127.0.0.1:%d"
 db_path = %q
-session_store_url = "http://127.0.0.1:%d"
+session_api_url = "http://127.0.0.1:%d"
 internal_token = %q
 claw_binary_path = %q
 claw_config_dir = %q
@@ -71,7 +58,7 @@ claw_port_end = %d
 max_agent_instances = 1
 health_interval_seconds = 1
 shutdown_timeout_seconds = 1
-`, gatewayPort, slashPath(filepath.Join(tmp, "gateway.sqlite")), sessionPort, token, slashPath(clawBin), slashPath(filepath.Join(tmp, "claw-configs")), clawPort, clawPort))
+`, gatewayPort, slashPath(filepath.Join(tmp, "gateway.sqlite")), gatewayPort, token, slashPath(clawBin), slashPath(filepath.Join(tmp, "claw-configs")), clawPort, clawPort))
 
 	gatewayProc := startProcess(t, "gateway", gatewayBin, "--config", gatewayConfig)
 	defer gatewayProc.stop()

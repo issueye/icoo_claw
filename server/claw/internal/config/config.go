@@ -9,17 +9,17 @@ import (
 )
 
 type Config struct {
-	HTTPAddr        string
-	SessionStoreURL string
-	InternalToken   string
-	RunnerMode      string
+	HTTPAddr      string
+	SessionAPIURL string
+	InternalToken string
+	RunnerMode    string
 }
 
 type fileConfig struct {
-	HTTPAddr        string `toml:"http_addr"`
-	SessionStoreURL string `toml:"session_store_url"`
-	InternalToken   string `toml:"internal_token"`
-	RunnerMode      string `toml:"runner_mode"`
+	HTTPAddr      string `toml:"http_addr"`
+	SessionAPIURL string `toml:"session_api_url"`
+	InternalToken string `toml:"internal_token"`
+	RunnerMode    string `toml:"runner_mode"`
 }
 
 func Load() Config {
@@ -49,8 +49,8 @@ func LoadFile(path string) (Config, error) {
 	if file.HTTPAddr != "" {
 		cfg.HTTPAddr = file.HTTPAddr
 	}
-	if file.SessionStoreURL != "" {
-		cfg.SessionStoreURL = file.SessionStoreURL
+	if file.SessionAPIURL != "" {
+		cfg.SessionAPIURL = file.SessionAPIURL
 	}
 	if file.InternalToken != "" {
 		cfg.InternalToken = file.InternalToken
@@ -76,8 +76,8 @@ func configPath(fallback string) string {
 
 func defaults() Config {
 	return Config{
-		HTTPAddr:        ":8081",
-		SessionStoreURL: "http://127.0.0.1:8082",
-		RunnerMode:      "sdk",
+		HTTPAddr:      ":8081",
+		SessionAPIURL: "http://127.0.0.1:8080",
+		RunnerMode:    "sdk",
 	}
 }

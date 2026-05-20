@@ -8,8 +8,8 @@ import (
 	"strings"
 	"time"
 
-	"icoo_claw/server/session_store/internal/model"
-	"icoo_claw/server/session_store/internal/repository"
+	"icoo_claw/server/gateway/internal/sessionstore/model"
+	"icoo_claw/server/gateway/internal/sessionstore/repository"
 )
 
 type SessionService struct {

@@ -25,7 +25,7 @@ func NewContainer(cfgPath string) (*Container, error) {
 		return nil, fmt.Errorf("load claw config: %w", err)
 	}
 
-	sessionClient := sessionstore.NewClient(cfg.SessionStoreURL, nil)
+	sessionClient := sessionstore.NewClient(cfg.SessionAPIURL, nil)
 	historyAdapter := agent_sdk.NewHistoryAdapter(sessionClient)
 	runner := agent_sdk.Runner(agent_sdk.NewFakeRunner(historyAdapter))
 	if strings.ToLower(strings.TrimSpace(cfg.RunnerMode)) != "fake" {

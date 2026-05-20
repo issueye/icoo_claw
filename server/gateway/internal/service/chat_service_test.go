@@ -86,15 +86,15 @@ func (r *chatInstanceRepo) AdjustInflight(_ context.Context, id string, delta in
 	return nil
 }
 
-type chatSessionStore struct {
+type chatSessionBackend struct {
 	created bool
 }
 
-func (s *chatSessionStore) CreateSession(context.Context, client.CreateSessionRequest) error {
+func (s *chatSessionBackend) CreateSession(context.Context, SessionCreateRequest) error {
 	s.created = true
 	return nil
 }
-func (s *chatSessionStore) ListMessages(context.Context, string) ([]dto.SessionMessage, error) {
+func (s *chatSessionBackend) ListMessages(context.Context, string) ([]dto.SessionMessage, error) {
 	return []dto.SessionMessage{{Role: "user", Content: "hello", CreatedAt: time.Now()}}, nil
 }
 
@@ -122,17 +122,17 @@ func TestChatServiceCreateAndSendMessage(t *testing.T) {
 		Status:  "ready",
 		BaseURL: "http://127.0.0.1:8101",
 	}}
-	sessionStore := &chatSessionStore{}
+	sessionBackend := &chatSessionBackend{}
 	claw := &chatClaw{}
 	router := NewDefaultRouterPolicy(conversations, instances, nil)
-	svc := NewChatService(conversations, chatAgentRepo{}, router, sessionStore, claw)
+	svc := NewChatService(conversations, chatAgentRepo{}, router, sessionBackend, claw)
 
 	conv, err := svc.CreateConversation(context.Background(), dto.CreateConversationRequest{AgentID: "agent_1", Title: "Test"})
 	if err != nil {
 		t.Fatalf("create conversation: %v", err)
 	}
-	if !sessionStore.created {
-		t.Fatal("expected session store create")
+	if !sessionBackend.created {
+		t.Fatal("expected session create")
 	}
 
 	resp, err := svc.SendMessage(context.Background(), conv.ID, dto.SendMessageRequest{Prompt: "hello", RequestID: "req_1"})
@@ -206,7 +206,7 @@ func TestChatServiceUsesStickyInstance(t *testing.T) {
 	}}
 	claw := &chatClaw{}
 	router := NewDefaultRouterPolicy(conversations, instances, nil)
-	svc := NewChatService(conversations, chatAgentRepo{}, router, &chatSessionStore{}, claw)
+	svc := NewChatService(conversations, chatAgentRepo{}, router, &chatSessionBackend{}, claw)
 
 	if _, err := svc.SendMessage(context.Background(), "conv_1", dto.SendMessageRequest{Prompt: "hello"}); err != nil {
 		t.Fatalf("send message: %v", err)
@@ -232,7 +232,7 @@ func TestChatServiceStartsInstanceWhenNoneReady(t *testing.T) {
 	)
 	router := NewDefaultRouterPolicy(conversations, instances, starter)
 	claw := &chatClaw{}
-	svc := NewChatService(conversations, chatAgentRepo{}, router, &chatSessionStore{}, claw)
+	svc := NewChatService(conversations, chatAgentRepo{}, router, &chatSessionBackend{}, claw)
 
 	if _, err := svc.SendMessage(context.Background(), "conv_1", dto.SendMessageRequest{Prompt: "hello"}); err != nil {
 		t.Fatalf("send message: %v", err)
@@ -270,7 +270,7 @@ func TestChatServiceRefreshesAndSkipsFailedStickyInstance(t *testing.T) {
 	)
 	router := NewDefaultRouterPolicy(conversations, instances, starter)
 	claw := &chatClaw{}
-	svc := NewChatService(conversations, chatAgentRepo{}, router, &chatSessionStore{}, claw)
+	svc := NewChatService(conversations, chatAgentRepo{}, router, &chatSessionBackend{}, claw)
 
 	if _, err := svc.SendMessage(context.Background(), "conv_1", dto.SendMessageRequest{Prompt: "hello"}); err != nil {
 		t.Fatalf("send message: %v", err)

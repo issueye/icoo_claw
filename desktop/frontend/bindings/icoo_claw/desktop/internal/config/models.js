@@ -55,6 +55,48 @@ export class GatewaySettings {
     }
 }
 
+export class ProjectSettings {
+    /**
+     * Creates a new ProjectSettings instance.
+     * @param {Partial<ProjectSettings>} [$$source = {}] - The source object to create the ProjectSettings.
+     */
+    constructor($$source = {}) {
+        if (!("id" in $$source)) {
+            /**
+             * @member
+             * @type {string}
+             */
+            this["id"] = "";
+        }
+        if (!("name" in $$source)) {
+            /**
+             * @member
+             * @type {string}
+             */
+            this["name"] = "";
+        }
+        if (!("rootDir" in $$source)) {
+            /**
+             * @member
+             * @type {string}
+             */
+            this["rootDir"] = "";
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new ProjectSettings instance from a string or object.
+     * @param {any} [$$source = {}]
+     * @returns {ProjectSettings}
+     */
+    static createFrom($$source = {}) {
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        return new ProjectSettings(/** @type {Partial<ProjectSettings>} */($$parsedSource));
+    }
+}
+
 export class Settings {
     /**
      * Creates a new Settings instance.
@@ -75,6 +117,20 @@ export class Settings {
              */
             this["workspace"] = (new WorkspaceSettings());
         }
+        if (!("projects" in $$source)) {
+            /**
+             * @member
+             * @type {ProjectSettings[]}
+             */
+            this["projects"] = [];
+        }
+        if (!("currentProjectId" in $$source)) {
+            /**
+             * @member
+             * @type {string}
+             */
+            this["currentProjectId"] = "";
+        }
         if (!("ui" in $$source)) {
             /**
              * @member
@@ -94,7 +150,8 @@ export class Settings {
     static createFrom($$source = {}) {
         const $$createField0_0 = $$createType0;
         const $$createField1_0 = $$createType1;
-        const $$createField2_0 = $$createType2;
+        const $$createField2_0 = $$createType3;
+        const $$createField4_0 = $$createType4;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         if ("gateway" in $$parsedSource) {
             $$parsedSource["gateway"] = $$createField0_0($$parsedSource["gateway"]);
@@ -102,8 +159,11 @@ export class Settings {
         if ("workspace" in $$parsedSource) {
             $$parsedSource["workspace"] = $$createField1_0($$parsedSource["workspace"]);
         }
+        if ("projects" in $$parsedSource) {
+            $$parsedSource["projects"] = $$createField2_0($$parsedSource["projects"]);
+        }
         if ("ui" in $$parsedSource) {
-            $$parsedSource["ui"] = $$createField2_0($$parsedSource["ui"]);
+            $$parsedSource["ui"] = $$createField4_0($$parsedSource["ui"]);
         }
         return new Settings(/** @type {Partial<Settings>} */($$parsedSource));
     }
@@ -168,4 +228,6 @@ export class WorkspaceSettings {
 // Private type creation functions
 const $$createType0 = GatewaySettings.createFrom;
 const $$createType1 = WorkspaceSettings.createFrom;
-const $$createType2 = UISettings.createFrom;
+const $$createType2 = ProjectSettings.createFrom;
+const $$createType3 = $Create.Array($$createType2);
+const $$createType4 = UISettings.createFrom;

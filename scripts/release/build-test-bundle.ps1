@@ -64,9 +64,6 @@ foreach ($dir in @(
   New-Item -ItemType Directory -Force -Path $dir | Out-Null
 }
 
-Write-Host "Building session_store.exe..."
-& go build -o (Join-Path $binDir "session_store.exe") "./server/session_store/cmd/session_store"
-
 Write-Host "Building claw.exe..."
 & go build -o (Join-Path $binDir "claw.exe") "./server/claw/cmd/claw"
 
@@ -99,7 +96,6 @@ $dataDir = Join-Path $runtimeRoot "data"
 $logDir = Join-Path $runtimeRoot "logs"
 $runDir = Join-Path $runtimeRoot "run"
 
-$sessionPort = 8082
 $gatewayPort = 8080
 $clawPortStart = 8101
 $clawPortEnd = 8108
@@ -170,22 +166,14 @@ function Wait-Health {
 }
 
 Stop-ByPidFile "gateway"
-Stop-ByPidFile "session_store"
 Stop-PackageClawProcesses
 
-$sessionConfigPath = Join-Path $configDir "session_store.toml"
 $gatewayConfigPath = Join-Path $configDir "gateway.toml"
-
-$sessionConfig = @"
-http_addr = "127.0.0.1:$sessionPort"
-db_path = "$(Join-Path $dataDir "session_store.sqlite" | ForEach-Object { $_ -replace '\\','/' })"
-"@
-Write-Utf8NoBom -Path $sessionConfigPath -Content $sessionConfig
 
 $gatewayConfig = @"
 http_addr = "127.0.0.1:$gatewayPort"
 db_path = "$(Join-Path $dataDir "gateway.sqlite" | ForEach-Object { $_ -replace '\\','/' })"
-session_store_url = "http://127.0.0.1:$sessionPort"
+session_api_url = "http://127.0.0.1:$gatewayPort"
 internal_token = "$token"
 claw_binary_path = "$(Join-Path $binDir "claw.exe" | ForEach-Object { $_ -replace '\\','/' })"
 claw_work_dir = "$( $packageRoot -replace '\\','/' )"
@@ -199,17 +187,6 @@ shutdown_timeout_seconds = 2
 "@
 Write-Utf8NoBom -Path $gatewayConfigPath -Content $gatewayConfig
 
-Write-Host "Starting session_store..."
-$sessionProc = Start-Process `
-  -FilePath (Join-Path $binDir "session_store.exe") `
-  -ArgumentList @("--config", $sessionConfigPath) `
-  -WorkingDirectory $packageRoot `
-  -WindowStyle Hidden `
-  -RedirectStandardOutput (Join-Path $logDir "session_store.out.log") `
-  -RedirectStandardError (Join-Path $logDir "session_store.err.log") `
-  -PassThru
-Set-Content -Path (Join-Path $runDir "session_store.pid") -Value $sessionProc.Id -Encoding UTF8
-
 Write-Host "Starting gateway..."
 $gatewayProc = Start-Process `
   -FilePath (Join-Path $binDir "gateway.exe") `
@@ -221,7 +198,6 @@ $gatewayProc = Start-Process `
   -PassThru
 Set-Content -Path (Join-Path $runDir "gateway.pid") -Value $gatewayProc.Id -Encoding UTF8
 
-Wait-Health "session_store" "http://127.0.0.1:$sessionPort/health"
 Wait-Health "gateway" "http://127.0.0.1:$gatewayPort/health"
 
 Write-Host "Ensuring default agent..."
@@ -314,7 +290,6 @@ function Stop-DesktopProcess {
 
 Stop-DesktopProcess
 Stop-ByPidFile "gateway"
-Stop-ByPidFile "session_store"
 Stop-PackageClawProcesses
 '@
 Write-Utf8NoBom -Path (Join-Path $scriptDir "stop-stack.ps1") -Content $stopStackScript
@@ -496,7 +471,6 @@ Windows test package for the chat-first desktop client and local fake gateway st
 - `bin/desktop.exe`
 - `bin/gateway.exe`
 - `bin/claw.exe`
-- `bin/session_store.exe`
 - `start-test-app.cmd`
 - `stop-test-app.cmd`
 - `launch-desktop.cmd`
@@ -534,8 +508,6 @@ Write-Utf8NoBom -Path (Join-Path $bundleRoot "README.md") -Content $readme
 
 Copy-Item -LiteralPath (Join-Path $repoRoot "config\gateway.toml.example") -Destination (Join-Path $configDir "gateway.toml.example") -Force
 Copy-Item -LiteralPath (Join-Path $repoRoot "config\claw.toml.example") -Destination (Join-Path $configDir "claw.toml.example") -Force
-Copy-Item -LiteralPath (Join-Path $repoRoot "config\session_store.toml.example") -Destination (Join-Path $configDir "session_store.toml.example") -Force
-
 Write-Host "Creating zip archive..."
 [System.IO.Compression.ZipFile]::CreateFromDirectory($bundleRoot, $zipPath)
 

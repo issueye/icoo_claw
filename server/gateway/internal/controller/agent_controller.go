@@ -8,6 +8,7 @@ import (
 	"icoo_claw/server/gateway/internal/dto"
 	"icoo_claw/server/gateway/internal/repository"
 	"icoo_claw/server/gateway/internal/service"
+	sessionrepo "icoo_claw/server/gateway/internal/sessionstore/repository"
 
 	"github.com/gin-gonic/gin"
 )
@@ -75,8 +76,12 @@ func (a *AgentController) Delete(c *gin.Context) {
 }
 
 func writeGatewayRepositoryError(c *gin.Context, err error) {
-	if errors.Is(err, repository.ErrNotFound) {
+	if errors.Is(err, repository.ErrNotFound) || errors.Is(err, sessionrepo.ErrNotFound) {
 		writeGatewayError(c, http.StatusNotFound, "not_found", err)
+		return
+	}
+	if errors.Is(err, sessionrepo.ErrConflict) {
+		writeGatewayError(c, http.StatusConflict, "revision_conflict", err)
 		return
 	}
 	var downstream *client.HTTPError

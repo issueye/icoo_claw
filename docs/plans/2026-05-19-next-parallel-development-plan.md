@@ -9,7 +9,7 @@ Build on the desktop project-management and fake-stack E2E work by turning the n
 The previous parallel pass delivered:
 
 - Local desktop project settings: `projects`, `currentProjectId`, project CRUD, sidebar project switcher.
-- Fake-stack startup: `session_store`, `gateway`, default fake agent, ready fake agent instance, Vite preview, Playwright smoke.
+- Fake-stack startup: `gateway`, `gateway`, default fake agent, ready fake agent instance, Vite preview, Playwright smoke.
 - Passing checks: frontend unit tests, frontend build, desktop Go tests, three backend service test suites, UI smoke.
 
 Open context to respect:
@@ -119,10 +119,11 @@ Push-Location .\server\claw
 go test ./...
 Pop-Location
 
-Push-Location .\server\session_store
+Push-Location .\server\gateway
 go test ./...
 Pop-Location
 
 .\scripts\dev\run-ui-smoke.ps1
 ```
+
 

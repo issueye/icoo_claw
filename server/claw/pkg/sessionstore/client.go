@@ -146,7 +146,7 @@ func (c *Client) doJSON(ctx context.Context, method, path string, body any, expe
 
 	if resp.StatusCode != expected {
 		payload, _ := io.ReadAll(io.LimitReader(resp.Body, 4096))
-		return fmt.Errorf("session store %s %s: status %d: %s", method, path, resp.StatusCode, strings.TrimSpace(string(payload)))
+		return fmt.Errorf("session api %s %s: status %d: %s", method, path, resp.StatusCode, strings.TrimSpace(string(payload)))
 	}
 	if out == nil {
 		return nil

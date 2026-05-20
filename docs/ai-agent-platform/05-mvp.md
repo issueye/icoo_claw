@@ -2,12 +2,12 @@
 
 ## MVP 目标
 
-用最小实现验证三服务架构：
+用最小实现验证 Gateway/Claw 双服务架构：
 
 - Gateway 作为唯一入口。
 - Gateway 可以启动和管理多个本机 Claw Agent 服务实例。
 - Claw 集成 `agentsdk-go`，并提供 fake runner 用于稳定测试。
-- Session Store 使用 GORM + no-cgo SQLite 保存并恢复会话。
+- Gateway Session API 使用 GORM + no-cgo SQLite 保存并恢复会话。
 - 同步对话能完整跑通。
 
 ## 必须完成
@@ -28,10 +28,10 @@ Claw:
 - `/internal/agent/run/stream`。
 - `pkg/agent_sdk` 封装 Runtime。
 - fake runner。
-- 从 Session Store 加载历史。
+- 从 Gateway Session API 加载历史。
 - 执行后保存历史 snapshot。
 
-Session Store:
+Gateway Session API:
 
 - GORM + `github.com/glebarez/sqlite`。
 - Session CRUD/list。
@@ -41,12 +41,12 @@ Session Store:
 
 配置:
 
-- 三服务使用 TOML。
+- Gateway/Claw 使用 TOML。
 - Gateway 启动 Claw 实例时生成 TOML 文件。
 
 ## 暂不完成
 
-- 额外兼容协议。
+- 额外外部协议。
 - 非 GORM 的会话持久化实现。
 - 多租户/RBAC。
 - 完整 MCP 工具探测与热重载。
@@ -76,14 +76,13 @@ GET    /v1/conversations
 GET    /v1/conversations/:id/messages
 POST   /v1/conversations/:id/messages
 GET    /v1/ws/chat
-POST   /v1/conversations/:id/stream
 DELETE /v1/conversations/:id
 ```
 
 说明：
 
 - `GET /v1/ws/chat` 是当前推荐的外部流式聊天入口。
-- `POST /v1/conversations/:id/stream` 在 MVP 中可暂时保留为兼容接口，但新桌面端不再依赖它。
+- `GET /v1/ws/chat` 是新桌面端使用的流式入口。
 
 Claw:
 
@@ -93,7 +92,7 @@ POST /internal/agent/run
 POST /internal/agent/run/stream
 ```
 
-Session Store:
+Gateway Session API:
 
 ```text
 GET    /health
@@ -115,16 +114,15 @@ POST   /v1/sessions/:session_id/runs/:run_id/events
 
 ### 用例 1：创建会话并同步对话
 
-1. 启动 Session Store。
-2. 启动 Gateway。
-3. 创建 AgentProfile。
-4. 创建 Conversation。
-5. 调用 `POST /v1/conversations/:id/messages`。
-6. Gateway 自动拉起 fake Claw。
-7. Claw 从 Session Store 加载历史。
-8. Claw 保存 user/assistant snapshot。
-9. Gateway 返回 assistant output。
-10. 查询 messages，能看到 user 与 assistant 消息。
+1. 启动 Gateway。
+2. 创建 AgentProfile。
+3. 创建 Conversation。
+4. 调用 `POST /v1/conversations/:id/messages`。
+5. Gateway 自动拉起 fake Claw。
+6. Claw 从 Gateway Session API 加载历史。
+7. Claw 保存 user/assistant snapshot。
+8. Gateway 返回 assistant output。
+9. 查询 messages，能看到 user 与 assistant 消息。
 
 ### 用例 2：同一会话二次对话
 
@@ -151,7 +149,8 @@ POST   /v1/sessions/:session_id/runs/:run_id/events
 ## MVP 完成标准
 
 - Windows 本地可以无 CGO 编译运行。
-- 三服务 `go test ./...` 通过。
-- 三服务进程级端到端测试通过。
-- Session Store SQLite 文件中能恢复会话。
+- Gateway/Claw `go test ./...` 通过。
+- Gateway/Claw 进程级端到端测试通过。
+- Gateway Session API SQLite 文件中能恢复会话。
 - 关键错误有统一 JSON 响应。
+

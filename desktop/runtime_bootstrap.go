@@ -20,7 +20,6 @@ import (
 const (
 	defaultGatewayBaseURL = "http://127.0.0.1:8080"
 	defaultGatewayPort    = 8080
-	defaultSessionPort    = 8082
 	defaultClawPortStart  = 8101
 	defaultClawPortEnd    = 8108
 	defaultInternalToken  = "dev-internal-token"
@@ -42,6 +41,57 @@ func (m *BundledGatewayManager) EnsureBundledGateway(baseURL, programPath, confi
 		appendBootstrapLog("", "skip non-local base url", map[string]string{"base_url": target})
 		return false, nil
 	}
+
+	programPath = strings.TrimSpace(programPath)
+	configPath = strings.TrimSpace(configPath)
+	packageRoot, selectedPackage, err := resolveConfiguredBundledPackageRoot(programPath, configPath)
+	if err != nil {
+		appendBootstrapLog("", "resolve configured bundled package failed", map[string]string{"program_path": programPath, "config_path": configPath, "error": err.Error()})
+		if healthCheck(target) == nil {
+			appendBootstrapLog("", "skip healthy gateway after package resolve failure", map[string]string{"base_url": target})
+			return false, nil
+		}
+		return false, err
+	}
+	if !selectedPackage && programPath == "" {
+		detectedRoot, err := detectBundledPackageRoot()
+		if err != nil {
+			appendBootstrapLog("", "detect package root failed", map[string]string{"error": err.Error()})
+			return false, err
+		}
+		packageRoot = detectedRoot
+	}
+
+	if packageRoot != "" {
+		if selectedPackage {
+			appendBootstrapLog(packageRoot, "use selected bundled package root", map[string]string{"package_root": packageRoot, "program_path": programPath, "config_path": configPath})
+		} else {
+			appendBootstrapLog(packageRoot, "detected bundled package root", map[string]string{"package_root": packageRoot})
+		}
+		cfg, err := buildRuntimeConfig(packageRoot, target)
+		if err != nil {
+			appendBootstrapLog(packageRoot, "build runtime config failed", map[string]string{"error": err.Error()})
+			return false, err
+		}
+		if cfg == nil {
+			appendBootstrapLog(packageRoot, "skip missing bundled binaries", nil)
+			return false, nil
+		}
+		if cfg.stackHealthy() {
+			appendBootstrapLog(packageRoot, "skip healthy local stack", map[string]string{"gateway_url": target})
+			return false, nil
+		}
+
+		m.mu.Lock()
+		defer m.mu.Unlock()
+
+		if cfg.stackHealthy() {
+			appendBootstrapLog(packageRoot, "skip healthy local stack after lock", map[string]string{"gateway_url": target})
+			return false, nil
+		}
+		return ensureBundledPackageGateway(cfg)
+	}
+
 	if healthCheck(target) == nil {
 		appendBootstrapLog("", "skip healthy gateway", map[string]string{"base_url": target})
 		return false, nil
@@ -55,35 +105,23 @@ func (m *BundledGatewayManager) EnsureBundledGateway(baseURL, programPath, confi
 		return false, nil
 	}
 
-	programPath = strings.TrimSpace(programPath)
-	configPath = strings.TrimSpace(configPath)
 	if programPath != "" {
 		appendBootstrapLog("", "attempt custom gateway start", map[string]string{"program_path": programPath, "config_path": configPath})
 		return ensureCustomGateway(target, programPath, configPath)
 	}
 
-	packageRoot, err := detectBundledPackageRoot()
-	if err != nil {
-		appendBootstrapLog("", "detect package root failed", map[string]string{"error": err.Error()})
-		return false, err
-	}
-	if packageRoot == "" {
-		appendBootstrapLog("", "skip no bundled package root", map[string]string{"base_url": target})
-		return false, nil
-	}
-	appendBootstrapLog(packageRoot, "detected bundled package root", map[string]string{"package_root": packageRoot})
+	appendBootstrapLog("", "skip no bundled package root", map[string]string{"base_url": target})
+	return false, nil
+}
 
-	cfg, err := buildRuntimeConfig(packageRoot, target)
-	if err != nil {
-		appendBootstrapLog(packageRoot, "build runtime config failed", map[string]string{"error": err.Error()})
-		return false, err
-	}
-	if cfg == nil {
-		appendBootstrapLog(packageRoot, "skip missing bundled binaries", nil)
-		return false, nil
-	}
+func ensureBundledPackageGateway(cfg *runtimeConfig) (bool, error) {
+	packageRoot := cfg.packageRoot
 	if err := cfg.prepareDirectories(); err != nil {
 		appendBootstrapLog(packageRoot, "prepare directories failed", map[string]string{"error": err.Error()})
+		return false, err
+	}
+	if err := stopAppManagedCustomGateway(); err != nil {
+		appendBootstrapLog(packageRoot, "stop custom gateway failed", map[string]string{"error": err.Error()})
 		return false, err
 	}
 	if err := cfg.stopManagedProcesses(); err != nil {
@@ -94,23 +132,19 @@ func (m *BundledGatewayManager) EnsureBundledGateway(baseURL, programPath, confi
 		appendBootstrapLog(packageRoot, "write config files failed", map[string]string{"error": err.Error()})
 		return false, err
 	}
-	if err := cfg.startProcess("session_store", cfg.sessionBinaryPath, []string{"--config", cfg.sessionConfigPath}); err != nil {
-		appendBootstrapLog(packageRoot, "start session_store failed", map[string]string{"error": err.Error()})
-		return false, err
-	}
 	if err := cfg.startProcess("gateway", cfg.gatewayBinaryPath, []string{"--config", cfg.gatewayConfigPath}); err != nil {
 		appendBootstrapLog(packageRoot, "start gateway failed", map[string]string{"error": err.Error()})
 		return false, err
 	}
-	if err := waitForHealthy(target, 45*time.Second); err != nil {
+	if err := waitForHealthy(cfg.gatewayBaseURL, 45*time.Second); err != nil {
 		appendBootstrapLog(packageRoot, "wait healthy failed", map[string]string{"error": err.Error()})
 		return false, err
 	}
-	if err := ensureDefaultAgent(target); err != nil {
+	if err := ensureDefaultAgent(cfg.gatewayBaseURL); err != nil {
 		appendBootstrapLog(packageRoot, "ensure default agent failed", map[string]string{"error": err.Error()})
 		return false, err
 	}
-	appendBootstrapLog(packageRoot, "ensure bundled gateway success", map[string]string{"base_url": target})
+	appendBootstrapLog(packageRoot, "ensure bundled gateway success", map[string]string{"base_url": cfg.gatewayBaseURL})
 	return true, nil
 }
 
@@ -123,12 +157,20 @@ type customGatewayRuntime struct {
 }
 
 func ensureCustomGateway(baseURL, programPath, configPath string) (bool, error) {
-	if _, err := os.Stat(programPath); err != nil {
+	programInfo, err := os.Stat(programPath)
+	if err != nil {
 		return false, fmt.Errorf("gateway program path is invalid: %w", err)
 	}
+	if programInfo.IsDir() {
+		return false, fmt.Errorf("gateway program path must be an executable file, got directory: %s", programPath)
+	}
 	if configPath != "" {
-		if _, err := os.Stat(configPath); err != nil {
+		configInfo, err := os.Stat(configPath)
+		if err != nil {
 			return false, fmt.Errorf("gateway config path is invalid: %w", err)
+		}
+		if configInfo.IsDir() {
+			return false, fmt.Errorf("gateway config path must be a file, got directory: %s", configPath)
 		}
 	}
 
@@ -166,25 +208,107 @@ func ensureCustomGateway(baseURL, programPath, configPath string) (bool, error) 
 	return true, nil
 }
 
+func stopAppManagedCustomGateway() error {
+	runtimeRoot, err := managedRuntimeRoot()
+	if err != nil {
+		return err
+	}
+	return stopProcessByPIDFile(filepath.Join(runtimeRoot, "run", "gateway.pid"))
+}
+
+func resolveConfiguredBundledPackageRoot(programPath, configPath string) (string, bool, error) {
+	if programPath != "" {
+		packageRoot, ok, err := findBundledPackageRootNear(programPath)
+		if err != nil {
+			return "", false, err
+		}
+		if ok {
+			return packageRoot, true, nil
+		}
+	}
+	if programPath == "" && configPath != "" {
+		packageRoot, ok, err := findBundledPackageRootNear(configPath)
+		if err != nil {
+			return "", false, err
+		}
+		if ok {
+			return packageRoot, true, nil
+		}
+	}
+	return "", false, nil
+}
+
+func findBundledPackageRootNear(path string) (string, bool, error) {
+	path = strings.TrimSpace(path)
+	if path == "" {
+		return "", false, nil
+	}
+
+	info, err := os.Stat(path)
+	if err != nil {
+		return "", false, fmt.Errorf("stat gateway path %s: %w", path, err)
+	}
+
+	candidate := path
+	if !info.IsDir() {
+		candidate = filepath.Dir(path)
+	}
+
+	for {
+		valid, err := isBundledPackageRoot(candidate)
+		if err != nil {
+			return "", false, err
+		}
+		if valid {
+			return candidate, true, nil
+		}
+
+		parent := filepath.Dir(candidate)
+		if parent == candidate {
+			return "", false, nil
+		}
+		candidate = parent
+	}
+}
+
+func isBundledPackageRoot(packageRoot string) (bool, error) {
+	if packageRoot == "" {
+		return false, nil
+	}
+	for _, path := range []string{
+		filepath.Join(packageRoot, "bin", "gateway.exe"),
+		filepath.Join(packageRoot, "bin", "claw.exe"),
+	} {
+		info, err := os.Stat(path)
+		if errors.Is(err, os.ErrNotExist) {
+			return false, nil
+		}
+		if err != nil {
+			return false, err
+		}
+		if info.IsDir() {
+			return false, nil
+		}
+	}
+	return true, nil
+}
+
 type runtimeConfig struct {
-	packageRoot      string
-	binDir           string
-	runtimeRoot      string
-	configDir        string
-	dataDir          string
-	logDir           string
-	runDir           string
-	gatewayBaseURL   string
-	gatewayPort      int
-	sessionPort      int
-	clawPortStart    int
-	clawPortEnd      int
-	internalToken    string
-	agentID          string
-	sessionBinaryPath string
+	packageRoot       string
+	binDir            string
+	runtimeRoot       string
+	configDir         string
+	dataDir           string
+	logDir            string
+	runDir            string
+	gatewayBaseURL    string
+	gatewayPort       int
+	clawPortStart     int
+	clawPortEnd       int
+	internalToken     string
+	agentID           string
 	gatewayBinaryPath string
 	clawBinaryPath    string
-	sessionConfigPath string
 	gatewayConfigPath string
 }
 
@@ -205,19 +329,16 @@ func buildRuntimeConfig(packageRoot, baseURL string) (*runtimeConfig, error) {
 		runDir:            filepath.Join(packageRoot, "runtime", "run"),
 		gatewayBaseURL:    normalizeGatewayBaseURL(baseURL),
 		gatewayPort:       gatewayPort,
-		sessionPort:       defaultSessionPort,
 		clawPortStart:     defaultClawPortStart,
 		clawPortEnd:       defaultClawPortEnd,
 		internalToken:     defaultInternalToken,
 		agentID:           defaultAgentID,
-		sessionBinaryPath: filepath.Join(binDir, "session_store.exe"),
 		gatewayBinaryPath: filepath.Join(binDir, "gateway.exe"),
 		clawBinaryPath:    filepath.Join(binDir, "claw.exe"),
-		sessionConfigPath: filepath.Join(packageRoot, "runtime", "config", "session_store.toml"),
 		gatewayConfigPath: filepath.Join(packageRoot, "runtime", "config", "gateway.toml"),
 	}
 
-	for _, path := range []string{cfg.sessionBinaryPath, cfg.gatewayBinaryPath, cfg.clawBinaryPath} {
+	for _, path := range []string{cfg.gatewayBinaryPath, cfg.clawBinaryPath} {
 		if _, err := os.Stat(path); errors.Is(err, os.ErrNotExist) {
 			return nil, nil
 		} else if err != nil {
@@ -226,6 +347,10 @@ func buildRuntimeConfig(packageRoot, baseURL string) (*runtimeConfig, error) {
 	}
 
 	return cfg, nil
+}
+
+func (c *runtimeConfig) stackHealthy() bool {
+	return healthCheck(c.gatewayBaseURL) == nil
 }
 
 func managedRuntimeRoot() (string, error) {
@@ -249,25 +374,14 @@ func (c *runtimeConfig) stopManagedProcesses() error {
 	if err := stopProcessByPIDFile(filepath.Join(c.runDir, "gateway.pid")); err != nil {
 		return err
 	}
-	if err := stopProcessByPIDFile(filepath.Join(c.runDir, "session_store.pid")); err != nil {
-		return err
-	}
 	return stopProcessesByPath("claw", c.clawBinaryPath)
 }
 
 func (c *runtimeConfig) writeConfigFiles() error {
-	sessionConfig := fmt.Sprintf("http_addr = \"127.0.0.1:%d\"\ndb_path = \"%s\"\n",
-		c.sessionPort,
-		tomlPath(filepath.Join(c.dataDir, "session_store.sqlite")),
-	)
-	if err := writeUTF8NoBOM(c.sessionConfigPath, sessionConfig); err != nil {
-		return err
-	}
-
 	gatewayConfig := strings.Join([]string{
 		fmt.Sprintf("http_addr = \"127.0.0.1:%d\"", c.gatewayPort),
 		fmt.Sprintf("db_path = \"%s\"", tomlPath(filepath.Join(c.dataDir, "gateway.sqlite"))),
-		fmt.Sprintf("session_store_url = \"http://127.0.0.1:%d\"", c.sessionPort),
+		fmt.Sprintf("session_api_url = \"%s\"", c.gatewayBaseURL),
 		fmt.Sprintf("internal_token = \"%s\"", c.internalToken),
 		fmt.Sprintf("claw_binary_path = \"%s\"", tomlPath(c.clawBinaryPath)),
 		fmt.Sprintf("claw_work_dir = \"%s\"", tomlPath(c.packageRoot)),

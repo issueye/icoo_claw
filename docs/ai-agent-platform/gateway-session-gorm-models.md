@@ -1,6 +1,6 @@
-# Session Store GORM Model Design
+# Gateway Session API GORM Model Design
 
-Session Store now uses GORM + `github.com/glebarez/sqlite`, which runs on pure Go SQLite and does not require CGO.
+Gateway Session API now uses GORM + `github.com/glebarez/sqlite`, which runs on pure Go SQLite and does not require CGO.
 
 ## Tables
 
@@ -45,3 +45,4 @@ Stores streaming or lifecycle events for each run.
 - Message append and replace run in transactions and update the parent session timestamp.
 - Message append and replace increment `revision`; run and event writes only touch `updated_at`.
 - Session delete remains idempotent and cascades manually through events, runs, and messages.
+

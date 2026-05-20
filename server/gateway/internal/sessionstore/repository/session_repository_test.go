@@ -7,7 +7,7 @@ import (
 	"testing"
 	"time"
 
-	"icoo_claw/server/session_store/internal/model"
+	"icoo_claw/server/gateway/internal/sessionstore/model"
 
 	"github.com/glebarez/sqlite"
 	"gorm.io/gorm"

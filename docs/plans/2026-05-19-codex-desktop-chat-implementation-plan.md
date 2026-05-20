@@ -192,11 +192,9 @@ desktop/
   - forwards incremental events
   - handles cancel and connection close
 
-**Step 4: Keep compatibility policy explicit**
+**Step 4: Remove deprecated REST stream route**
 
-- Either:
-  - remove `/v1/conversations/:id/stream` entirely, or
-  - keep it temporarily as deprecated compatibility.
+- Remove the deprecated REST stream endpoint entirely.
 - Document the chosen policy in the platform docs.
 
 **Step 5: Test**
@@ -630,7 +628,7 @@ desktop/
 
 **Step 2: Verify end-to-end manually**
 
-1. Start `session_store`.
+1. Start `gateway`.
 2. Start `gateway`.
 3. Ensure at least one agent exists in gateway.
 4. Launch `desktop` with `wails3 dev`.
@@ -694,3 +692,4 @@ Plan complete and saved to `docs/plans/2026-05-19-codex-desktop-chat-implementat
 **2. Parallel Session (separate)** - Open new session with executing-plans, batch execution with checkpoints
 
 Which approach?
+

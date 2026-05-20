@@ -64,7 +64,6 @@ function Stop-PreviewProcesses {
 }
 
 Stop-ByPidFile "gateway"
-Stop-ByPidFile "session_store"
 Stop-ByPidFile "desktop-preview"
 Stop-PreviewProcesses
 Stop-FakeClawProcesses

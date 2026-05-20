@@ -357,14 +357,14 @@ watch(
           <QqInput v-model="gatewayDialog.draftBaseUrl" placeholder="请输入网关地址" />
         </QqFormField>
 
-        <QqFormField label="Gateway Program Path" helper="可选。自定义网关程序路径。">
+        <QqFormField label="Gateway Program Path" helper="可选。可以选择发布包文件夹、bin 文件夹或 gateway.exe。">
           <div class="flex flex-col gap-3 md:flex-row">
-            <QqInput v-model="gatewayDialog.draftProgramPath" class="flex-1" placeholder="例如：C:\\gateway\\gateway.exe" />
-            <QqButton variant="secondary" @click="pickGatewayProgram">选择程序</QqButton>
+            <QqInput v-model="gatewayDialog.draftProgramPath" class="flex-1" placeholder="例如：C:\\icoo-claw 或 C:\\icoo-claw\\bin\\gateway.exe" />
+            <QqButton variant="secondary" @click="pickGatewayProgram">选择程序/目录</QqButton>
           </div>
         </QqFormField>
 
-        <QqFormField label="Gateway Config Path" helper="可选。自定义网关配置文件路径。">
+        <QqFormField label="Gateway Config Path" helper="可选。普通自定义网关才需要指定配置文件。">
           <div class="flex flex-col gap-3 md:flex-row">
             <QqInput v-model="gatewayDialog.draftConfigPath" class="flex-1" placeholder="例如：C:\\gateway\\gateway.toml" />
             <QqButton variant="secondary" @click="pickGatewayConfig">选择配置</QqButton>

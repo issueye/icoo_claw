@@ -4,8 +4,8 @@
 
 | 领域 | 选型 | 说明 |
 |---|---|---|
-| HTTP / Stream | Gin + Gorilla WebSocket | 三服务统一 REST，Gateway 对外流式使用 WebSocket |
-| ORM | GORM | Gateway 与 Session Store 元数据/业务数据 |
+| HTTP / Stream | Gin + Gorilla WebSocket | Gateway/Claw REST，Gateway 对外流式使用 WebSocket |
+| ORM | GORM | Gateway 控制面与会话业务数据 |
 | SQLite(no cgo) | `github.com/glebarez/sqlite` | GORM 纯 Go SQLite driver |
 | Agent Runtime | `server/claw/pkg/agent_sdk/sdk` | agentsdk-go 源码已抽取为项目内模块 |
 | Config | TOML | 三服务使用 `--config <file>` |
@@ -19,10 +19,9 @@
 go.work
 server/gateway/go.mod
 server/claw/go.mod
-server/session_store/go.mod
 ```
 
-`server/session_store`、`server/gateway` 均使用 `github.com/glebarez/sqlite`。
+`server/gateway` 使用 `github.com/glebarez/sqlite`。
 
 ## 配置文件
 
@@ -30,12 +29,10 @@ server/session_store/go.mod
 
 - `config/gateway.toml.example`
 - `config/claw.toml.example`
-- `config/session_store.toml.example`
 
 启动示例：
 
 ```powershell
-.\bin\session_store.exe --config .\config\session_store.toml
 .\bin\gateway.exe --config .\config\gateway.toml
 .\bin\claw.exe --config .\config\claw.toml
 ```
@@ -44,7 +41,7 @@ Gateway 启动 Claw 实例时会生成实例 TOML：
 
 ```toml
 http_addr = "127.0.0.1:8101"
-session_store_url = "http://127.0.0.1:8082"
+session_api_url = "http://127.0.0.1:8080"
 internal_token = "dev-internal-token"
 runner_mode = "fake"
 ```
@@ -66,7 +63,7 @@ type Config struct {
     MaxAgentInstances int
     HealthInterval time.Duration
     ShutdownTimeout time.Duration
-    SessionStoreURL string
+    SessionAPIURL string
     InternalToken string
 }
 ```
@@ -136,11 +133,11 @@ type Runner interface {
 
 历史策略：
 
-- `HistoryAdapter.Load` 从 Session Store 读取 messages。
-- `HistoryAdapter.SaveSnapshot` 调用 Session Store snapshot API。
+- `HistoryAdapter.Load` 从 Gateway 会话 API 读取 messages。
+- `HistoryAdapter.SaveSnapshot` 调用 Gateway 会话 API 的 snapshot 接口。
 - snapshot 使用 revision 冲突保护，避免覆盖并发更新。
 
-## Session Store: GORM SQLite
+## Gateway 会话 API: GORM SQLite
 
 HTTP API：
 
@@ -194,12 +191,12 @@ type SessionRepository interface {
 | 401 | `unauthorized` | 内部 token 错误 |
 | 404 | `not_found` | 资源不存在 |
 | 409 | `revision_conflict` / `session_busy` | revision 或 session 并发冲突 |
-| 502 | `agent_error` / `store_error` | 下游执行失败 |
-| 503 | `dependency_unavailable` | 无可用 Claw 或 Session Store |
+| 502 | `agent_error` / `store_error` | 执行或持久化失败 |
+| 503 | `dependency_unavailable` | 无可用 Claw |
 
 ## 测试策略
 
 - Unit: config loader、repository、service、client。
-- Router: 三服务 HTTP route 基础行为。
-- E2E: Gateway 模块根的进程级测试构建并启动三服务，使用 Claw fake runner 完成创建 agent、创建 conversation、发送消息、查询历史。
+- Router: Gateway/Claw HTTP route 基础行为。
+- E2E: Gateway 模块根的进程级测试构建并启动 Gateway 与 Claw，使用 Claw fake runner 完成创建 agent、创建 conversation、发送消息、查询历史。
 - WebSocket: Gateway controller 测试覆盖 `chat.start`、`ping`、错误传播、增量消息转发。

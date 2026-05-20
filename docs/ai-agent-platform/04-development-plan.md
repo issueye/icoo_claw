@@ -2,18 +2,18 @@
 
 ## 当前方向
 
-Session Store 采用 GORM + no-cgo SQLite。额外兼容协议不属于 MVP 主线。
+Gateway Session API 采用 GORM + no-cgo SQLite。额外外部协议不属于 MVP 主线。
 
 ## 阶段 0：配置与骨架
 
 已完成：
 
-- 三服务 Gin skeleton。
+- Gateway/Claw Gin skeleton。
 - 手动 DI。
 - TOML 配置加载。
 - README TOML 启动说明。
 
-## 阶段 1：Session Store
+## 阶段 1：Gateway Session API
 
 已完成：
 
@@ -39,7 +39,7 @@ Session Store 采用 GORM + no-cgo SQLite。额外兼容协议不属于 MVP 主�
 - FakeRunner。
 - RuntimeFactory。
 - HistoryAdapter。
-- Session Store client。
+- Gateway Session API client。
 - 内部 token middleware。
 
 待完善：
@@ -69,9 +69,8 @@ Session Store 采用 GORM + no-cgo SQLite。额外兼容协议不属于 MVP 主�
 
 已完成：
 
-- 进程级三服务端到端测试：
-  - build Session Store/Gateway/Claw。
-  - 启动 Session Store。
+- 进程级端到端测试：
+  - build Gateway/Claw。
   - 启动 Gateway。
   - Gateway 自动拉起 fake Claw。
   - 创建 AgentProfile。
@@ -97,6 +96,7 @@ Session Store 采用 GORM + no-cgo SQLite。额外兼容协议不属于 MVP 主�
 
 ## 风险
 
-- 当前 Gateway、Claw、Session Store 都依赖单机 SQLite；并发写入需要谨慎控制。
+- 当前 Gateway 使用单机 SQLite 保存控制面与会话数据；并发写入需要谨慎控制。
 - Gateway 自动拉起 Claw 依赖本地二进制路径，生产部署需替换为远程或容器调度。
 - fake runner 测试链路稳定，但真实模型链路还需要 API key/模型 provider 的配置策略。
+

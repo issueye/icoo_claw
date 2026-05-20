@@ -9,7 +9,7 @@ import (
 	"strings"
 	"time"
 
-	"icoo_claw/server/session_store/internal/model"
+	"icoo_claw/server/gateway/internal/sessionstore/model"
 
 	"gorm.io/gorm"
 )

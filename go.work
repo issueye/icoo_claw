@@ -5,5 +5,4 @@ use (
 	./desktop_spike
 	./server/claw
 	./server/gateway
-	./server/session_store
 )

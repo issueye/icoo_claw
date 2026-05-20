@@ -46,7 +46,7 @@ Run the full local smoke chain:
 .\scripts\dev\run-ui-smoke.ps1
 ```
 
-The script starts `session_store`, `gateway`, the default fake agent `agent_desktop_default`, a ready fake agent instance, and a production-style Vite preview before running Playwright.
+The script starts `gateway`, the default fake agent `agent_desktop_default`, a ready fake agent instance, and a production-style Vite preview before running Playwright.
 
 Playwright writes only transient status, traces, screenshots, and reports under `desktop/frontend/test-results/` and `desktop/frontend/playwright-report/`. These paths are ignored so reruns do not add noisy delivery files.
 

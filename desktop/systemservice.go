@@ -60,9 +60,9 @@ func (s *SystemService) ChooseGatewayProgram() (string, error) {
 	return application.Get().
 		Dialog.
 		OpenFile().
-		CanChooseDirectories(false).
+		CanChooseDirectories(true).
 		CanChooseFiles(true).
-		SetTitle("Choose gateway program").
+		SetTitle("Choose gateway program or bundle folder").
 		PromptForSingleSelection()
 }
 

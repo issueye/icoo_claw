@@ -4,10 +4,10 @@ import (
 	"errors"
 	"net/http"
 
-	"icoo_claw/server/session_store/internal/dto"
-	"icoo_claw/server/session_store/internal/model"
-	"icoo_claw/server/session_store/internal/repository"
-	"icoo_claw/server/session_store/internal/service"
+	"icoo_claw/server/gateway/internal/dto"
+	"icoo_claw/server/gateway/internal/sessionstore/model"
+	"icoo_claw/server/gateway/internal/sessionstore/repository"
+	"icoo_claw/server/gateway/internal/sessionstore/service"
 
 	"github.com/gin-gonic/gin"
 )

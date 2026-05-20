@@ -10,6 +10,7 @@ type Controllers struct {
 	Health        *controller.HealthController
 	Agent         *controller.AgentController
 	AgentInstance *controller.AgentInstanceController
+	Session       *controller.SessionController
 	Chat          *controller.ChatController
 	ChatWS        *controller.ChatWSController
 }
@@ -30,11 +31,24 @@ func New(controllers Controllers) *gin.Engine {
 	engine.POST("/v1/agent-instances/:id/stop", controllers.AgentInstance.Stop)
 	engine.POST("/v1/agent-instances/:id/restart", controllers.AgentInstance.Restart)
 	engine.POST("/v1/agent-instances/:id/drain", controllers.AgentInstance.Drain)
+	if controllers.Session != nil {
+		engine.POST("/v1/sessions", controllers.Session.Create)
+		engine.GET("/v1/sessions", controllers.Session.List)
+		engine.GET("/v1/sessions/:session_id", controllers.Session.Get)
+		engine.PATCH("/v1/sessions/:session_id", controllers.Session.Update)
+		engine.DELETE("/v1/sessions/:session_id", controllers.Session.Delete)
+		engine.GET("/v1/sessions/:session_id/messages", controllers.Session.ListMessages)
+		engine.POST("/v1/sessions/:session_id/messages", controllers.Session.AppendMessages)
+		engine.PUT("/v1/sessions/:session_id/messages/snapshot", controllers.Session.ReplaceMessages)
+		engine.GET("/v1/sessions/:session_id/runs", controllers.Session.ListRuns)
+		engine.POST("/v1/sessions/:session_id/runs", controllers.Session.AppendRuns)
+		engine.GET("/v1/sessions/:session_id/runs/:run_id/events", controllers.Session.ListRunEvents)
+		engine.POST("/v1/sessions/:session_id/runs/:run_id/events", controllers.Session.AppendRunEvents)
+	}
 	engine.POST("/v1/conversations", controllers.Chat.CreateConversation)
 	engine.GET("/v1/conversations", controllers.Chat.ListConversations)
 	engine.GET("/v1/conversations/:id/messages", controllers.Chat.ListMessages)
 	engine.POST("/v1/conversations/:id/messages", controllers.Chat.SendMessage)
-	engine.POST("/v1/conversations/:id/stream", controllers.Chat.StreamMessage)
 	if controllers.ChatWS != nil {
 		engine.GET("/v1/ws/chat", controllers.ChatWS.Serve)
 	}

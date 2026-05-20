@@ -1,2 +1,0 @@
-http_addr = ":8082"
-db_path = "./data/session_store.sqlite"

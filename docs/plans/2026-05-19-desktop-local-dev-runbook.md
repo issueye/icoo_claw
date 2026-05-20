@@ -6,8 +6,8 @@ Provide a repeatable local path for validating the desktop chat client against t
 
 ## Scope
 
-- Build `session_store`, `claw`, and `gateway`
-- Start `session_store` and `gateway`
+- Build `gateway` and `claw`
+- Start `gateway`
 - Ensure one ready fake `claw` agent instance is available
 - Force `claw_runner_mode = "fake"`
 - Seed one default agent for the desktop app
@@ -57,14 +57,13 @@ Run:
 
 The script will:
 
-1. Stop any older `gateway` or `session_store` processes started by the same script
+1. Stop any older `gateway` processes started by the same script
 2. Build fresh binaries
 3. Generate local TOML config files
-4. Start `session_store`
-5. Start `gateway`
-6. Wait for `/health`
-7. Create or reuse default agent `agent_desktop_default`
-8. Create or reuse a ready fake agent instance for that agent
+4. Start `gateway`
+5. Wait for `/health`
+6. Create or reuse default agent `agent_desktop_default`
+7. Create or reuse a ready fake agent instance for that agent
 
 ## Desktop Settings
 
@@ -104,7 +103,7 @@ This validates:
 1. Gateway health
 2. Conversation creation
 3. WebSocket streaming via `/v1/ws/chat`
-4. Final message persistence in Session Store
+4. Final message persistence in Gateway Session API
 
 ## UI Smoke
 
@@ -148,10 +147,6 @@ Push-Location .\server\claw
 go test ./...
 Pop-Location
 
-Push-Location .\server\session_store
-go test ./...
-Pop-Location
-
 .\scripts\dev\run-ui-smoke.ps1
 ```
 
@@ -183,3 +178,4 @@ Run:
 ```powershell
 .\scripts\dev\stop-fake-stack.ps1
 ```
+

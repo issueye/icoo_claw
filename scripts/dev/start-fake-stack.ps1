@@ -16,7 +16,6 @@ $dataDir = Join-Path $runtimeRoot "data"
 $logDir = Join-Path $runtimeRoot "logs"
 $runDir = Join-Path $runtimeRoot "run"
 
-$sessionPort = 8082
 $gatewayPort = 8080
 $clawPortStart = 8101
 $clawPortEnd = 8108
@@ -67,14 +66,12 @@ function Stop-FakeClawProcesses {
 }
 
 Stop-ByPidFile "gateway"
-Stop-ByPidFile "session_store"
 Stop-ByPidFile "desktop-preview"
 Stop-FakeClawProcesses
 
 if (-not $PreserveData) {
   foreach ($path in @(
     (Join-Path $dataDir "gateway.sqlite"),
-    (Join-Path $dataDir "session_store.sqlite"),
     (Join-Path $dataDir "claw-configs")
   )) {
     if ((Test-Path $path) -and ((Resolve-Path $path).Path.StartsWith((Resolve-Path $runtimeRoot).Path))) {
@@ -84,20 +81,13 @@ if (-not $PreserveData) {
 }
 
 Write-Host "Building local binaries..."
-& go build -o (Join-Path $binDir "session_store.exe") "./server/session_store/cmd/session_store"
 & go build -o (Join-Path $binDir "claw.exe") "./server/claw/cmd/claw"
 & go build -o (Join-Path $binDir "gateway.exe") "./server/gateway/cmd/gateway"
-
-$sessionConfig = @"
-http_addr = "127.0.0.1:$sessionPort"
-db_path = "$(Join-Path $dataDir "session_store.sqlite" | ForEach-Object { $_ -replace '\\','/' })"
-"@
-Write-Utf8NoBom -Path (Join-Path $configDir "session_store.toml") -Content $sessionConfig
 
 $gatewayConfig = @"
 http_addr = "127.0.0.1:$gatewayPort"
 db_path = "$(Join-Path $dataDir "gateway.sqlite" | ForEach-Object { $_ -replace '\\','/' })"
-session_store_url = "http://127.0.0.1:$sessionPort"
+session_api_url = "http://127.0.0.1:$gatewayPort"
 internal_token = "$token"
 claw_binary_path = "$(Join-Path $binDir "claw.exe" | ForEach-Object { $_ -replace '\\','/' })"
 claw_work_dir = "$( $repoRoot -replace '\\','/' )"
@@ -110,28 +100,6 @@ health_interval_seconds = 1
 shutdown_timeout_seconds = 2
 "@
 Write-Utf8NoBom -Path (Join-Path $configDir "gateway.toml") -Content $gatewayConfig
-
-Write-Host "Starting session_store..."
-$sessionProc = Start-Process `
-  -FilePath (Join-Path $binDir "session_store.exe") `
-  -ArgumentList @("--config", (Join-Path $configDir "session_store.toml")) `
-  -WorkingDirectory $repoRoot `
-  -WindowStyle Hidden `
-  -RedirectStandardOutput (Join-Path $logDir "session_store.out.log") `
-  -RedirectStandardError (Join-Path $logDir "session_store.err.log") `
-  -PassThru
-Set-Content -Path (Join-Path $runDir "session_store.pid") -Value $sessionProc.Id -Encoding UTF8
-
-Write-Host "Starting gateway..."
-$gatewayProc = Start-Process `
-  -FilePath (Join-Path $binDir "gateway.exe") `
-  -ArgumentList @("--config", (Join-Path $configDir "gateway.toml")) `
-  -WorkingDirectory $repoRoot `
-  -WindowStyle Hidden `
-  -RedirectStandardOutput (Join-Path $logDir "gateway.out.log") `
-  -RedirectStandardError (Join-Path $logDir "gateway.err.log") `
-  -PassThru
-Set-Content -Path (Join-Path $runDir "gateway.pid") -Value $gatewayProc.Id -Encoding UTF8
 
 function Wait-Health {
   param(
@@ -153,7 +121,16 @@ function Wait-Health {
   throw "$Name did not become healthy: $Url"
 }
 
-Wait-Health "session_store" "http://127.0.0.1:$sessionPort/health"
+Write-Host "Starting gateway..."
+$gatewayProc = Start-Process `
+  -FilePath (Join-Path $binDir "gateway.exe") `
+  -ArgumentList @("--config", (Join-Path $configDir "gateway.toml")) `
+  -WorkingDirectory $repoRoot `
+  -WindowStyle Hidden `
+  -RedirectStandardOutput (Join-Path $logDir "gateway.out.log") `
+  -RedirectStandardError (Join-Path $logDir "gateway.err.log") `
+  -PassThru
+Set-Content -Path (Join-Path $runDir "gateway.pid") -Value $gatewayProc.Id -Encoding UTF8
 Wait-Health "gateway" "http://127.0.0.1:$gatewayPort/health"
 
 Write-Host "Ensuring default agent..."

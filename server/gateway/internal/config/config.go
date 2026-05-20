@@ -22,7 +22,7 @@ type Config struct {
 	MaxAgentInstances int
 	HealthInterval    time.Duration
 	ShutdownTimeout   time.Duration
-	SessionStoreURL   string
+	SessionAPIURL     string
 	InternalToken     string
 }
 
@@ -38,7 +38,7 @@ type fileConfig struct {
 	MaxAgentInstances  int    `toml:"max_agent_instances"`
 	HealthIntervalSec  int    `toml:"health_interval_seconds"`
 	ShutdownTimeoutSec int    `toml:"shutdown_timeout_seconds"`
-	SessionStoreURL    string `toml:"session_store_url"`
+	SessionAPIURL      string `toml:"session_api_url"`
 	InternalToken      string `toml:"internal_token"`
 }
 
@@ -95,7 +95,7 @@ func defaults() Config {
 		MaxAgentInstances: 4,
 		HealthInterval:    10 * time.Second,
 		ShutdownTimeout:   10 * time.Second,
-		SessionStoreURL:   "http://127.0.0.1:8082",
+		SessionAPIURL:     "http://127.0.0.1:8080",
 	}
 }
 
@@ -133,8 +133,8 @@ func applyFile(cfg *Config, file fileConfig) {
 	if file.ShutdownTimeoutSec > 0 {
 		cfg.ShutdownTimeout = time.Duration(file.ShutdownTimeoutSec) * time.Second
 	}
-	if file.SessionStoreURL != "" {
-		cfg.SessionStoreURL = file.SessionStoreURL
+	if file.SessionAPIURL != "" {
+		cfg.SessionAPIURL = file.SessionAPIURL
 	}
 	if file.InternalToken != "" {
 		cfg.InternalToken = file.InternalToken
@@ -175,8 +175,8 @@ func applyEnv(cfg *Config) {
 	if value := envInt("AGENT_SHUTDOWN_TIMEOUT_SECONDS"); value > 0 {
 		cfg.ShutdownTimeout = time.Duration(value) * time.Second
 	}
-	if value := os.Getenv("SESSION_STORE_URL"); value != "" {
-		cfg.SessionStoreURL = value
+	if value := os.Getenv("SESSION_API_URL"); value != "" {
+		cfg.SessionAPIURL = value
 	}
 	if value := os.Getenv("INTERNAL_TOKEN"); value != "" {
 		cfg.InternalToken = value

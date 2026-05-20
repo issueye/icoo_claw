@@ -4,7 +4,7 @@ import (
 	"context"
 	"errors"
 
-	"icoo_claw/server/session_store/internal/model"
+	"icoo_claw/server/gateway/internal/sessionstore/model"
 )
 
 var ErrNotFound = errors.New("session not found")

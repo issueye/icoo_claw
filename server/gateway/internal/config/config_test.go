@@ -20,7 +20,7 @@ claw_port_end = 9199
 max_agent_instances = 8
 health_interval_seconds = 3
 shutdown_timeout_seconds = 4
-session_store_url = "http://127.0.0.1:18082"
+session_api_url = "http://127.0.0.1:18080"
 internal_token = "token"
 `), 0o600); err != nil {
 		t.Fatalf("write config: %v", err)
@@ -39,7 +39,7 @@ internal_token = "token"
 	if cfg.HealthInterval != 3*time.Second || cfg.ShutdownTimeout != 4*time.Second {
 		t.Fatalf("durations = %s %s", cfg.HealthInterval, cfg.ShutdownTimeout)
 	}
-	if cfg.SessionStoreURL != "http://127.0.0.1:18082" || cfg.InternalToken != "token" {
+	if cfg.SessionAPIURL != "http://127.0.0.1:18080" || cfg.InternalToken != "token" {
 		t.Fatalf("remote config = %+v", cfg)
 	}
 }

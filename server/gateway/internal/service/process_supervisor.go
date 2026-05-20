@@ -16,17 +16,17 @@ import (
 )
 
 type StartAgentInstanceSpec struct {
-	InstanceID      string
-	AgentID         string
-	Host            string
-	Port            int
-	BaseURL         string
-	BinaryPath      string
-	WorkDir         string
-	SessionStoreURL string
-	InternalToken   string
-	ConfigDir       string
-	RunnerMode      string
+	InstanceID    string
+	AgentID       string
+	Host          string
+	Port          int
+	BaseURL       string
+	BinaryPath    string
+	WorkDir       string
+	SessionAPIURL string
+	InternalToken string
+	ConfigDir     string
+	RunnerMode    string
 }
 
 type AgentProcess struct {
@@ -104,17 +104,17 @@ func processSpecFromConfig(cfg config.Config, instanceID, agentID string, port i
 	host := "127.0.0.1"
 	baseURL := "http://" + host + ":" + strconv.Itoa(port)
 	return StartAgentInstanceSpec{
-		InstanceID:      instanceID,
-		AgentID:         agentID,
-		Host:            host,
-		Port:            port,
-		BaseURL:         baseURL,
-		BinaryPath:      cfg.ClawBinaryPath,
-		WorkDir:         cfg.ClawWorkDir,
-		SessionStoreURL: cfg.SessionStoreURL,
-		InternalToken:   cfg.InternalToken,
-		ConfigDir:       cfg.ClawConfigDir,
-		RunnerMode:      cfg.ClawRunnerMode,
+		InstanceID:    instanceID,
+		AgentID:       agentID,
+		Host:          host,
+		Port:          port,
+		BaseURL:       baseURL,
+		BinaryPath:    cfg.ClawBinaryPath,
+		WorkDir:       cfg.ClawWorkDir,
+		SessionAPIURL: cfg.SessionAPIURL,
+		InternalToken: cfg.InternalToken,
+		ConfigDir:     cfg.ClawConfigDir,
+		RunnerMode:    cfg.ClawRunnerMode,
 	}
 }
 
@@ -128,9 +128,9 @@ func writeClawConfig(spec StartAgentInstanceSpec) (string, error) {
 	}
 	path := filepath.Join(dir, spec.InstanceID+".toml")
 	payload := fmt.Sprintf(
-		"http_addr = %q\nsession_store_url = %q\ninternal_token = %q\nrunner_mode = %q\n",
+		"http_addr = %q\nsession_api_url = %q\ninternal_token = %q\nrunner_mode = %q\n",
 		spec.Host+":"+strconv.Itoa(spec.Port),
-		spec.SessionStoreURL,
+		spec.SessionAPIURL,
 		spec.InternalToken,
 		spec.RunnerMode,
 	)

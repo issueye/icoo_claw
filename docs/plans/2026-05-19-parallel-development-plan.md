@@ -9,7 +9,7 @@ Move the project from a chat MVP prototype toward a repeatable local development
 
 ## Current Baseline
 
-- Backend unit tests pass for `server/gateway`, `server/claw`, and `server/session_store`.
+- Backend unit tests pass for `server/gateway` and `server/claw`.
 - Desktop frontend unit tests and production build pass after `npm ci`.
 - Desktop Go tests pass after `desktop/frontend/dist` exists.
 - Playwright chat flow has an existing failure mode when the gateway is not running or not bootstrapped.
@@ -59,7 +59,7 @@ Owner scope:
 
 Deliverables:
 
-- A repeatable local command sequence, preferably scripted, that starts `session_store`, `gateway`, and the fake-agent-ready environment for E2E.
+- A repeatable local command sequence, preferably scripted, that starts `gateway` and the fake-agent-ready environment for E2E.
 - Playwright chat flow waits for durable UI or network readiness instead of fragile copy text.
 - Documentation describes install, build, service startup, preview, and E2E order.
 
@@ -89,4 +89,3 @@ Acceptance checks:
 - Project settings schema changes can break existing browser localStorage or TOML settings if defaults are not merged carefully.
 - E2E can remain flaky if service startup races with frontend boot.
 - The untracked `go_pkg/` directory should not be mixed into these feature changes unless explicitly decided.
-

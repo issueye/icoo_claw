@@ -45,12 +45,12 @@ func (f fakeConversationRepo) List(context.Context) ([]model.Conversation, error
 func (f fakeConversationRepo) Update(context.Context, model.Conversation) error   { return nil }
 func (f fakeConversationRepo) Delete(context.Context, string) error               { return nil }
 
-type fakeSessionStore struct{}
+type fakeSessionBackend struct{}
 
-func (f fakeSessionStore) CreateSession(context.Context, client.CreateSessionRequest) error {
+func (f fakeSessionBackend) CreateSession(context.Context, service.SessionCreateRequest) error {
 	return nil
 }
-func (f fakeSessionStore) ListMessages(context.Context, string) ([]dto.SessionMessage, error) {
+func (f fakeSessionBackend) ListMessages(context.Context, string) ([]dto.SessionMessage, error) {
 	return nil, nil
 }
 
@@ -91,7 +91,7 @@ func TestHealthRoute(t *testing.T) {
 			conversationRepo,
 			agentRepo,
 			service.NewDefaultRouterPolicy(conversationRepo, instanceRepo, instanceService),
-			fakeSessionStore{},
+			fakeSessionBackend{},
 			fakeClawRunner{},
 		)),
 	})

@@ -4,6 +4,7 @@
 
 export {
     GatewaySettings,
+    ProjectSettings,
     Settings,
     UISettings,
     WorkspaceSettings
