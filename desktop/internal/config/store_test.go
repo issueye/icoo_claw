@@ -17,12 +17,6 @@ func TestStoreLoadReturnsDefaultsWhenFileIsMissing(t *testing.T) {
 	if settings.Gateway.BaseURL != "http://127.0.0.1:8080" {
 		t.Fatalf("BaseURL = %q", settings.Gateway.BaseURL)
 	}
-	if settings.Gateway.ProgramPath != "" {
-		t.Fatalf("ProgramPath = %q", settings.Gateway.ProgramPath)
-	}
-	if settings.Gateway.ConfigPath != "" {
-		t.Fatalf("ConfigPath = %q", settings.Gateway.ConfigPath)
-	}
 	if len(settings.Projects) != 0 {
 		t.Fatalf("Projects length = %d", len(settings.Projects))
 	}
@@ -42,8 +36,6 @@ func TestStoreSaveNormalizesAndRoundTrips(t *testing.T) {
 		Gateway: GatewaySettings{
 			BaseURL:        " http://localhost:8088/ ",
 			DefaultAgentID: "  agent_main  ",
-			ProgramPath:    "  C:/gateway/gateway.exe  ",
-			ConfigPath:     "  C:/gateway/gateway.toml  ",
 		},
 		Workspace: WorkspaceSettings{
 			RootDir: "  E:/workspace/demo  ",
@@ -73,12 +65,6 @@ func TestStoreSaveNormalizesAndRoundTrips(t *testing.T) {
 	}
 	if loaded.Gateway.DefaultAgentID != "agent_main" {
 		t.Fatalf("DefaultAgentID = %q", loaded.Gateway.DefaultAgentID)
-	}
-	if loaded.Gateway.ProgramPath != "C:/gateway/gateway.exe" {
-		t.Fatalf("ProgramPath = %q", loaded.Gateway.ProgramPath)
-	}
-	if loaded.Gateway.ConfigPath != "C:/gateway/gateway.toml" {
-		t.Fatalf("ConfigPath = %q", loaded.Gateway.ConfigPath)
 	}
 	if loaded.Workspace.RootDir != "E:/workspace/project-demo" {
 		t.Fatalf("RootDir = %q", loaded.Workspace.RootDir)

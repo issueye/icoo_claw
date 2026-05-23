@@ -1,6 +1,8 @@
 package router
 
 import (
+	"net/http"
+
 	"icoo_claw/server/gateway/internal/controller"
 
 	"github.com/gin-gonic/gin"
@@ -19,6 +21,7 @@ func New(controllers Controllers) *gin.Engine {
 	gin.SetMode(gin.ReleaseMode)
 	engine := gin.New()
 	engine.Use(gin.Recovery())
+	engine.Use(corsMiddleware())
 
 	engine.GET("/health", controllers.Health.Check)
 	engine.POST("/v1/agents", controllers.Agent.Create)
@@ -55,4 +58,26 @@ func New(controllers Controllers) *gin.Engine {
 	engine.DELETE("/v1/conversations/:id", controllers.Chat.DeleteConversation)
 
 	return engine
+}
+
+func corsMiddleware() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		origin := c.GetHeader("Origin")
+		if origin == "" {
+			origin = "*"
+		}
+
+		c.Header("Access-Control-Allow-Origin", origin)
+		c.Header("Access-Control-Allow-Methods", "GET,POST,PUT,PATCH,DELETE,OPTIONS")
+		c.Header("Access-Control-Allow-Headers", "Content-Type,Authorization")
+		c.Header("Access-Control-Max-Age", "86400")
+		c.Header("Vary", "Origin")
+
+		if c.Request.Method == http.MethodOptions {
+			c.AbortWithStatus(http.StatusNoContent)
+			return
+		}
+
+		c.Next()
+	}
 }

@@ -13,6 +13,8 @@ import (
 	"icoo_claw/server/gateway/internal/model"
 	"icoo_claw/server/gateway/internal/repository"
 	"icoo_claw/server/gateway/internal/service"
+
+	"github.com/gin-gonic/gin"
 )
 
 type fakeAgentRepo struct{}
@@ -103,5 +105,46 @@ func TestHealthRoute(t *testing.T) {
 
 	if rec.Code != http.StatusOK {
 		t.Fatalf("status = %d, want %d", rec.Code, http.StatusOK)
+	}
+}
+
+func TestGatewayRoutesAllowDesktopCrossOriginRequests(t *testing.T) {
+	engine := gin.New()
+	engine.Use(corsMiddleware())
+	engine.GET("/health", controller.NewHealthController().Check)
+
+	req := httptest.NewRequest(http.MethodGet, "/health", nil)
+	req.Header.Set("Origin", "wails://wails.localhost")
+	rec := httptest.NewRecorder()
+
+	engine.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, want %d", rec.Code, http.StatusOK)
+	}
+	if got := rec.Header().Get("Access-Control-Allow-Origin"); got != "wails://wails.localhost" {
+		t.Fatalf("Access-Control-Allow-Origin = %q", got)
+	}
+}
+
+func TestGatewayRoutesHandleCORSPreflight(t *testing.T) {
+	engine := gin.New()
+	engine.Use(corsMiddleware())
+	engine.GET("/v1/agents", func(c *gin.Context) {
+		c.Status(http.StatusOK)
+	})
+
+	req := httptest.NewRequest(http.MethodOptions, "/v1/agents", nil)
+	req.Header.Set("Origin", "wails://wails.localhost")
+	req.Header.Set("Access-Control-Request-Method", http.MethodGet)
+	rec := httptest.NewRecorder()
+
+	engine.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusNoContent {
+		t.Fatalf("status = %d, want %d", rec.Code, http.StatusNoContent)
+	}
+	if got := rec.Header().Get("Access-Control-Allow-Origin"); got != "wails://wails.localhost" {
+		t.Fatalf("Access-Control-Allow-Origin = %q", got)
 	}
 }

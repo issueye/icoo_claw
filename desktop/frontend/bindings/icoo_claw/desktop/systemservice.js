@@ -18,28 +18,6 @@ export function ChooseDirectory() {
 }
 
 /**
- * @returns {$CancellablePromise<string>}
- */
-export function ChooseGatewayConfig() {
-    return $Call.ByID(4196354359);
-}
-
-/**
- * @returns {$CancellablePromise<string>}
- */
-export function ChooseGatewayProgram() {
-    return $Call.ByID(2281124027);
-}
-
-/**
- * @param {string} baseURL
- * @returns {$CancellablePromise<boolean>}
- */
-export function EnsureBundledGateway(baseURL) {
-    return $Call.ByID(2140587032, baseURL);
-}
-
-/**
  * @returns {$CancellablePromise<$models.AppInfo | null>}
  */
 export function GetAppInfo() {

@@ -30,7 +30,7 @@ func main() {
 		Description: appDescription,
 		Services: []application.Service{
 			application.NewService(NewConfigService(store)),
-			application.NewService(NewSystemService(store)),
+			application.NewService(NewSystemService()),
 		},
 		Assets: application.AssetOptions{
 			Handler: application.AssetFileServerFS(assets),

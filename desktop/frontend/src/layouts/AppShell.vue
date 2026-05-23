@@ -9,7 +9,6 @@ import QqButton from '@/components/ued/QqButton.vue'
 import QqFormField from '@/components/ued/QqFormField.vue'
 import QqInput from '@/components/ued/QqInput.vue'
 import QqModal from '@/components/ued/QqModal.vue'
-import { chooseGatewayConfig, chooseGatewayProgram } from '@/services/wails/config'
 import { useAgentsStore } from '@/stores/agents'
 import { useAppStore } from '@/stores/app'
 import { useChatStore } from '@/stores/chat'
@@ -30,9 +29,8 @@ const router = useRouter()
 const gatewayDialog = reactive({
   open: false,
   draftBaseUrl: '',
-  draftProgramPath: '',
-  draftConfigPath: '',
-  reconnecting: false,
+  saving: false,
+  connecting: false,
 })
 
 const navItems = [
@@ -78,14 +76,13 @@ const gatewayBaseUrlLabel = computed(() => settingsStore.settings.gateway.baseUr
 const defaultAgentLabel = computed(() => agentsStore.selectedAgent?.name || settingsStore.settings.gateway.defaultAgentId || '未选择 Agent')
 const currentProjectLabel = computed(() => projectsStore.currentProject?.name || '无项目')
 const lastRefreshedLabel = computed(() => (appStore.lastRefreshedAt ? new Date(appStore.lastRefreshedAt).toLocaleTimeString() : '未刷新'))
-const gatewayActionLabel = computed(() => (appStore.gatewayStatus === 'unconfigured' ? '配置网关' : '重连网关'))
-const gatewayDialogTitle = computed(() => (appStore.gatewayStatus === 'unconfigured' ? '配置网关地址' : '网关连接异常'))
-const gatewayDialogDescription = computed(() =>
-  appStore.gatewayStatus === 'unconfigured'
-    ? '当前还没有可用的网关地址。填写地址后即可保存并重连。'
-    : '当前无法连接网关。你可以直接重连，或者修改网关地址后重新连接。',
-)
-const shouldShowGatewayAction = computed(() => ['offline', 'unconfigured'].includes(appStore.gatewayStatus))
+const gatewayDialogBusy = computed(() => gatewayDialog.saving || gatewayDialog.connecting)
+const gatewayHealthLabel = computed(() => {
+  if (!appStore.gatewayInfo) {
+    return '未获取'
+  }
+  return [appStore.gatewayInfo.service, appStore.gatewayInfo.status].filter(Boolean).join(' / ') || '已响应'
+})
 
 async function refresh() {
   await appStore.refreshGatewayData()
@@ -128,8 +125,6 @@ async function deleteConversation(conversationId) {
 
 function openGatewayDialog() {
   gatewayDialog.draftBaseUrl = settingsStore.settings.gateway.baseUrl || ''
-  gatewayDialog.draftProgramPath = settingsStore.settings.gateway.programPath || ''
-  gatewayDialog.draftConfigPath = settingsStore.settings.gateway.configPath || ''
   gatewayDialog.open = true
 }
 
@@ -137,22 +132,8 @@ function closeGatewayDialog() {
   gatewayDialog.open = false
 }
 
-async function pickGatewayProgram() {
-  const value = await chooseGatewayProgram()
-  if (value) {
-    gatewayDialog.draftProgramPath = value
-  }
-}
-
-async function pickGatewayConfig() {
-  const value = await chooseGatewayConfig()
-  if (value) {
-    gatewayDialog.draftConfigPath = value
-  }
-}
-
 async function reconnectGateway() {
-  gatewayDialog.reconnecting = true
+  gatewayDialog.connecting = true
   try {
     await appStore.refreshGatewayData()
     if (appStore.gatewayStatus === 'connected') {
@@ -177,23 +158,38 @@ async function reconnectGateway() {
     notificationsStore.error(error?.message || String(error), { title: '网关重连失败' })
     gatewayDialog.open = true
   } finally {
-    gatewayDialog.reconnecting = false
+    gatewayDialog.connecting = false
   }
 }
 
-async function saveGatewayAndReconnect() {
+async function saveGatewaySettings() {
+  gatewayDialog.saving = true
   try {
     const nextBaseUrl = String(gatewayDialog.draftBaseUrl || '').trim()
     await settingsStore.patch({
       gateway: {
         baseUrl: nextBaseUrl,
-        programPath: String(gatewayDialog.draftProgramPath || '').trim(),
-        configPath: String(gatewayDialog.draftConfigPath || '').trim(),
       },
     })
-    await reconnectGateway()
+    notificationsStore.notify({
+      title: '网关配置已保存',
+      message: nextBaseUrl || '已清空网关地址。',
+      tone: 'success',
+    })
   } catch (error) {
     notificationsStore.error(error?.message || String(error), { title: '网关配置保存失败' })
+    throw error
+  } finally {
+    gatewayDialog.saving = false
+  }
+}
+
+async function connectGateway() {
+  try {
+    await saveGatewaySettings()
+    await reconnectGateway()
+  } catch {
+    gatewayDialog.open = true
   }
 }
 
@@ -201,22 +197,6 @@ watch(
   () => settingsStore.settings.gateway.baseUrl,
   (value) => {
     gatewayDialog.draftBaseUrl = value || ''
-  },
-  { immediate: true },
-)
-
-watch(
-  () => settingsStore.settings.gateway.programPath,
-  (value) => {
-    gatewayDialog.draftProgramPath = value || ''
-  },
-  { immediate: true },
-)
-
-watch(
-  () => settingsStore.settings.gateway.configPath,
-  (value) => {
-    gatewayDialog.draftConfigPath = value || ''
   },
   { immediate: true },
 )
@@ -260,8 +240,8 @@ watch(
         <span v-if="appStore.lastRefreshedAt" class="hidden text-xs text-[color:var(--qq-text-tertiary)] md:inline">
           {{ new Date(appStore.lastRefreshedAt).toLocaleTimeString() }}
         </span>
-        <QqButton v-if="shouldShowGatewayAction" variant="secondary" size="sm" @click="openGatewayDialog">
-          {{ gatewayActionLabel }}
+        <QqButton variant="secondary" size="sm" @click="openGatewayDialog">
+          网关管理
         </QqButton>
         <button
           class="inline-flex h-9 w-9 items-center justify-center rounded-[4px] border border-white/10 bg-[rgba(255,255,255,0.08)] text-[color:var(--qq-text-secondary)] transition hover:border-white/20 hover:bg-[rgba(255,255,255,0.14)] hover:text-white"
@@ -339,17 +319,26 @@ watch(
 
     <QqModal
       v-model="gatewayDialog.open"
-      :description="gatewayDialogDescription"
-      :title="gatewayDialogTitle"
-      @confirm="saveGatewayAndReconnect"
+      description="在这里管理桌面端连接的网关地址，主动发起连接，并查看当前网关返回的信息。"
+      title="网关管理"
+      @confirm="connectGateway"
     >
       <div class="grid gap-4">
         <div
           class="rounded-[6px] border border-white/10 bg-[rgba(9,32,28,0.22)] px-3 py-3 text-sm leading-6 text-[color:var(--qq-text-secondary)]"
         >
-          <p class="font-medium text-[color:var(--qq-text-primary)]">{{ shellStatusLabel }}</p>
-          <p class="mt-2">
-            {{ appStore.error || '你可以直接重连，或者先调整网关地址后再尝试连接。' }}
+          <div class="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+            <div>
+              <p class="font-medium text-[color:var(--qq-text-primary)]">{{ shellStatusLabel }}</p>
+              <p class="mt-1 break-all">{{ gatewayBaseUrlLabel }}</p>
+            </div>
+            <span class="qq-badge w-fit rounded-[4px] px-2 py-0.5 text-[11px]">刷新 {{ lastRefreshedLabel }}</span>
+          </div>
+          <p v-if="appStore.error" class="mt-3 text-[var(--qq-danger)]">
+            {{ appStore.error }}
+          </p>
+          <p v-else class="mt-3">
+            你可以先手动启动网关，再主动连接；也可以调整网关地址后重新连接。
           </p>
         </div>
 
@@ -357,28 +346,25 @@ watch(
           <QqInput v-model="gatewayDialog.draftBaseUrl" placeholder="请输入网关地址" />
         </QqFormField>
 
-        <QqFormField label="Gateway Program Path" helper="可选。可以选择发布包文件夹、bin 文件夹或 gateway.exe。">
-          <div class="flex flex-col gap-3 md:flex-row">
-            <QqInput v-model="gatewayDialog.draftProgramPath" class="flex-1" placeholder="例如：C:\\icoo-claw 或 C:\\icoo-claw\\bin\\gateway.exe" />
-            <QqButton variant="secondary" @click="pickGatewayProgram">选择程序/目录</QqButton>
+        <div class="grid gap-3 md:grid-cols-2">
+          <div class="rounded-[6px] border border-white/10 bg-[rgba(9,32,28,0.18)] px-3 py-3 text-sm">
+            <p class="text-xs uppercase tracking-[0.16em] text-[color:var(--qq-text-tertiary)]">Health</p>
+            <p class="mt-2 break-all text-[color:var(--qq-text-primary)]">{{ gatewayHealthLabel }}</p>
           </div>
-        </QqFormField>
-
-        <QqFormField label="Gateway Config Path" helper="可选。普通自定义网关才需要指定配置文件。">
-          <div class="flex flex-col gap-3 md:flex-row">
-            <QqInput v-model="gatewayDialog.draftConfigPath" class="flex-1" placeholder="例如：C:\\gateway\\gateway.toml" />
-            <QqButton variant="secondary" @click="pickGatewayConfig">选择配置</QqButton>
+          <div class="rounded-[6px] border border-white/10 bg-[rgba(9,32,28,0.18)] px-3 py-3 text-sm">
+            <p class="text-xs uppercase tracking-[0.16em] text-[color:var(--qq-text-tertiary)]">Resources</p>
+            <p class="mt-2 text-[color:var(--qq-text-primary)]">Agent {{ agentsStore.items.length }} · 会话 {{ conversationsStore.items.length }}</p>
           </div>
-        </QqFormField>
+        </div>
       </div>
 
       <template #footer>
-        <QqButton variant="ghost" :disabled="gatewayDialog.reconnecting" @click="closeGatewayDialog">稍后处理</QqButton>
-        <QqButton variant="secondary" :disabled="gatewayDialog.reconnecting" @click="reconnectGateway">
-          {{ gatewayDialog.reconnecting ? '重连中...' : '立即重连' }}
+        <QqButton variant="ghost" :disabled="gatewayDialogBusy" @click="closeGatewayDialog">关闭</QqButton>
+        <QqButton variant="secondary" :disabled="gatewayDialogBusy" @click="saveGatewaySettings">
+          {{ gatewayDialog.saving ? '保存中...' : '保存地址' }}
         </QqButton>
-        <QqButton :disabled="gatewayDialog.reconnecting" @click="saveGatewayAndReconnect">
-          {{ gatewayDialog.reconnecting ? '保存中...' : '保存并重连' }}
+        <QqButton :disabled="gatewayDialogBusy" @click="connectGateway">
+          {{ gatewayDialog.connecting ? '连接中...' : '连接网关' }}
         </QqButton>
       </template>
     </QqModal>

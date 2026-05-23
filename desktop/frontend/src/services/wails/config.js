@@ -36,22 +36,6 @@ export async function chooseDirectory() {
   }
 }
 
-export async function chooseGatewayProgram() {
-  try {
-    return await SystemService.ChooseGatewayProgram()
-  } catch {
-    return ''
-  }
-}
-
-export async function chooseGatewayConfig() {
-  try {
-    return await SystemService.ChooseGatewayConfig()
-  } catch {
-    return ''
-  }
-}
-
 export async function getAppInfo() {
   try {
     return await SystemService.GetAppInfo()
@@ -64,21 +48,6 @@ export async function getAppInfo() {
       arch: 'n/a',
       userConfigDir: 'localStorage',
     }
-  }
-}
-
-export async function ensureBundledGateway(baseUrl) {
-  if (typeof SystemService.EnsureBundledGateway !== 'function') {
-    return false
-  }
-
-  try {
-    return await SystemService.EnsureBundledGateway(baseUrl)
-  } catch (error) {
-    if (typeof window !== 'undefined' && window.location?.protocol?.startsWith('http')) {
-      return false
-    }
-    throw error
   }
 }
 

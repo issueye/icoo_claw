@@ -13,8 +13,6 @@ type Settings struct {
 type GatewaySettings struct {
 	BaseURL        string `json:"baseUrl" toml:"base_url"`
 	DefaultAgentID string `json:"defaultAgentId" toml:"default_agent_id"`
-	ProgramPath    string `json:"programPath" toml:"program_path"`
-	ConfigPath     string `json:"configPath" toml:"config_path"`
 }
 
 type WorkspaceSettings struct {
@@ -49,8 +47,6 @@ func (s Settings) Normalize() Settings {
 	normalized := DefaultSettings()
 	normalized.Gateway.BaseURL = normalizeBaseURL(s.Gateway.BaseURL)
 	normalized.Gateway.DefaultAgentID = strings.TrimSpace(s.Gateway.DefaultAgentID)
-	normalized.Gateway.ProgramPath = strings.TrimSpace(s.Gateway.ProgramPath)
-	normalized.Gateway.ConfigPath = strings.TrimSpace(s.Gateway.ConfigPath)
 	normalized.Workspace.RootDir = strings.TrimSpace(s.Workspace.RootDir)
 	normalized.Projects = normalizeProjects(s.Projects)
 	normalized.CurrentProjectID = normalizeCurrentProjectID(s.CurrentProjectID, normalized.Projects)

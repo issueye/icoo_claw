@@ -83,7 +83,20 @@ function Stop-FakeClawProcesses {
     }
 }
 
+function Stop-GatewayProcessesOnPort {
+  Get-NetTCPConnection -LocalPort $gatewayPort -State Listen -ErrorAction SilentlyContinue |
+    Select-Object -ExpandProperty OwningProcess -Unique |
+    ForEach-Object {
+      $process = Get-Process -Id $_ -ErrorAction SilentlyContinue
+      if ($process -and $process.ProcessName -eq "gateway") {
+        Stop-Process -Id $process.Id -Force
+        Start-Sleep -Milliseconds 300
+      }
+    }
+}
+
 Stop-ByPidFile "gateway"
+Stop-GatewayProcessesOnPort
 Stop-ByPidFile "desktop-preview"
 Stop-FakeClawProcesses
 

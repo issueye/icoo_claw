@@ -35,7 +35,7 @@ export async function fetchJSON(baseUrl, path, options = {}) {
     response = await fetch(requestURL, init)
   } catch (error) {
     throw new GatewayError(
-      `无法连接到网关 ${normalizeBaseUrl(baseUrl)}。请先启动测试服务，或确认该地址可以访问。`,
+      `无法连接到网关 ${normalizeBaseUrl(baseUrl)}。请手动启动网关，或确认该地址可以访问。`,
       {
         status: 0,
         code: 'gateway_unreachable',

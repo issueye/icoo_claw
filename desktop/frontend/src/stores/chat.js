@@ -32,11 +32,15 @@ export const useChatStore = defineStore('chat', {
       const conversationsStore = useConversationsStore()
       const projectsStore = useProjectsStore()
       const baseUrl = settingsStore.settings.gateway.baseUrl
-      const agentId = settingsStore.settings.gateway.defaultAgentId
       const metadata = projectsStore.currentProjectMetadata
 
+      if (!agentsStore.items.some((item) => item.id === settingsStore.settings.gateway.defaultAgentId)) {
+        await agentsStore.fetchAgents(baseUrl)
+      }
+
+      const agentId = settingsStore.settings.gateway.defaultAgentId
       if (!agentId) {
-        throw new Error('请先在设置页或 Agent 列表中确定默认 Agent')
+        throw new Error('当前网关没有可用 Agent，请先在网关中创建 Agent 后再发起对话')
       }
 
       this.error = ''
@@ -49,10 +53,6 @@ export const useChatStore = defineStore('chat', {
         })
         targetConversationId = conversation.id
         await router.push({ name: 'chat-conversation', params: { id: targetConversationId } })
-      }
-
-      if (!agentsStore.items.some((item) => item.id === agentId)) {
-        await agentsStore.fetchAgents(baseUrl)
       }
 
       conversationsStore.appendLocalUserMessage(targetConversationId, content)

@@ -3,8 +3,6 @@ export function defaultSettings() {
     gateway: {
       baseUrl: 'http://127.0.0.1:8080',
       defaultAgentId: '',
-      programPath: '',
-      configPath: '',
     },
     workspace: {
       rootDir: '',
@@ -19,6 +17,8 @@ export function defaultSettings() {
 
 export function mergeSettings(value = {}) {
   const fallback = defaultSettings()
+  const gatewayValue = value.gateway || {}
+  const rawBaseUrl = Object.prototype.hasOwnProperty.call(gatewayValue, 'baseUrl') ? gatewayValue.baseUrl : fallback.gateway.baseUrl
   const projects = normalizeProjects(value.projects || [])
   const currentProjectId = normalizeCurrentProjectId(value.currentProjectId, projects)
   const currentProject = projects.find((project) => project.id === currentProjectId)
@@ -34,7 +34,9 @@ export function mergeSettings(value = {}) {
   return {
     gateway: {
       ...fallback.gateway,
-      ...(value.gateway || {}),
+      ...gatewayValue,
+      baseUrl: normalizeBaseUrl(rawBaseUrl),
+      defaultAgentId: String(gatewayValue.defaultAgentId || '').trim(),
     },
     workspace,
     projects,
@@ -52,6 +54,10 @@ export function normalizeProject(value = {}) {
     name: String(value.name || '').trim(),
     rootDir: String(value.rootDir || '').trim(),
   }
+}
+
+function normalizeBaseUrl(value) {
+  return String(value || '').trim().replace(/\/+$/, '')
 }
 
 function normalizeProjects(projects) {

@@ -13,7 +13,7 @@ describe('gateway http helpers', () => {
     })
 
     await expect(fetchJSON('http://127.0.0.1:8080', '/health')).rejects.toThrow(
-      '无法连接到网关 http://127.0.0.1:8080。请先启动测试服务，或确认该地址可以访问。',
+      '无法连接到网关 http://127.0.0.1:8080。请手动启动网关，或确认该地址可以访问。',
     )
 
     vi.unstubAllGlobals()

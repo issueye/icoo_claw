@@ -7,8 +7,6 @@ describe('settings schema helpers', () => {
       gateway: {
         baseUrl: 'http://127.0.0.1:8080',
         defaultAgentId: '',
-        programPath: '',
-        configPath: '',
       },
       workspace: {
         rootDir: '',
@@ -30,8 +28,6 @@ describe('settings schema helpers', () => {
       gateway: {
         baseUrl: 'http://127.0.0.1:8080',
         defaultAgentId: 'agent_1',
-        programPath: '',
-        configPath: '',
       },
       workspace: {
         rootDir: '',

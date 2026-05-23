@@ -7,7 +7,7 @@ import QqFormSection from '@/components/ued/QqFormSection.vue'
 import QqInput from '@/components/ued/QqInput.vue'
 import QqSelect from '@/components/ued/QqSelect.vue'
 import QqSwitch from '@/components/ued/QqSwitch.vue'
-import { chooseDirectory, chooseGatewayConfig, chooseGatewayProgram } from '@/services/wails/config'
+import { chooseDirectory } from '@/services/wails/config'
 import { mergeSettings } from '@/services/settings/schema'
 import { useAgentsStore } from '@/stores/agents'
 import { useAppStore } from '@/stores/app'
@@ -49,20 +49,6 @@ async function pickProjectDirectory() {
   const value = await chooseDirectory()
   if (value) {
     projectDraft.rootDir = value
-  }
-}
-
-async function pickGatewayProgram() {
-  const value = await chooseGatewayProgram()
-  if (value) {
-    form.gateway.programPath = value
-  }
-}
-
-async function pickGatewayConfig() {
-  const value = await chooseGatewayConfig()
-  if (value) {
-    form.gateway.configPath = value
   }
 }
 
@@ -284,20 +270,6 @@ function agentOptions() {
 
             <QqFormField label="Default Agent" helper="默认进入聊天时优先使用的 Agent。">
               <QqSelect v-model="form.gateway.defaultAgentId" :options="agentOptions()" />
-            </QqFormField>
-
-            <QqFormField label="Gateway Program Path" helper="可选。填写后会优先启动这个网关程序，而不是 bundled gateway。">
-              <div class="flex flex-col gap-3 md:flex-row">
-                <QqInput v-model="form.gateway.programPath" class="flex-1" type="text" />
-                <QqButton variant="secondary" @click="pickGatewayProgram">选择程序</QqButton>
-              </div>
-            </QqFormField>
-
-            <QqFormField label="Gateway Config Path" helper="可选。填写后会在启动自定义网关程序时作为 --config 参数传入。">
-              <div class="flex flex-col gap-3 md:flex-row">
-                <QqInput v-model="form.gateway.configPath" class="flex-1" type="text" />
-                <QqButton variant="secondary" @click="pickGatewayConfig">选择配置</QqButton>
-              </div>
             </QqFormField>
 
             <QqFormField label="Workspace Directory" helper="兼容旧版配置；选择当前项目时会自动同步为项目目录。">

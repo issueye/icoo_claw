@@ -26,20 +26,6 @@ export class GatewaySettings {
              */
             this["defaultAgentId"] = "";
         }
-        if (!("programPath" in $$source)) {
-            /**
-             * @member
-             * @type {string}
-             */
-            this["programPath"] = "";
-        }
-        if (!("configPath" in $$source)) {
-            /**
-             * @member
-             * @type {string}
-             */
-            this["configPath"] = "";
-        }
 
         Object.assign(this, $$source);
     }
