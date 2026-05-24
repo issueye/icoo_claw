@@ -110,6 +110,12 @@ func (s *ChatService) SendMessage(ctx context.Context, conversationID string, re
 		return nil, err
 	}
 	defer func() { _ = s.router.MarkInflight(context.Background(), instance.ID, -1) }()
+	if err := s.markConversationStatus(ctx, conversation, "running"); err != nil {
+		return nil, err
+	}
+	defer func() {
+		_ = s.markConversationStatus(context.Background(), conversation, "active")
+	}()
 
 	stream, err := s.claw.Stream(ctx, instance.BaseURL, client.RunRequest{
 		SessionID:     conversation.SessionID,
@@ -151,6 +157,10 @@ func (s *ChatService) StreamMessage(ctx context.Context, conversationID string, 
 	if err := s.router.MarkInflight(ctx, instance.ID, 1); err != nil {
 		return nil, err
 	}
+	if err := s.markConversationStatus(ctx, conversation, "running"); err != nil {
+		_ = s.router.MarkInflight(context.Background(), instance.ID, -1)
+		return nil, err
+	}
 
 	events, err := s.claw.Stream(ctx, instance.BaseURL, client.RunRequest{
 		SessionID:     conversation.SessionID,
@@ -170,6 +180,9 @@ func (s *ChatService) StreamMessage(ctx context.Context, conversationID string, 
 		defer close(out)
 		defer func() { _ = s.router.MarkInflight(context.Background(), instance.ID, -1) }()
 		defer func() {
+			_ = s.markConversationStatus(context.Background(), conversation, "active")
+		}()
+		defer func() {
 			now := time.Now().UTC()
 			conversation.LastMessageAt = &now
 			conversation.UpdatedAt = now
@@ -180,6 +193,16 @@ func (s *ChatService) StreamMessage(ctx context.Context, conversationID string, 
 		}
 	}()
 	return out, nil
+}
+
+func (s *ChatService) markConversationStatus(ctx context.Context, conversation *model.Conversation, status string) error {
+	if conversation == nil {
+		return nil
+	}
+	conversation.Status = status
+	now := time.Now().UTC()
+	conversation.UpdatedAt = now
+	return s.conversations.Update(ctx, *conversation)
 }
 
 func (s *ChatService) DeleteConversation(ctx context.Context, id string) error {

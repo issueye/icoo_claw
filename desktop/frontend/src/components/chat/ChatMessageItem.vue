@@ -35,6 +35,9 @@ const usageLabel = computed(() => {
   return parts.join(' · ')
 })
 
+const isToolMessage = computed(() => Boolean(props.message.metadata?.toolCallId))
+const statusLabel = computed(() => props.message.draft ? 'streaming' : '')
+
 function roleLabel(role) {
   return role === 'user' ? 'You' : 'Assistant'
 }
@@ -74,6 +77,7 @@ function formatTimestamp(value) {
           {{ toolLabel }}
         </span>
         <span v-if="usageLabel" class="text-xs text-[color:var(--qq-text-tertiary)]">{{ usageLabel }}</span>
+        <span v-if="statusLabel" class="text-xs text-[color:var(--qq-text-tertiary)]">{{ statusLabel }}</span>
         <time v-if="showTimestamps" class="text-xs text-[color:var(--qq-text-tertiary)]">
           {{ formatTimestamp(message.createdAt) }}
         </time>
@@ -89,6 +93,13 @@ function formatTimestamp(value) {
           :class="message.error ? 'text-rose-100' : 'text-slate-50'"
           v-html="renderedContent"
         />
+        <div
+          v-if="isToolMessage || usageLabel"
+          class="mt-2 border-t border-white/10 pt-2 text-xs text-[color:var(--qq-text-tertiary)]"
+        >
+          <span v-if="isToolMessage" class="mr-3">tool {{ message.metadata.toolKind || 'other' }} · {{ message.metadata.toolStatus || 'pending' }}</span>
+          <span v-if="usageLabel">usage {{ usageLabel }}</span>
+        </div>
       </div>
     </div>
   </article>
