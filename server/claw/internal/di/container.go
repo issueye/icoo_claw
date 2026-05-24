@@ -17,6 +17,7 @@ import (
 type Container struct {
 	Config config.Config
 	Router *gin.Engine
+	Runner agent_sdk.Runner
 }
 
 func NewContainer(cfgPath string) (*Container, error) {
@@ -41,7 +42,7 @@ func NewContainer(cfgPath string) (*Container, error) {
 		Agent:  agentController,
 	}, cfg.InternalToken)
 
-	return &Container{Config: cfg, Router: engine}, nil
+	return &Container{Config: cfg, Router: engine, Runner: runner}, nil
 }
 
 func (c *Container) Run() error {
