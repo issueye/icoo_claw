@@ -2,7 +2,6 @@ package service
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"strings"
 	"time"
@@ -227,9 +226,9 @@ func collectClawStream(events <-chan client.StreamEvent, fallbackSessionID, fall
 			Type:       event.Type,
 			SessionID:  event.SessionID,
 			RequestID:  event.RequestID,
-			Update:     toAgentSDKUpdate(event.Update),
+			Update:     event.Update.ToAgentSDK(),
 			StopReason: event.StopReason,
-			Error:      toAgentSDKError(event.Error),
+			Error:      event.Error.ToAgentSDK(),
 		}, agent_sdk.StreamEventHandlerFunc{
 			OnUpdate: func(update agent_sdk.StreamEvent) error {
 				if update.Update != nil && update.Update.SessionUpdate == "agent_message_chunk" && update.Update.Content != nil {
@@ -253,93 +252,6 @@ func collectClawStream(events <-chan client.StreamEvent, fallbackSessionID, fall
 		}
 	}
 	return output.String(), stopReason, sessionID, requestID, nil
-}
-
-func toAgentSDKUpdate(update *client.SessionUpdate) *agent_sdk.SessionUpdate {
-	if update == nil {
-		return nil
-	}
-	return &agent_sdk.SessionUpdate{
-		SessionUpdate: update.SessionUpdate,
-		Content:       toAgentSDKContent(update.Content),
-		MessageID:     update.MessageID,
-		ToolCallID:    update.ToolCallID,
-		Title:         update.Title,
-		Kind:          update.Kind,
-		Status:        update.Status,
-		Locations:     toAgentSDKTollLocations(update.Locations),
-		RawInput:      update.RawInput,
-		RawOutput:     update.RawOutput,
-		Usage:         toAgentSDKUsage(update.Usage),
-	}
-}
-
-func toAgentSDKContent(content *client.ContentBlock) *agent_sdk.ContentBlock {
-	if content == nil {
-		return nil
-	}
-	return &agent_sdk.ContentBlock{
-		Type: content.Type,
-		Text: content.Text,
-		URI:  content.URI,
-		Mime: content.Mime,
-		Data: toAgentSDKRawMessage(content.Data),
-	}
-}
-
-func toAgentSDKTollLocations(locations []client.ToolCallLocation) []agent_sdk.ToolCallLocation {
-	if len(locations) == 0 {
-		return nil
-	}
-	out := make([]agent_sdk.ToolCallLocation, len(locations))
-	for i, location := range locations {
-		out[i] = agent_sdk.ToolCallLocation{Path: location.Path, Line: location.Line}
-	}
-	return out
-}
-
-func toAgentSDKUsage(usage *client.UsageUpdate) *agent_sdk.UsageUpdate {
-	if usage == nil {
-		return nil
-	}
-	return &agent_sdk.UsageUpdate{
-		InputTokens:  usage.InputTokens,
-		OutputTokens: usage.OutputTokens,
-		TotalTokens:  usage.TotalTokens,
-	}
-}
-
-func toAgentSDKError(err *client.StreamError) *agent_sdk.StreamError {
-	if err == nil {
-		return nil
-	}
-	return &agent_sdk.StreamError{
-		Message: err.Message,
-		Code:    err.Code,
-	}
-}
-
-func toAgentSDKRawMessage(value any) json.RawMessage {
-	if value == nil {
-		return nil
-	}
-	switch v := value.(type) {
-	case json.RawMessage:
-		return append(json.RawMessage(nil), v...)
-	case []byte:
-		return append(json.RawMessage(nil), v...)
-	case string:
-		if strings.TrimSpace(v) == "" {
-			return nil
-		}
-		return json.RawMessage([]byte(v))
-	default:
-		data, err := json.Marshal(v)
-		if err != nil {
-			return nil
-		}
-		return json.RawMessage(data)
-	}
 }
 
 func (s *ChatService) prepareRun(ctx context.Context, conversationID string) (*model.Conversation, *model.AgentProfile, *model.ProviderProfile, *model.AgentInstance, error) {
