@@ -1,6 +1,7 @@
 <script setup>
 import { computed } from 'vue'
 import { renderMarkdown } from '@/services/utils/markdown'
+import { LoaderCircle } from 'lucide-vue-next'
 
 const props = defineProps({
   message: {
@@ -14,6 +15,25 @@ const props = defineProps({
 })
 
 const renderedContent = computed(() => renderMarkdown(props.message.content))
+const toolLabel = computed(() => {
+  const meta = props.message.metadata || {}
+  if (!meta.toolCallId && !meta.toolStatus && !meta.toolKind) {
+    return ''
+  }
+  return [meta.toolKind, meta.toolStatus].filter(Boolean).join(' · ')
+})
+
+const usageLabel = computed(() => {
+  const usage = props.message.metadata?.usage
+  if (!usage) {
+    return ''
+  }
+  const parts = []
+  if (Number.isFinite(usage.inputTokens)) parts.push(`in ${usage.inputTokens}`)
+  if (Number.isFinite(usage.outputTokens)) parts.push(`out ${usage.outputTokens}`)
+  if (Number.isFinite(usage.totalTokens)) parts.push(`total ${usage.totalTokens}`)
+  return parts.join(' · ')
+})
 
 function roleLabel(role) {
   return role === 'user' ? 'You' : 'Assistant'
@@ -46,6 +66,14 @@ function formatTimestamp(value) {
           {{ roleLabel(message.role) }}
         </span>
         <span v-if="message.draft" class="text-xs text-[color:var(--qq-text-tertiary)]">streaming</span>
+        <span
+          v-if="toolLabel"
+          class="inline-flex items-center gap-1 rounded-[4px] bg-[rgba(255,255,255,0.08)] px-2 py-0.5 text-[11px] text-[color:var(--qq-text-secondary)]"
+        >
+          <LoaderCircle class="h-3 w-3 animate-spin" />
+          {{ toolLabel }}
+        </span>
+        <span v-if="usageLabel" class="text-xs text-[color:var(--qq-text-tertiary)]">{{ usageLabel }}</span>
         <time v-if="showTimestamps" class="text-xs text-[color:var(--qq-text-tertiary)]">
           {{ formatTimestamp(message.createdAt) }}
         </time>

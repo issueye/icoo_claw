@@ -153,6 +153,13 @@ function isRunning(conversation, runningConversationIds) {
                 <LoaderCircle class="h-3 w-3 animate-spin" />
                 运行中
               </span>
+              <span
+                v-else-if="conversation.status === 'running'"
+                class="inline-flex shrink-0 items-center gap-1 rounded-[4px] bg-[rgba(72,255,209,0.14)] px-1.5 py-0.5 text-[10px] text-[color:var(--qq-accent)]"
+              >
+                <LoaderCircle class="h-3 w-3 animate-spin" />
+                运行中
+              </span>
             </p>
           </RouterLink>
           <div class="flex shrink-0 items-start gap-2">

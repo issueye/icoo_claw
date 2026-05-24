@@ -115,12 +115,54 @@ export const useConversationsStore = defineStore('conversations', {
       this.bumpConversation(conversationId)
     },
 
+    appendAssistantUpdate(conversationId, update) {
+      const messages = this.ensureMessageBuffer(conversationId)
+      let draft = [...messages].reverse().find((message) => message.role === 'assistant' && message.draft)
+      if (!draft) {
+        draft = buildLocalMessage('assistant', '', { draft: true })
+        messages.push(draft)
+      }
+
+      const text = update?.content?.text || ''
+      if (text) {
+        draft.content += text
+      }
+
+      const metadata = draft.metadata || {}
+      metadata.sessionUpdate = update?.sessionUpdate || ''
+      if (update?.toolCallId) {
+        metadata.toolCallId = update.toolCallId
+      }
+      if (update?.kind) {
+        metadata.toolKind = update.kind
+      }
+      if (update?.status) {
+        metadata.toolStatus = update.status
+      }
+      if (update?.usage) {
+        metadata.usage = update.usage
+      }
+      draft.metadata = metadata
+      this.bumpConversation(conversationId)
+    },
+
     markAssistantDraftComplete(conversationId) {
       const messages = this.ensureMessageBuffer(conversationId)
       const draft = [...messages].reverse().find((message) => message.role === 'assistant' && message.draft)
       if (draft) {
         draft.draft = false
       }
+    },
+
+    bumpConversationRunning(conversationId, running = true) {
+      const conversation = this.byId(conversationId)
+      if (!conversation) {
+        return
+      }
+      conversation.status = running ? 'running' : 'active'
+      conversation.updatedAt = new Date().toISOString()
+      conversation.lastMessageAt = conversation.updatedAt
+      this.items = sortConversations(this.items)
     },
 
     markAssistantDraftError(conversationId, message) {

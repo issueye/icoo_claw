@@ -73,6 +73,21 @@ describe('chat store', () => {
     expect(conversationsStore.messagesFor('conv_a').at(-1).content).toBe('alpha')
     expect(conversationsStore.messagesFor('conv_b').at(-1).content).toBe('beta')
   })
+
+  it('tracks running conversation status from session events', async () => {
+    const chatStore = useChatStore()
+    const conversationsStore = useConversationsStore()
+
+    conversationsStore.items = [{ id: 'conv_a', title: 'A', status: 'active' }]
+    conversationsStore.startAssistantDraft('conv_a')
+
+    chatStore.applySessionUpdate('conv_a', textUpdate('hello'))
+    expect(conversationsStore.byId('conv_a').status).toBe('running')
+
+    conversationsStore.markAssistantDraftComplete('conv_a')
+    conversationsStore.bumpConversationRunning('conv_a', false)
+    expect(conversationsStore.byId('conv_a').status).toBe('active')
+  })
 })
 
 function textUpdate(text) {

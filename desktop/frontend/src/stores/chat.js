@@ -88,6 +88,7 @@ export const useChatStore = defineStore('chat', {
 
       conversationsStore.appendLocalUserMessage(targetConversationId, content)
       conversationsStore.startAssistantDraft(targetConversationId)
+      conversationsStore.bumpConversationRunning(targetConversationId, true)
 
       const requestId = buildRequestID()
       this.setStream(targetConversationId, {
@@ -181,6 +182,7 @@ export const useChatStore = defineStore('chat', {
           break
         case 'session/completed':
           conversationsStore.markAssistantDraftComplete(conversationId)
+          conversationsStore.bumpConversationRunning(conversationId, false)
           this.error = ''
           if (message.sessionId) {
             this.lastSessionId = message.sessionId
@@ -198,6 +200,7 @@ export const useChatStore = defineStore('chat', {
         case 'session/error':
           this.error = message.error || 'chat request failed'
           conversationsStore.markAssistantDraftError(conversationId, this.error)
+          conversationsStore.bumpConversationRunning(conversationId, false)
           this.cleanupStream(conversationId)
           break
         default:
@@ -210,9 +213,15 @@ export const useChatStore = defineStore('chat', {
       if (!update) {
         return
       }
+      conversationsStore.bumpConversationRunning(conversationId, true)
       switch (update.sessionUpdate) {
         case 'agent_message_chunk':
-          conversationsStore.appendAssistantDelta(conversationId, update.content?.text || '')
+          conversationsStore.appendAssistantUpdate(conversationId, update)
+          break
+        case 'tool_call':
+        case 'tool_call_update':
+        case 'usage_update':
+          conversationsStore.appendAssistantUpdate(conversationId, update)
           break
         default:
           break
