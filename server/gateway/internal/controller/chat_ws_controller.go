@@ -77,7 +77,7 @@ func (s *chatWSSession) run(ctx context.Context) {
 		var req dto.ChatWSRequest
 		if err := json.Unmarshal(payload, &req); err != nil {
 			if writeErr := s.writeJSON(dto.ChatWSResponse{
-				Type:  "message.error",
+				Type:  "session/error",
 				Code:  "bad_request",
 				Error: "invalid websocket payload",
 			}); writeErr != nil {
@@ -167,7 +167,7 @@ func (s *chatWSSession) startStream(ctx context.Context, req dto.ChatWSRequest) 
 	s.stateMu.Unlock()
 
 	if err := s.writeJSON(dto.ChatWSResponse{
-		Type:           "session.accepted",
+		Type:           "session/accepted",
 		ConversationID: req.ConversationID,
 		RequestID:      req.RequestID,
 	}); err != nil {
@@ -191,37 +191,43 @@ func (s *chatWSSession) forwardEvents(ctx context.Context, state *activeStream, 
 		}
 
 		switch event.Type {
-		case "error":
+		case "session/error":
+			message := ""
+			code := "stream_error"
+			if event.Error != nil {
+				message = event.Error.Message
+				if event.Error.Code != "" {
+					code = event.Error.Code
+				}
+			}
 			_ = s.writeJSON(dto.ChatWSResponse{
-				Type:           "message.error",
+				Type:           "session/error",
 				ConversationID: state.conversationID,
 				SessionID:      event.SessionID,
 				RequestID:      requestID,
-				Code:           "stream_error",
-				Error:          defaultOutput(event.Output, "stream error"),
+				Code:           code,
+				Error:          defaultOutput(message, "stream error"),
 			})
 			return
-		case "message_stop", "agent_stop":
+		case "session/completed":
 			if !completed {
 				_ = s.writeJSON(dto.ChatWSResponse{
-					Type:           "message.completed",
+					Type:           "session/completed",
 					ConversationID: state.conversationID,
 					SessionID:      event.SessionID,
 					RequestID:      requestID,
-					StopReason:     "end_turn",
+					StopReason:     defaultOutput(event.StopReason, "end_turn"),
 				})
 				completed = true
 			}
-		default:
-			if event.Output != "" {
-				_ = s.writeJSON(dto.ChatWSResponse{
-					Type:           "message.delta",
-					ConversationID: state.conversationID,
-					SessionID:      event.SessionID,
-					RequestID:      requestID,
-					Output:         event.Output,
-				})
-			}
+		case "session/update":
+			_ = s.writeJSON(dto.ChatWSResponse{
+				Type:           "session/update",
+				ConversationID: state.conversationID,
+				SessionID:      event.SessionID,
+				RequestID:      requestID,
+				Update:         toDTOUpdate(event.Update),
+			})
 		}
 	}
 
@@ -233,7 +239,7 @@ func (s *chatWSSession) forwardEvents(ctx context.Context, state *activeStream, 
 		stopReason = "cancelled"
 	}
 	_ = s.writeJSON(dto.ChatWSResponse{
-		Type:           "message.completed",
+		Type:           "session/completed",
 		ConversationID: state.conversationID,
 		RequestID:      state.requestID,
 		StopReason:     stopReason,
@@ -287,12 +293,66 @@ func (s *chatWSSession) writeErrorResponse(req dto.ChatWSRequest, err error) err
 	}
 
 	return s.writeJSON(dto.ChatWSResponse{
-		Type:           "message.error",
+		Type:           "session/error",
 		ConversationID: req.ConversationID,
 		RequestID:      req.RequestID,
 		Code:           code,
 		Error:          message,
 	})
+}
+
+func toDTOUpdate(update *client.SessionUpdate) *dto.SessionUpdate {
+	if update == nil {
+		return nil
+	}
+	return &dto.SessionUpdate{
+		SessionUpdate: update.SessionUpdate,
+		Content:       toDTOContentBlock(update.Content),
+		MessageID:     update.MessageID,
+		ToolCallID:    update.ToolCallID,
+		Title:         update.Title,
+		Kind:          update.Kind,
+		Status:        update.Status,
+		Locations:     toDTOToolCallLocations(update.Locations),
+		RawInput:      update.RawInput,
+		RawOutput:     update.RawOutput,
+		Usage:         toDTOUsage(update.Usage),
+	}
+}
+
+func toDTOContentBlock(content *client.ContentBlock) *dto.ContentBlock {
+	if content == nil {
+		return nil
+	}
+	return &dto.ContentBlock{
+		Type: content.Type,
+		Text: content.Text,
+		URI:  content.URI,
+		Mime: content.Mime,
+		Data: content.Data,
+	}
+}
+
+func toDTOToolCallLocations(locations []client.ToolCallLocation) []dto.ToolCallLocation {
+	if len(locations) == 0 {
+		return nil
+	}
+	out := make([]dto.ToolCallLocation, len(locations))
+	for i, location := range locations {
+		out[i] = dto.ToolCallLocation{Path: location.Path, Line: location.Line}
+	}
+	return out
+}
+
+func toDTOUsage(usage *client.UsageUpdate) *dto.UsageUpdate {
+	if usage == nil {
+		return nil
+	}
+	return &dto.UsageUpdate{
+		InputTokens:  usage.InputTokens,
+		OutputTokens: usage.OutputTokens,
+		TotalTokens:  usage.TotalTokens,
+	}
 }
 
 func (s *chatWSSession) writeJSON(payload dto.ChatWSResponse) error {

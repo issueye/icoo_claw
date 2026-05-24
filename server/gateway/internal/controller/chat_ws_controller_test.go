@@ -29,8 +29,13 @@ func TestChatWSControllerStreamsEvents(t *testing.T) {
 	engine.GET("/v1/ws/chat", NewChatWSController(fakeChatStreamer{
 		stream: func(ctx context.Context, conversationID string, req dto.SendMessageRequest) (<-chan client.StreamEvent, error) {
 			out := make(chan client.StreamEvent, 2)
-			out <- client.StreamEvent{Type: "content_block_delta", SessionID: "sess_1", RequestID: req.RequestID, Output: "hello"}
-			out <- client.StreamEvent{Type: "message_stop", SessionID: "sess_1", RequestID: req.RequestID}
+			out <- client.StreamEvent{
+				Type:      "session/update",
+				SessionID: "sess_1",
+				RequestID: req.RequestID,
+				Update:    &client.SessionUpdate{SessionUpdate: "agent_message_chunk", Content: &client.ContentBlock{Type: "text", Text: "hello"}},
+			}
+			out <- client.StreamEvent{Type: "session/completed", SessionID: "sess_1", RequestID: req.RequestID, StopReason: "end_turn"}
 			close(out)
 			return out, nil
 		},
@@ -52,17 +57,17 @@ func TestChatWSControllerStreamsEvents(t *testing.T) {
 	}
 
 	accepted := mustReadWSMessage(t, conn)
-	if accepted.Type != "session.accepted" || accepted.ConversationID != "conv_1" || accepted.RequestID != "req_1" {
+	if accepted.Type != "session/accepted" || accepted.ConversationID != "conv_1" || accepted.RequestID != "req_1" {
 		t.Fatalf("accepted = %+v", accepted)
 	}
 
 	delta := mustReadWSMessage(t, conn)
-	if delta.Type != "message.delta" || delta.Output != "hello" || delta.SessionID != "sess_1" {
+	if delta.Type != "session/update" || delta.Update == nil || delta.Update.Content == nil || delta.Update.Content.Text != "hello" || delta.SessionID != "sess_1" {
 		t.Fatalf("delta = %+v", delta)
 	}
 
 	completed := mustReadWSMessage(t, conn)
-	if completed.Type != "message.completed" || completed.StopReason != "end_turn" {
+	if completed.Type != "session/completed" || completed.StopReason != "end_turn" {
 		t.Fatalf("completed = %+v", completed)
 	}
 }
@@ -99,7 +104,7 @@ func TestChatWSControllerPropagatesBusyError(t *testing.T) {
 	}
 
 	msg := mustReadWSMessage(t, conn)
-	if msg.Type != "message.error" || msg.Code != "session_busy" {
+	if msg.Type != "session/error" || msg.Code != "session_busy" {
 		t.Fatalf("message = %+v", msg)
 	}
 }
@@ -153,7 +158,7 @@ func TestChatWSControllerRejectsMalformedPayload(t *testing.T) {
 	}
 
 	msg := mustReadWSMessage(t, conn)
-	if msg.Type != "message.error" || msg.Code != "bad_request" {
+	if msg.Type != "session/error" || msg.Code != "bad_request" {
 		t.Fatalf("message = %+v", msg)
 	}
 }

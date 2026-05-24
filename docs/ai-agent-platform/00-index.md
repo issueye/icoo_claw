@@ -9,6 +9,7 @@
 - [03-technical-spec.md](03-technical-spec.md): Go/Gin/GORM/SQLite(no cgo)、agentsdk-go 集成说明与接口草案。
 - [04-development-plan.md](04-development-plan.md): 多 worker 并行开发计划、依赖关系与验收标准。
 - [05-mvp.md](05-mvp.md): MVP 范围、交付清单、接口、数据模型与不做事项。
+- [06-acp-protocol-design.md](06-acp-protocol-design.md): 基于 `github.com/coder/acp-go-sdk` 的 ACP 协议适配设计、事件映射与实施计划。
 - [gateway-session-gorm-models.md](gateway-session-gorm-models.md): Gateway Session API GORM + SQLite(no cgo) 明细模型设计。
 
 ## 关键结论

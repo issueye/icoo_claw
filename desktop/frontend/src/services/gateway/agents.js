@@ -8,33 +8,70 @@ export async function listAgents(baseUrl) {
 export async function createAgent(baseUrl, input) {
   const payload = await fetchJSON(baseUrl, '/v1/agents', {
     method: 'POST',
-    body: {
-      id: input.id,
-      name: input.name,
-      model_provider: input.modelProvider,
-      model_name: input.modelName,
-      base_url: input.baseUrl || '',
-      system_prompt: input.systemPrompt || '',
-      max_iterations: input.maxIterations,
-      tool_whitelist: input.toolWhitelist || [],
-      network_allow: input.networkAllow || [],
-      mcp_server_ids: input.mcpServerIds || [],
-      skill_ids: input.skillIds || [],
-      enabled: input.enabled,
-    },
+    body: agentPayload(input, { includeId: true }),
   })
   return normalizeAgent(payload)
+}
+
+export async function updateAgent(baseUrl, agentId, input) {
+  const payload = await fetchJSON(baseUrl, `/v1/agents/${encodeURIComponent(agentId)}`, {
+    method: 'PATCH',
+    body: agentPayload(input),
+  })
+  return normalizeAgent(payload)
+}
+
+export async function deleteAgent(baseUrl, agentId) {
+  await fetchJSON(baseUrl, `/v1/agents/${encodeURIComponent(agentId)}`, {
+    method: 'DELETE',
+  })
+}
+
+function agentPayload(input, options = {}) {
+  const body = {
+    name: input.name,
+    provider_id: input.providerId || '',
+    model_provider: input.modelProvider || 'openai',
+    model_name: input.modelName || '',
+    base_url: input.baseUrl || '',
+    system_prompt: input.systemPrompt || '',
+    max_iterations: Number(input.maxIterations) || 0,
+    tool_whitelist: normalizeList(input.toolWhitelist),
+    network_allow: normalizeList(input.networkAllow),
+    mcp_server_ids: normalizeList(input.mcpServerIds),
+    skill_ids: normalizeList(input.skillIds),
+    enabled: Boolean(input.enabled),
+  }
+  if (options.includeId) {
+    body.id = input.id || ''
+  }
+  return body
+}
+
+function normalizeList(value) {
+  if (Array.isArray(value)) {
+    return value.map((item) => String(item || '').trim()).filter(Boolean)
+  }
+  return String(value || '')
+    .split(/[\n,]/)
+    .map((item) => item.trim())
+    .filter(Boolean)
 }
 
 function normalizeAgent(agent) {
   return {
     id: agent.id,
     name: agent.name,
+    providerId: agent.provider_id || '',
     modelProvider: agent.model_provider,
     modelName: agent.model_name,
     baseUrl: agent.base_url,
     systemPrompt: agent.system_prompt,
     maxIterations: agent.max_iterations,
+    toolWhitelist: agent.tool_whitelist || [],
+    networkAllow: agent.network_allow || [],
+    mcpServerIds: agent.mcp_server_ids || [],
+    skillIds: agent.skill_ids || [],
     enabled: agent.enabled,
     createdAt: agent.created_at,
     updatedAt: agent.updated_at,

@@ -33,6 +33,27 @@ func (m staticModel) Complete(context.Context, sdkmodel.Request) (*sdkmodel.Resp
 	return nil, nil
 }
 
+type streamingDeltaModel struct{}
+
+func (m streamingDeltaModel) Complete(context.Context, sdkmodel.Request) (*sdkmodel.Response, error) {
+	return nil, nil
+}
+
+func (m streamingDeltaModel) CompleteStream(_ context.Context, _ sdkmodel.Request, cb sdkmodel.StreamHandler) error {
+	for _, delta := range []string{"he", "llo"} {
+		if err := cb(sdkmodel.StreamResult{Delta: delta}); err != nil {
+			return err
+		}
+	}
+	return cb(sdkmodel.StreamResult{
+		Final: true,
+		Response: &sdkmodel.Response{
+			Message:    sdkmodel.Message{Role: "assistant", Content: "hello"},
+			StopReason: "end_turn",
+		},
+	})
+}
+
 type toolCallingModel struct {
 	t            *testing.T
 	callCount    int
@@ -240,6 +261,68 @@ func TestSDKRunnerRunLoadsAndSavesHistory(t *testing.T) {
 	if store.messages[0].Content != "previous" || store.messages[1].Content != "next" || store.messages[2].Content != "ok" {
 		t.Fatalf("unexpected saved messages = %+v", store.messages)
 	}
+}
+
+func TestSDKRunnerStreamEmitsTextWithoutNilPlaceholders(t *testing.T) {
+	history := NewHistoryAdapter(&memoryHistoryStore{})
+	runner := NewSDKRunner(NewRuntimeFactory(history, staticModel{}), history)
+
+	events, err := runner.RunStream(context.Background(), RunRequest{
+		SessionID: "sess_stream",
+		Prompt:    "hello",
+		Agent: map[string]any{
+			"enabled_builtin_tools": []any{},
+		},
+	})
+	if err != nil {
+		t.Fatalf("run stream: %v", err)
+	}
+
+	output := ""
+	for event := range events {
+		text := streamEventText(event)
+		if text == "<nil>" {
+			t.Fatalf("unexpected nil placeholder event: %+v", event)
+		}
+		output += text
+	}
+	if output != "ok" {
+		t.Fatalf("stream output = %q, want ok", output)
+	}
+}
+
+func TestSDKRunnerStreamsModelDeltasWithoutFinalDuplicate(t *testing.T) {
+	history := NewHistoryAdapter(&memoryHistoryStore{})
+	runner := NewSDKRunner(NewRuntimeFactory(history, streamingDeltaModel{}), history)
+
+	events, err := runner.RunStream(context.Background(), RunRequest{
+		SessionID: "sess_delta",
+		Prompt:    "hello",
+		Agent: map[string]any{
+			"enabled_builtin_tools": []any{},
+		},
+	})
+	if err != nil {
+		t.Fatalf("run stream: %v", err)
+	}
+
+	output := ""
+	for event := range events {
+		output += streamEventText(event)
+	}
+	if output != "hello" {
+		t.Fatalf("stream output = %q, want only realtime deltas", output)
+	}
+}
+
+func streamEventText(event StreamEvent) string {
+	if event.Type != StreamEventSessionUpdate || event.Update == nil {
+		return ""
+	}
+	if event.Update.SessionUpdate != "agent_message_chunk" || event.Update.Content == nil {
+		return ""
+	}
+	return event.Update.Content.Text
 }
 
 func TestSDKRunnerExecutesBuiltinReadToolAndSavesResult(t *testing.T) {

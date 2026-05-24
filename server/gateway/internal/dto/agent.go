@@ -5,6 +5,7 @@ import "time"
 type AgentProfile struct {
 	ID            string    `json:"id"`
 	Name          string    `json:"name"`
+	ProviderID    string    `json:"provider_id,omitempty"`
 	ModelProvider string    `json:"model_provider"`
 	ModelName     string    `json:"model_name"`
 	BaseURL       string    `json:"base_url,omitempty"`
@@ -22,6 +23,7 @@ type AgentProfile struct {
 type CreateAgentRequest struct {
 	ID            string   `json:"id"`
 	Name          string   `json:"name" binding:"required"`
+	ProviderID    string   `json:"provider_id"`
 	ModelProvider string   `json:"model_provider"`
 	ModelName     string   `json:"model_name"`
 	BaseURL       string   `json:"base_url"`
@@ -36,6 +38,7 @@ type CreateAgentRequest struct {
 
 type UpdateAgentRequest struct {
 	Name          *string  `json:"name"`
+	ProviderID    *string  `json:"provider_id"`
 	ModelProvider *string  `json:"model_provider"`
 	ModelName     *string  `json:"model_name"`
 	BaseURL       *string  `json:"base_url"`

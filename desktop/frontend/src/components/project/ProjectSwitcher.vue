@@ -52,16 +52,12 @@ async function selectProject(projectId) {
   >
     <FolderKanban class="h-4 w-4" />
     <span class="max-w-full truncate text-center leading-tight">{{ compactLabel }}</span>
-    <select
+    <QqSelect
       v-model="selectedProjectId"
-      class="absolute inset-0 cursor-pointer opacity-0"
+      class="absolute inset-0 opacity-0"
       :disabled="saving"
-      :aria-label="`当前项目：${currentLabel}`"
-    >
-      <option v-for="option in options" :key="option.value" :value="option.value">
-        {{ option.label }}
-      </option>
-    </select>
+      :options="options"
+    />
   </div>
 
   <div v-else class="w-full rounded-[6px] border border-white/10 bg-[rgba(255,255,255,0.06)] p-2">

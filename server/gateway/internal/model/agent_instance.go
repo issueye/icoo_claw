@@ -11,6 +11,11 @@ type AgentInstance struct {
 	Host            string `gorm:"size:128"`
 	Port            int
 	BaseURL         string `gorm:"size:512"`
+	ProviderID      string `gorm:"size:64;index"`
+	ModelProvider   string `gorm:"size:32"`
+	ModelName       string `gorm:"size:128"`
+	ModelBaseURL    string `gorm:"size:512"`
+	APIKeySet       bool
 	LastHeartbeatAt *time.Time
 	LastError       string `gorm:"type:text"`
 	Inflight        int

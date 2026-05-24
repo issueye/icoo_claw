@@ -1,13 +1,13 @@
 import { defineStore } from 'pinia'
-import { createAgent, listAgents } from '@/services/gateway/agents'
+import { createAgent, deleteAgent, listAgents, updateAgent } from '@/services/gateway/agents'
 import { useSettingsStore } from './settings'
-
-const desktopDefaultAgentId = 'agent_desktop_default'
 
 export const useAgentsStore = defineStore('agents', {
   state: () => ({
     items: [],
     loading: false,
+    saving: false,
+    deletingId: '',
     error: '',
   }),
 
@@ -24,7 +24,7 @@ export const useAgentsStore = defineStore('agents', {
       this.error = ''
       try {
         this.items = await listAgents(baseUrl)
-        await this.ensureDefaultSelection(baseUrl)
+        await this.ensureDefaultSelection()
         return this.items
       } catch (error) {
         this.error = error?.message || String(error)
@@ -34,7 +34,39 @@ export const useAgentsStore = defineStore('agents', {
       }
     },
 
-    async ensureDefaultSelection(baseUrl) {
+    async saveAgent(baseUrl, agent) {
+      this.saving = true
+      this.error = ''
+      try {
+        const saved = agent.editingId
+          ? await updateAgent(baseUrl, agent.editingId, agent)
+          : await createAgent(baseUrl, agent)
+        await this.fetchAgents(baseUrl)
+        return saved
+      } catch (error) {
+        this.error = error?.message || String(error)
+        throw error
+      } finally {
+        this.saving = false
+      }
+    },
+
+    async removeAgent(baseUrl, agentId) {
+      this.deletingId = agentId
+      this.error = ''
+      try {
+        await deleteAgent(baseUrl, agentId)
+        this.items = this.items.filter((item) => item.id !== agentId)
+        await this.ensureDefaultSelection()
+      } catch (error) {
+        this.error = error?.message || String(error)
+        throw error
+      } finally {
+        this.deletingId = ''
+      }
+    },
+
+    async ensureDefaultSelection() {
       const settingsStore = useSettingsStore()
       const current = settingsStore.settings.gateway.defaultAgentId
       if (current && this.items.some((item) => item.id === current)) {
@@ -49,39 +81,11 @@ export const useAgentsStore = defineStore('agents', {
         return
       }
 
-      const agent = await this.createDesktopDefaultAgent(baseUrl, current || desktopDefaultAgentId)
-      this.items = [agent]
       await settingsStore.patch({
         gateway: {
-          defaultAgentId: agent.id,
+          defaultAgentId: '',
         },
       })
-    },
-
-    async createDesktopDefaultAgent(baseUrl, agentId = desktopDefaultAgentId) {
-      try {
-        return await createAgent(baseUrl, {
-          id: agentId,
-          name: 'Desktop Default Agent',
-          modelProvider: 'openai',
-          modelName: 'fake',
-          maxIterations: 1,
-          toolWhitelist: [],
-          networkAllow: [],
-          mcpServerIds: [],
-          skillIds: [],
-          enabled: true,
-        })
-      } catch (error) {
-        if (error?.status === 409 || error?.code === 'already_exists') {
-          this.items = await listAgents(baseUrl)
-          const existing = this.items.find((item) => item.id === agentId) || this.items[0]
-          if (existing) {
-            return existing
-          }
-        }
-        throw error
-      }
     },
   },
 })

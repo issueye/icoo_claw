@@ -1,9 +1,12 @@
 import { createRouter, createWebHistory } from 'vue-router'
 import AppShell from '@/layouts/AppShell.vue'
+import AgentsView from '@/views/AgentsView.vue'
 import ChatConversationView from '@/views/ChatConversationView.vue'
 import ChatHomeView from '@/views/ChatHomeView.vue'
 import PlaceholderView from '@/views/PlaceholderView.vue'
+import ProvidersView from '@/views/ProvidersView.vue'
 import QqUedView from '@/views/QqUedView.vue'
+import ScheduledTasksView from '@/views/ScheduledTasksView.vue'
 import SearchView from '@/views/SearchView.vue'
 import SettingsView from '@/views/SettingsView.vue'
 
@@ -28,6 +31,16 @@ const router = createRouter({
           component: SearchView,
         },
         {
+          path: '/providers',
+          name: 'providers',
+          component: ProvidersView,
+        },
+        {
+          path: '/agents',
+          name: 'agents',
+          component: AgentsView,
+        },
+        {
           path: '/skills',
           name: 'skills',
           component: PlaceholderView,
@@ -48,14 +61,9 @@ const router = createRouter({
           },
         },
         {
-          path: '/automations',
-          name: 'automations',
-          component: PlaceholderView,
-          meta: {
-            eyebrow: '占位模块',
-            title: 'Automations',
-            description: '自动化能力延后到后续阶段，当前版本只展示入口。',
-          },
+          path: '/scheduled-tasks',
+          name: 'scheduled-tasks',
+          component: ScheduledTasksView,
         },
         { path: '/settings', name: 'settings', component: SettingsView },
       ],

@@ -5,9 +5,9 @@ import QqButton from '@/components/ued/QqButton.vue'
 import QqFormField from '@/components/ued/QqFormField.vue'
 import QqFormSection from '@/components/ued/QqFormSection.vue'
 import QqInput from '@/components/ued/QqInput.vue'
+import QqModal from '@/components/ued/QqModal.vue'
 import QqSelect from '@/components/ued/QqSelect.vue'
 import QqSwitch from '@/components/ued/QqSwitch.vue'
-import { chooseDirectory } from '@/services/wails/config'
 import { mergeSettings } from '@/services/settings/schema'
 import { useAgentsStore } from '@/stores/agents'
 import { useAppStore } from '@/stores/app'
@@ -25,6 +25,17 @@ const projectDraft = reactive({
   rootDir: '',
   error: '',
 })
+const pathDialog = reactive({
+  open: false,
+  target: '',
+  title: '',
+  description: '',
+  draft: '',
+})
+const deleteProjectDialog = reactive({
+  open: false,
+  project: null,
+})
 
 watch(
   () => settingsStore.settings,
@@ -38,18 +49,27 @@ watch(
   { deep: true, immediate: true },
 )
 
-async function pickDirectory() {
-  const value = await chooseDirectory()
-  if (value) {
-    form.workspace.rootDir = value
-  }
+function openPathDialog(target) {
+  const isProject = target === 'project'
+  pathDialog.target = target
+  pathDialog.title = isProject ? '填写项目目录' : '填写工作目录'
+  pathDialog.description = isProject ? '输入本地项目根目录，保存后会用于当前项目上下文。' : '输入本地工作目录，保存后写入桌面端本地配置。'
+  pathDialog.draft = isProject ? projectDraft.rootDir : form.workspace.rootDir
+  pathDialog.open = true
 }
 
-async function pickProjectDirectory() {
-  const value = await chooseDirectory()
-  if (value) {
+function closePathDialog() {
+  pathDialog.open = false
+}
+
+function applyPathDialog() {
+  const value = pathDialog.draft.trim()
+  if (pathDialog.target === 'project') {
     projectDraft.rootDir = value
+  } else {
+    form.workspace.rootDir = value
   }
+  closePathDialog()
 }
 
 async function save() {
@@ -94,7 +114,21 @@ function editProject(project) {
   projectDraft.error = ''
 }
 
-function deleteProject(projectId) {
+function deleteProject(project) {
+  deleteProjectDialog.project = project
+  deleteProjectDialog.open = true
+}
+
+function closeDeleteProjectDialog() {
+  deleteProjectDialog.open = false
+  deleteProjectDialog.project = null
+}
+
+function confirmDeleteProject() {
+  const projectId = deleteProjectDialog.project?.id
+  if (!projectId) {
+    return
+  }
   form.projects = form.projects.filter((project) => project.id !== projectId)
   if (form.currentProjectId === projectId) {
     form.currentProjectId = form.projects[0]?.id || ''
@@ -103,6 +137,7 @@ function deleteProject(projectId) {
   if (projectDraft.editingId === projectId) {
     resetProjectDraft()
   }
+  closeDeleteProjectDialog()
 }
 
 function selectProject(projectId) {
@@ -197,7 +232,7 @@ function agentOptions() {
                 <QqFormField label="项目目录" :error="projectDraft.error && projectDraft.name.trim() && !projectDraft.rootDir.trim() ? projectDraft.error : ''">
                   <div class="flex flex-col gap-3 md:flex-row">
                     <QqInput v-model="projectDraft.rootDir" class="flex-1" placeholder="选择本地项目目录" />
-                    <QqButton variant="secondary" @click="pickProjectDirectory">
+                    <QqButton variant="secondary" @click="openPathDialog('project')">
                       <FolderOpen class="h-4 w-4" />
                       浏览
                     </QqButton>
@@ -247,7 +282,7 @@ function agentOptions() {
                   <QqButton variant="ghost" size="sm" @click="editProject(project)">
                     <Pencil class="h-4 w-4" />
                   </QqButton>
-                  <QqButton variant="danger" size="sm" @click="deleteProject(project.id)">
+                  <QqButton variant="danger" size="sm" @click="deleteProject(project)">
                     <Trash2 class="h-4 w-4" />
                   </QqButton>
                 </div>
@@ -275,7 +310,7 @@ function agentOptions() {
             <QqFormField label="Workspace Directory" helper="兼容旧版配置；选择当前项目时会自动同步为项目目录。">
               <div class="flex flex-col gap-3 md:flex-row">
                 <QqInput v-model="form.workspace.rootDir" class="flex-1" type="text" />
-                <QqButton variant="secondary" @click="pickDirectory">浏览</QqButton>
+                <QqButton variant="secondary" @click="openPathDialog('workspace')">浏览</QqButton>
               </div>
             </QqFormField>
           </div>
@@ -321,6 +356,43 @@ function agentOptions() {
           </div>
         </div>
       </QqFormSection>
+
+      <QqModal
+        v-model="pathDialog.open"
+        :description="pathDialog.description"
+        :title="pathDialog.title"
+      >
+        <QqFormField label="目录路径" helper="例如：E:\\codes\\icoo_claw">
+          <QqInput v-model="pathDialog.draft" placeholder="输入本地目录路径" />
+        </QqFormField>
+
+        <template #footer>
+          <QqButton variant="ghost" @click="closePathDialog">取消</QqButton>
+          <QqButton @click="applyPathDialog">
+            <Check class="h-4 w-4" />
+            使用此目录
+          </QqButton>
+        </template>
+      </QqModal>
+
+      <QqModal
+        v-model="deleteProjectDialog.open"
+        description="删除项目只会移除桌面端本地配置，不会删除磁盘上的文件。"
+        title="删除项目"
+      >
+        <div class="rounded-[6px] border border-white/10 bg-[rgba(9,32,28,0.18)] px-3 py-3 text-sm leading-6 text-[color:var(--qq-text-secondary)]">
+          <p class="font-medium text-[color:var(--qq-text-primary)]">{{ deleteProjectDialog.project?.name || '未选择项目' }}</p>
+          <p class="mt-1 break-all">{{ deleteProjectDialog.project?.rootDir || '-' }}</p>
+        </div>
+
+        <template #footer>
+          <QqButton variant="ghost" @click="closeDeleteProjectDialog">取消</QqButton>
+          <QqButton variant="danger" @click="confirmDeleteProject">
+            <Trash2 class="h-4 w-4" />
+            删除项目
+          </QqButton>
+        </template>
+      </QqModal>
     </div>
   </section>
 </template>

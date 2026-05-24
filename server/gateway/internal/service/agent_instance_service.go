@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log"
 	"time"
@@ -15,16 +16,24 @@ import (
 type AgentInstanceService struct {
 	cfg        config.Config
 	agents     repository.AgentRepository
+	providers  repository.ProviderRepository
 	instances  repository.AgentInstanceRepository
 	supervisor ProcessSupervisor
 }
 
-func NewAgentInstanceService(cfg config.Config, agents repository.AgentRepository, instances repository.AgentInstanceRepository, supervisor ProcessSupervisor) *AgentInstanceService {
-	return &AgentInstanceService{cfg: cfg, agents: agents, instances: instances, supervisor: supervisor}
+var ErrAgentInstanceActive = errors.New("agent instance is still active")
+
+func NewAgentInstanceService(cfg config.Config, agents repository.AgentRepository, providers repository.ProviderRepository, instances repository.AgentInstanceRepository, supervisor ProcessSupervisor) *AgentInstanceService {
+	return &AgentInstanceService{cfg: cfg, agents: agents, providers: providers, instances: instances, supervisor: supervisor}
 }
 
 func (s *AgentInstanceService) Start(ctx context.Context, req dto.StartAgentInstanceRequest) (*dto.AgentInstance, error) {
-	if _, err := s.agents.Get(ctx, req.AgentID); err != nil {
+	agent, err := s.agents.Get(ctx, req.AgentID)
+	if err != nil {
+		return nil, err
+	}
+	launch, err := s.resolveLaunchConfig(ctx, agent)
+	if err != nil {
 		return nil, err
 	}
 	existing, err := s.instances.List(ctx)
@@ -41,6 +50,7 @@ func (s *AgentInstanceService) Start(ctx context.Context, req dto.StartAgentInst
 	}
 	instanceID := "inst_" + randomID()
 	spec := processSpecFromConfig(s.cfg, instanceID, req.AgentID, port)
+	spec.Agent = launch
 	process, err := s.supervisor.Start(ctx, spec)
 	if err != nil {
 		return nil, err
@@ -48,16 +58,21 @@ func (s *AgentInstanceService) Start(ctx context.Context, req dto.StartAgentInst
 
 	now := time.Now().UTC()
 	instance := model.AgentInstance{
-		ID:        instanceID,
-		AgentID:   req.AgentID,
-		Name:      req.Name,
-		Status:    "starting",
-		PID:       process.PID,
-		Host:      spec.Host,
-		Port:      spec.Port,
-		BaseURL:   spec.BaseURL,
-		CreatedAt: now,
-		UpdatedAt: now,
+		ID:            instanceID,
+		AgentID:       req.AgentID,
+		Name:          req.Name,
+		Status:        "starting",
+		PID:           process.PID,
+		Host:          spec.Host,
+		Port:          spec.Port,
+		BaseURL:       spec.BaseURL,
+		ProviderID:    launch.ProviderID,
+		ModelProvider: launch.ModelProvider,
+		ModelName:     launch.ModelName,
+		ModelBaseURL:  launch.BaseURL,
+		APIKeySet:     launch.APIKey != "",
+		CreatedAt:     now,
+		UpdatedAt:     now,
 	}
 	probeCtx, cancel := context.WithTimeout(ctx, startupTimeout(s.cfg))
 	defer cancel()
@@ -155,6 +170,53 @@ func (s *AgentInstanceService) Restart(ctx context.Context, id string) (*dto.Age
 	return started, nil
 }
 
+func (s *AgentInstanceService) resolveLaunchConfig(ctx context.Context, agent *model.AgentProfile) (AgentLaunchConfig, error) {
+	if agent == nil {
+		return AgentLaunchConfig{}, nil
+	}
+
+	launch := AgentLaunchConfig{
+		ProviderID:    agent.ProviderID,
+		ModelProvider: agent.ModelProvider,
+		ModelName:     agent.ModelName,
+		BaseURL:       agent.BaseURL,
+	}
+
+	if s.providers == nil {
+		return launch, nil
+	}
+
+	var provider *model.ProviderProfile
+	var err error
+	if agent.ProviderID != "" {
+		provider, err = s.providers.Get(ctx, agent.ProviderID)
+	} else if agent.ModelProvider != "" {
+		provider, err = s.providers.GetEnabledByType(ctx, agent.ModelProvider)
+		if errors.Is(err, repository.ErrNotFound) {
+			err = nil
+		}
+	}
+	if err != nil {
+		return AgentLaunchConfig{}, err
+	}
+	if provider == nil {
+		return launch, nil
+	}
+
+	launch.ProviderID = provider.ID
+	if provider.Type != "" {
+		launch.ModelProvider = provider.Type
+	}
+	if launch.ModelName == "" {
+		launch.ModelName = provider.DefaultModel
+	}
+	if launch.BaseURL == "" {
+		launch.BaseURL = provider.BaseURL
+	}
+	launch.APIKey = provider.APIKey
+	return launch, nil
+}
+
 func (s *AgentInstanceService) Drain(ctx context.Context, id string) (*dto.AgentInstance, error) {
 	instance, err := s.instances.Get(ctx, id)
 	if err != nil {
@@ -166,6 +228,20 @@ func (s *AgentInstanceService) Drain(ctx context.Context, id string) (*dto.Agent
 		return nil, err
 	}
 	return toAgentInstanceDTO(*instance), nil
+}
+
+func (s *AgentInstanceService) Remove(ctx context.Context, id string) error {
+	instance, err := s.instances.Get(ctx, id)
+	if err != nil {
+		return err
+	}
+	if instance == nil {
+		return repository.ErrNotFound
+	}
+	if instanceUsesPort(*instance) {
+		return ErrAgentInstanceActive
+	}
+	return s.instances.Delete(ctx, id)
 }
 
 func (s *AgentInstanceService) ProbeInstances(ctx context.Context) error {
@@ -254,7 +330,7 @@ func (s *AgentInstanceService) waitForInflight(ctx context.Context, id string) e
 func (s *AgentInstanceService) allocatePort(instances []model.AgentInstance) (int, error) {
 	used := map[int]struct{}{}
 	for _, instance := range instances {
-		if instance.Status != "stopped" {
+		if instanceUsesPort(instance) {
 			used[instance.Port] = struct{}{}
 		}
 	}
@@ -269,22 +345,32 @@ func (s *AgentInstanceService) allocatePort(instances []model.AgentInstance) (in
 func activeCount(instances []model.AgentInstance) int {
 	var count int
 	for _, instance := range instances {
-		if instance.Status == "ready" || instance.Status == "starting" || instance.Status == "draining" {
+		if instanceUsesPort(instance) {
 			count++
 		}
 	}
 	return count
 }
 
+func instanceUsesPort(instance model.AgentInstance) bool {
+	return instance.Status == "ready" || instance.Status == "starting" || instance.Status == "draining"
+}
+
 func toAgentInstanceDTO(instance model.AgentInstance) *dto.AgentInstance {
 	return &dto.AgentInstance{
 		ID:              instance.ID,
 		AgentID:         instance.AgentID,
+		Name:            instance.Name,
 		Status:          instance.Status,
 		PID:             instance.PID,
 		Host:            instance.Host,
 		Port:            instance.Port,
 		BaseURL:         instance.BaseURL,
+		ProviderID:      instance.ProviderID,
+		ModelProvider:   instance.ModelProvider,
+		ModelName:       instance.ModelName,
+		ModelBaseURL:    instance.ModelBaseURL,
+		APIKeySet:       instance.APIKeySet,
 		LastHeartbeatAt: instance.LastHeartbeatAt,
 		LastError:       instance.LastError,
 		Inflight:        instance.Inflight,

@@ -15,6 +15,7 @@ type AgentInstanceRepository interface {
 	Get(ctx context.Context, id string) (*model.AgentInstance, error)
 	List(ctx context.Context) ([]model.AgentInstance, error)
 	Update(ctx context.Context, instance model.AgentInstance) error
+	Delete(ctx context.Context, id string) error
 	AdjustInflight(ctx context.Context, id string, delta int) error
 }
 
@@ -50,6 +51,17 @@ func (r *GormAgentInstanceRepository) List(ctx context.Context) ([]model.AgentIn
 
 func (r *GormAgentInstanceRepository) Update(ctx context.Context, instance model.AgentInstance) error {
 	result := r.db.WithContext(ctx).Save(&instance)
+	if result.Error != nil {
+		return result.Error
+	}
+	if result.RowsAffected == 0 {
+		return ErrNotFound
+	}
+	return nil
+}
+
+func (r *GormAgentInstanceRepository) Delete(ctx context.Context, id string) error {
+	result := r.db.WithContext(ctx).Delete(&model.AgentInstance{}, "id = ?", id)
 	if result.Error != nil {
 		return result.Error
 	}

@@ -32,6 +32,19 @@ func (r chatAgentRepo) List(context.Context) ([]model.AgentProfile, error) { ret
 func (r chatAgentRepo) Update(context.Context, model.AgentProfile) error   { return nil }
 func (r chatAgentRepo) Delete(context.Context, string) error               { return nil }
 
+type chatAgentRepoWithAgent struct {
+	agent model.AgentProfile
+}
+
+func (r chatAgentRepoWithAgent) Create(context.Context, model.AgentProfile) error { return nil }
+func (r chatAgentRepoWithAgent) Get(context.Context, string) (*model.AgentProfile, error) {
+	agent := r.agent
+	return &agent, nil
+}
+func (r chatAgentRepoWithAgent) List(context.Context) ([]model.AgentProfile, error) { return nil, nil }
+func (r chatAgentRepoWithAgent) Update(context.Context, model.AgentProfile) error   { return nil }
+func (r chatAgentRepoWithAgent) Delete(context.Context, string) error               { return nil }
+
 type chatConversationRepo struct {
 	conversation *model.Conversation
 }
@@ -75,6 +88,7 @@ func (r *chatInstanceRepo) Update(_ context.Context, instance model.AgentInstanc
 	r.instance = instance
 	return nil
 }
+func (r *chatInstanceRepo) Delete(context.Context, string) error { return nil }
 func (r *chatInstanceRepo) AdjustInflight(_ context.Context, id string, delta int) error {
 	if r.instance.ID != id {
 		return repository.ErrNotFound
@@ -108,8 +122,13 @@ func (c *chatClaw) Run(_ context.Context, baseURL string, req client.RunRequest)
 	c.req = req
 	return &client.RunResponse{SessionID: req.SessionID, RequestID: req.RequestID, Output: "ok", StopReason: "end_turn"}, nil
 }
-func (c *chatClaw) Stream(context.Context, string, client.RunRequest) (<-chan client.StreamEvent, error) {
-	out := make(chan client.StreamEvent)
+func (c *chatClaw) Stream(_ context.Context, baseURL string, req client.RunRequest) (<-chan client.StreamEvent, error) {
+	c.baseURL = baseURL
+	c.req = req
+	out := make(chan client.StreamEvent, 3)
+	out <- client.StreamEvent{Type: "session/update", SessionID: req.SessionID, RequestID: req.RequestID, Update: &client.SessionUpdate{SessionUpdate: "agent_message_chunk", Content: &client.ContentBlock{Type: "text", Text: "o"}}}
+	out <- client.StreamEvent{Type: "session/update", SessionID: req.SessionID, RequestID: req.RequestID, Update: &client.SessionUpdate{SessionUpdate: "agent_message_chunk", Content: &client.ContentBlock{Type: "text", Text: "k"}}}
+	out <- client.StreamEvent{Type: "session/completed", SessionID: req.SessionID, RequestID: req.RequestID, StopReason: "end_turn"}
 	close(out)
 	return out, nil
 }
@@ -125,7 +144,7 @@ func TestChatServiceCreateAndSendMessage(t *testing.T) {
 	sessionBackend := &chatSessionBackend{}
 	claw := &chatClaw{}
 	router := NewDefaultRouterPolicy(conversations, instances, nil)
-	svc := NewChatService(conversations, chatAgentRepo{}, router, sessionBackend, claw)
+	svc := NewChatService(conversations, chatAgentRepo{}, nil, router, sessionBackend, claw)
 
 	conv, err := svc.CreateConversation(context.Background(), dto.CreateConversationRequest{AgentID: "agent_1", Title: "Test"})
 	if err != nil {
@@ -179,6 +198,7 @@ func (r *chatMultiInstanceRepo) Update(_ context.Context, instance model.AgentIn
 	}
 	return repository.ErrNotFound
 }
+func (r *chatMultiInstanceRepo) Delete(context.Context, string) error { return nil }
 func (r *chatMultiInstanceRepo) AdjustInflight(_ context.Context, id string, delta int) error {
 	for i := range r.instances {
 		if r.instances[i].ID == id {
@@ -206,13 +226,60 @@ func TestChatServiceUsesStickyInstance(t *testing.T) {
 	}}
 	claw := &chatClaw{}
 	router := NewDefaultRouterPolicy(conversations, instances, nil)
-	svc := NewChatService(conversations, chatAgentRepo{}, router, &chatSessionBackend{}, claw)
+	svc := NewChatService(conversations, chatAgentRepo{}, nil, router, &chatSessionBackend{}, claw)
 
 	if _, err := svc.SendMessage(context.Background(), "conv_1", dto.SendMessageRequest{Prompt: "hello"}); err != nil {
 		t.Fatalf("send message: %v", err)
 	}
 	if claw.baseURL != "http://127.0.0.1:8102" {
 		t.Fatalf("baseURL = %q, want sticky instance", claw.baseURL)
+	}
+}
+
+func TestChatServiceDefaultsToBuiltinToolsWhenWhitelistEmpty(t *testing.T) {
+	conversations := &chatConversationRepo{conversation: &model.Conversation{
+		ID:        "conv_1",
+		SessionID: "sess_1",
+		AgentID:   "agent_1",
+		Status:    "active",
+	}}
+	instances := &chatInstanceRepo{instance: model.AgentInstance{
+		ID:      "inst_1",
+		AgentID: "agent_1",
+		Status:  "ready",
+		BaseURL: "http://127.0.0.1:8101",
+	}}
+	claw := &chatClaw{}
+	router := NewDefaultRouterPolicy(conversations, instances, nil)
+	agents := chatAgentRepoWithAgent{agent: model.AgentProfile{
+		ID:                "agent_1",
+		Name:              "Default",
+		ModelProvider:     "openai",
+		ToolWhitelistJSON: `[]`,
+		NetworkAllowJSON:  `[]`,
+		MCPServerIDsJSON:  `[]`,
+		SkillIDsJSON:      `[]`,
+		Enabled:           true,
+	}}
+	svc := NewChatService(conversations, agents, nil, router, &chatSessionBackend{}, claw)
+
+	_, err := svc.SendMessage(context.Background(), "conv_1", dto.SendMessageRequest{
+		Prompt: "hello",
+		Metadata: map[string]any{
+			"project_root": "E:/codes/icoo_claw",
+		},
+	})
+	if err != nil {
+		t.Fatalf("send message: %v", err)
+	}
+	if _, ok := claw.req.Agent["enabled_builtin_tools"]; ok {
+		t.Fatalf("enabled_builtin_tools should be omitted when whitelist is empty: %+v", claw.req.Agent)
+	}
+	if got := claw.req.Agent["project_root"]; got != "E:/codes/icoo_claw" {
+		t.Fatalf("project_root = %q, want desktop project root", got)
+	}
+	if len(claw.req.ToolWhitelist) != 0 {
+		t.Fatalf("tool whitelist = %+v, want no restriction", claw.req.ToolWhitelist)
 	}
 }
 
@@ -227,12 +294,13 @@ func TestChatServiceStartsInstanceWhenNoneReady(t *testing.T) {
 	starter := NewAgentInstanceService(
 		config.Config{ClawPortStart: 8101, ClawPortEnd: 8102, MaxAgentInstances: 1},
 		instanceAgentRepo{},
+		nil,
 		instances,
 		memorySupervisor{},
 	)
 	router := NewDefaultRouterPolicy(conversations, instances, starter)
 	claw := &chatClaw{}
-	svc := NewChatService(conversations, chatAgentRepo{}, router, &chatSessionBackend{}, claw)
+	svc := NewChatService(conversations, chatAgentRepo{}, nil, router, &chatSessionBackend{}, claw)
 
 	if _, err := svc.SendMessage(context.Background(), "conv_1", dto.SendMessageRequest{Prompt: "hello"}); err != nil {
 		t.Fatalf("send message: %v", err)
@@ -265,18 +333,19 @@ func TestChatServiceRefreshesAndSkipsFailedStickyInstance(t *testing.T) {
 	starter := NewAgentInstanceService(
 		config.Config{ClawPortStart: 8101, ClawPortEnd: 8102, MaxAgentInstances: 2},
 		instanceAgentRepo{},
+		nil,
 		instances,
 		&failingOnceSupervisor{failed: map[string]bool{}},
 	)
 	router := NewDefaultRouterPolicy(conversations, instances, starter)
 	claw := &chatClaw{}
-	svc := NewChatService(conversations, chatAgentRepo{}, router, &chatSessionBackend{}, claw)
+	svc := NewChatService(conversations, chatAgentRepo{}, nil, router, &chatSessionBackend{}, claw)
 
 	if _, err := svc.SendMessage(context.Background(), "conv_1", dto.SendMessageRequest{Prompt: "hello"}); err != nil {
 		t.Fatalf("send message: %v", err)
 	}
-	if claw.baseURL != "http://127.0.0.1:8102" {
-		t.Fatalf("baseURL = %q, want fallback instance", claw.baseURL)
+	if claw.baseURL != "http://127.0.0.1:8101" {
+		t.Fatalf("baseURL = %q, want reused failed instance port", claw.baseURL)
 	}
 	if conversations.conversation.StickyInstanceID == "inst_1" {
 		t.Fatalf("sticky instance was not rebound: %+v", conversations.conversation)

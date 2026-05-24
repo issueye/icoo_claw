@@ -3,8 +3,6 @@ package main
 import (
 	"os"
 	"runtime"
-
-	"github.com/wailsapp/wails/v3/pkg/application"
 )
 
 type AppInfo struct {
@@ -36,14 +34,4 @@ func (s *SystemService) GetAppInfo() (*AppInfo, error) {
 		Arch:          runtime.GOARCH,
 		UserConfigDir: configDir,
 	}, nil
-}
-
-func (s *SystemService) ChooseDirectory() (string, error) {
-	return application.Get().
-		Dialog.
-		OpenFile().
-		CanChooseDirectories(true).
-		CanChooseFiles(false).
-		SetTitle("Choose workspace directory").
-		PromptForSingleSelection()
 }

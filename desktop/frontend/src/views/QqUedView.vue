@@ -82,7 +82,7 @@ const tableColumns = [
 const tableRows = [
   { id: 1, name: 'QqButton', usage: '主次操作、工具栏命令', status: 'online', coverage: '4 variants' },
   { id: 2, name: 'QqInput', usage: '搜索、表单输入、过滤条件', status: 'online', coverage: 'prefix / invalid' },
-  { id: 3, name: 'QqSelect', usage: '筛选器、状态切换、配置项', status: 'busy', coverage: 'native select' },
+  { id: 3, name: 'QqSelect', usage: '筛选器、状态切换、配置项', status: 'online', coverage: 'custom popup' },
   { id: 4, name: 'QqTextarea', usage: '简介、公告、批注输入', status: 'online', coverage: 'resizable' },
   { id: 5, name: 'QqSwitch', usage: '通知开关、状态切换', status: 'online', coverage: 'boolean state' },
   { id: 6, name: 'QqTabs', usage: '内容分栏、视图切换', status: 'online', coverage: '3 tabs' },

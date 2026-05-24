@@ -11,17 +11,23 @@ describe('gateway websocket helpers', () => {
   it('normalizes gateway frames into camelCase', () => {
     expect(
       normalizeWSMessage({
-        type: 'message.delta',
+        type: 'session/update',
         conversation_id: 'conv_1',
         request_id: 'req_1',
-        output: 'hello',
+        update: {
+          sessionUpdate: 'agent_message_chunk',
+          content: { type: 'text', text: 'hello' },
+        },
       }),
     ).toEqual({
-      type: 'message.delta',
+      type: 'session/update',
       conversationId: 'conv_1',
       sessionId: '',
       requestId: 'req_1',
-      output: 'hello',
+      update: {
+        sessionUpdate: 'agent_message_chunk',
+        content: { type: 'text', text: 'hello' },
+      },
       stopReason: '',
       code: '',
       error: '',

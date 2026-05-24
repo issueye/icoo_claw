@@ -5,6 +5,7 @@ import "time"
 type AgentProfile struct {
 	ID                string `gorm:"primaryKey;size:64"`
 	Name              string `gorm:"size:128;not null"`
+	ProviderID        string `gorm:"size:64;index"`
 	ModelProvider     string `gorm:"size:32;not null"`
 	ModelName         string `gorm:"size:128"`
 	BaseURL           string `gorm:"size:512"`

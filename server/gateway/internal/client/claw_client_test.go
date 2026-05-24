@@ -18,7 +18,13 @@ func TestClawClientStreamHandlesLargeSSELine(t *testing.T) {
 			return
 		}
 		w.Header().Set("Content-Type", "text/event-stream")
-		payload, _ := json.Marshal(StreamEvent{Type: "delta", Output: largeOutput})
+		payload, _ := json.Marshal(StreamEvent{
+			Type: "session/update",
+			Update: &SessionUpdate{
+				SessionUpdate: "agent_message_chunk",
+				Content:       &ContentBlock{Type: "text", Text: largeOutput},
+			},
+		})
 		_, _ = w.Write([]byte("data: " + string(payload) + "\n\n"))
 	}))
 	t.Cleanup(server.Close)
@@ -33,8 +39,8 @@ func TestClawClientStreamHandlesLargeSSELine(t *testing.T) {
 	if !ok {
 		t.Fatal("expected stream event")
 	}
-	if event.Type != "delta" || event.Output != largeOutput {
-		t.Fatalf("event type=%q output len=%d", event.Type, len(event.Output))
+	if event.Type != "session/update" || event.Update == nil || event.Update.Content == nil || event.Update.Content.Text != largeOutput {
+		t.Fatalf("event = %+v", event)
 	}
 }
 

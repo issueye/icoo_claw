@@ -1,7 +1,7 @@
 <script setup>
-import { computed, reactive, watch } from 'vue'
+import { computed, reactive, ref, watch } from 'vue'
 import { RouterView, useRoute, useRouter } from 'vue-router'
-import { LayoutTemplate, MessageSquareText, Minus, PlugZap, RefreshCw, Search, Settings2, Square, Wrench, X } from 'lucide-vue-next'
+import { Bot, CalendarClock, KeyRound, LayoutTemplate, MessageSquareText, Minus, PlugZap, RefreshCw, Search, Settings2, Square, Wrench, X } from 'lucide-vue-next'
 import { Window } from '@wailsio/runtime'
 import AppSidebar from '@/components/chrome/AppSidebar.vue'
 import ConversationList from '@/components/conversation/ConversationList.vue'
@@ -32,11 +32,19 @@ const gatewayDialog = reactive({
   saving: false,
   connecting: false,
 })
+const conversationListCollapsed = ref(false)
+const conversationDeleteDialog = reactive({
+  open: false,
+  conversationId: '',
+})
 
 const navItems = [
   { name: 'chat-home', label: 'Chat', icon: MessageSquareText, to: '/chat' },
   { name: 'ued', label: 'UED', icon: LayoutTemplate, to: '/ued' },
   { name: 'search', label: 'Search', icon: Search, to: '/search' },
+  { name: 'agents', label: 'Agents', icon: Bot, to: '/agents' },
+  { name: 'providers', label: 'Providers', icon: KeyRound, to: '/providers' },
+  { name: 'scheduled-tasks', label: 'Tasks', icon: CalendarClock, to: '/scheduled-tasks' },
   { name: 'skills', label: 'Skills', icon: Wrench, to: '/skills' },
   { name: 'plugins', label: 'Plugins', icon: PlugZap, to: '/plugins' },
   { name: 'settings', label: 'Settings', icon: Settings2, to: '/settings' },
@@ -46,8 +54,8 @@ const activeConversationId = computed(() => String(route.params.id || ''))
 const isChatRoute = computed(() => route.path === '/chat' || route.path.startsWith('/chat/'))
 const currentSectionLabel = computed(() => navItems.find((item) => route.path === item.to || route.path.startsWith(`${item.to}/`))?.label || 'Workspace')
 const shellStatusLabel = computed(() => {
-  if (chatStore.streaming) {
-    return '回答生成中'
+  if (chatStore.anyStreaming) {
+    return chatStore.runningConversationIds.length > 1 ? `${chatStore.runningConversationIds.length} 个会话生成中` : '回答生成中'
   }
   if (appStore.gatewayStatus === 'connected') {
     return '网关已连接'
@@ -116,11 +124,26 @@ function newChat() {
   router.push('/chat')
 }
 
-async function deleteConversation(conversationId) {
+function deleteConversation(conversationId) {
+  conversationDeleteDialog.conversationId = conversationId
+  conversationDeleteDialog.open = true
+}
+
+function closeConversationDeleteDialog() {
+  conversationDeleteDialog.open = false
+  conversationDeleteDialog.conversationId = ''
+}
+
+async function confirmDeleteConversation() {
+  const conversationId = conversationDeleteDialog.conversationId
+  if (!conversationId) {
+    return
+  }
   await conversationsStore.deleteConversation(settingsStore.settings.gateway.baseUrl, conversationId)
   if (activeConversationId.value === conversationId) {
     router.push('/chat')
   }
+  closeConversationDeleteDialog()
 }
 
 function openGatewayDialog() {
@@ -287,13 +310,16 @@ watch(
         v-if="isChatRoute"
         class="hidden md:flex"
         :active-id="activeConversationId"
+        :collapsed="conversationListCollapsed"
         :conversations="conversationsStore.items"
         :deleting-id="conversationsStore.deletingId"
         :loading="conversationsStore.loading"
-        :streaming="chatStore.streaming"
+        :running-conversation-ids="chatStore.runningConversationIds"
+        :streaming="chatStore.anyStreaming"
         @delete="deleteConversation"
         @new-chat="newChat"
         @refresh="refresh"
+        @toggle-collapse="conversationListCollapsed = !conversationListCollapsed"
       />
 
       <main class="relative min-h-0 min-w-0 flex-1 overflow-hidden bg-transparent">
@@ -313,6 +339,7 @@ watch(
       <div class="flex shrink-0 items-center gap-3">
         <span class="hidden md:inline">Agent {{ agentsStore.items.length }} · {{ defaultAgentLabel }}</span>
         <span class="hidden sm:inline">会话 {{ conversationsStore.items.length }}</span>
+        <span v-if="chatStore.anyStreaming" class="hidden sm:inline">运行中 {{ chatStore.runningConversationIds.length }}</span>
         <span>刷新 {{ lastRefreshedLabel }}</span>
       </div>
     </footer>
@@ -365,6 +392,26 @@ watch(
         </QqButton>
         <QqButton :disabled="gatewayDialogBusy" @click="connectGateway">
           {{ gatewayDialog.connecting ? '连接中...' : '连接网关' }}
+        </QqButton>
+      </template>
+    </QqModal>
+
+    <QqModal
+      v-model="conversationDeleteDialog.open"
+      description="删除后会话记录会从网关移除。"
+      title="删除会话"
+    >
+      <div class="rounded-[6px] border border-white/10 bg-[rgba(9,32,28,0.18)] px-3 py-3 text-sm leading-6 text-[color:var(--qq-text-secondary)]">
+        <p class="font-medium text-[color:var(--qq-text-primary)]">
+          {{ conversationsStore.byId(conversationDeleteDialog.conversationId)?.title || 'Untitled Conversation' }}
+        </p>
+        <p class="mt-1 break-all">ID {{ conversationDeleteDialog.conversationId || '-' }}</p>
+      </div>
+
+      <template #footer>
+        <QqButton variant="ghost" :disabled="Boolean(conversationsStore.deletingId)" @click="closeConversationDeleteDialog">取消</QqButton>
+        <QqButton variant="danger" :disabled="Boolean(conversationsStore.deletingId)" @click="confirmDeleteConversation">
+          删除会话
         </QqButton>
       </template>
     </QqModal>

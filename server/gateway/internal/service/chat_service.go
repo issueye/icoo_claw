@@ -2,6 +2,8 @@ package service
 
 import (
 	"context"
+	"errors"
+	"strings"
 	"time"
 
 	"icoo_claw/server/gateway/internal/client"
@@ -31,15 +33,17 @@ type AgentRunner interface {
 type ChatService struct {
 	conversations repository.ConversationRepository
 	agents        repository.AgentRepository
+	providers     repository.ProviderRepository
 	router        RouterPolicy
 	sessions      SessionBackend
 	claw          AgentRunner
 }
 
-func NewChatService(conversations repository.ConversationRepository, agents repository.AgentRepository, router RouterPolicy, sessions SessionBackend, claw AgentRunner) *ChatService {
+func NewChatService(conversations repository.ConversationRepository, agents repository.AgentRepository, providers repository.ProviderRepository, router RouterPolicy, sessions SessionBackend, claw AgentRunner) *ChatService {
 	return &ChatService{
 		conversations: conversations,
 		agents:        agents,
+		providers:     providers,
 		router:        router,
 		sessions:      sessions,
 		claw:          claw,
@@ -97,7 +101,7 @@ func (s *ChatService) ListMessages(ctx context.Context, conversationID string) (
 }
 
 func (s *ChatService) SendMessage(ctx context.Context, conversationID string, req dto.SendMessageRequest) (*dto.ChatResponse, error) {
-	conversation, agent, instance, err := s.prepareRun(ctx, conversationID)
+	conversation, agent, provider, instance, err := s.prepareRun(ctx, conversationID)
 	if err != nil {
 		return nil, err
 	}
@@ -107,14 +111,18 @@ func (s *ChatService) SendMessage(ctx context.Context, conversationID string, re
 	}
 	defer func() { _ = s.router.MarkInflight(context.Background(), instance.ID, -1) }()
 
-	resp, err := s.claw.Run(ctx, instance.BaseURL, client.RunRequest{
+	stream, err := s.claw.Stream(ctx, instance.BaseURL, client.RunRequest{
 		SessionID:     conversation.SessionID,
 		RequestID:     req.RequestID,
 		Prompt:        req.Prompt,
-		Agent:         agentProfileMap(*agent),
+		Agent:         agentProfileMap(*agent, provider, req.Metadata),
 		ToolWhitelist: parseStringSlice(agent.ToolWhitelistJSON),
 		Metadata:      req.Metadata,
 	})
+	if err != nil {
+		return nil, err
+	}
+	output, stopReason, sessionID, requestID, err := collectClawStream(stream, conversation.SessionID, req.RequestID)
 	if err != nil {
 		return nil, err
 	}
@@ -128,15 +136,15 @@ func (s *ChatService) SendMessage(ctx context.Context, conversationID string, re
 
 	return &dto.ChatResponse{
 		ConversationID: conversation.ID,
-		SessionID:      resp.SessionID,
-		RequestID:      resp.RequestID,
-		Output:         resp.Output,
-		StopReason:     resp.StopReason,
+		SessionID:      sessionID,
+		RequestID:      requestID,
+		Output:         output,
+		StopReason:     stopReason,
 	}, nil
 }
 
 func (s *ChatService) StreamMessage(ctx context.Context, conversationID string, req dto.SendMessageRequest) (<-chan client.StreamEvent, error) {
-	conversation, agent, instance, err := s.prepareRun(ctx, conversationID)
+	conversation, agent, provider, instance, err := s.prepareRun(ctx, conversationID)
 	if err != nil {
 		return nil, err
 	}
@@ -148,7 +156,7 @@ func (s *ChatService) StreamMessage(ctx context.Context, conversationID string, 
 		SessionID:     conversation.SessionID,
 		RequestID:     req.RequestID,
 		Prompt:        req.Prompt,
-		Agent:         agentProfileMap(*agent),
+		Agent:         agentProfileMap(*agent, provider, req.Metadata),
 		ToolWhitelist: parseStringSlice(agent.ToolWhitelistJSON),
 		Metadata:      req.Metadata,
 	})
@@ -178,20 +186,74 @@ func (s *ChatService) DeleteConversation(ctx context.Context, id string) error {
 	return s.conversations.Delete(ctx, id)
 }
 
-func (s *ChatService) prepareRun(ctx context.Context, conversationID string) (*model.Conversation, *model.AgentProfile, *model.AgentInstance, error) {
+func collectClawStream(events <-chan client.StreamEvent, fallbackSessionID, fallbackRequestID string) (string, string, string, string, error) {
+	var output strings.Builder
+	stopReason := "stream_closed"
+	sessionID := fallbackSessionID
+	requestID := fallbackRequestID
+	for event := range events {
+		if event.SessionID != "" {
+			sessionID = event.SessionID
+		}
+		if event.RequestID != "" {
+			requestID = event.RequestID
+		}
+		switch event.Type {
+		case "session/error":
+			message := ""
+			if event.Error != nil {
+				message = event.Error.Message
+			}
+			return "", "", sessionID, requestID, errors.New(defaultString(message, "stream error"))
+		case "session/completed":
+			stopReason = defaultString(event.StopReason, "end_turn")
+		case "session/update":
+			if event.Update != nil && event.Update.SessionUpdate == "agent_message_chunk" && event.Update.Content != nil {
+				output.WriteString(event.Update.Content.Text)
+			}
+		}
+	}
+	return output.String(), stopReason, sessionID, requestID, nil
+}
+
+func (s *ChatService) prepareRun(ctx context.Context, conversationID string) (*model.Conversation, *model.AgentProfile, *model.ProviderProfile, *model.AgentInstance, error) {
 	conversation, err := s.conversations.Get(ctx, conversationID)
 	if err != nil {
-		return nil, nil, nil, err
+		return nil, nil, nil, nil, err
 	}
 	agent, err := s.agents.Get(ctx, conversation.AgentID)
 	if err != nil {
-		return nil, nil, nil, err
+		return nil, nil, nil, nil, err
+	}
+	provider, err := s.resolveProvider(ctx, agent)
+	if err != nil {
+		return nil, nil, nil, nil, err
 	}
 	instance, err := s.router.SelectInstance(ctx, conversation)
 	if err != nil {
-		return nil, nil, nil, err
+		return nil, nil, nil, nil, err
 	}
-	return conversation, agent, instance, nil
+	return conversation, agent, provider, instance, nil
+}
+
+func (s *ChatService) resolveProvider(ctx context.Context, agent *model.AgentProfile) (*model.ProviderProfile, error) {
+	if s.providers == nil || agent == nil {
+		return nil, nil
+	}
+	if agent.ProviderID != "" {
+		return s.providers.Get(ctx, agent.ProviderID)
+	}
+	if agent.ModelProvider == "" {
+		return nil, nil
+	}
+	provider, err := s.providers.GetEnabledByType(ctx, agent.ModelProvider)
+	if err != nil {
+		if errors.Is(err, repository.ErrNotFound) {
+			return nil, nil
+		}
+		return nil, err
+	}
+	return provider, nil
 }
 
 func toConversationDTO(conversation model.Conversation) *dto.Conversation {
@@ -208,15 +270,53 @@ func toConversationDTO(conversation model.Conversation) *dto.Conversation {
 	}
 }
 
-func agentProfileMap(agent model.AgentProfile) map[string]any {
-	return map[string]any{
-		"model_provider":        agent.ModelProvider,
-		"model_name":            agent.ModelName,
-		"base_url":              agent.BaseURL,
+func agentProfileMap(agent model.AgentProfile, provider *model.ProviderProfile, metadata map[string]any) map[string]any {
+	modelProvider := agent.ModelProvider
+	modelName := agent.ModelName
+	baseURL := agent.BaseURL
+	apiKey := ""
+	if provider != nil {
+		if provider.Type != "" {
+			modelProvider = provider.Type
+		}
+		if modelName == "" {
+			modelName = provider.DefaultModel
+		}
+		if baseURL == "" {
+			baseURL = provider.BaseURL
+		}
+		apiKey = provider.APIKey
+	}
+	profile := map[string]any{
+		"model_provider":        modelProvider,
+		"model_name":            modelName,
+		"base_url":              baseURL,
+		"api_key":               apiKey,
 		"system_prompt":         agent.SystemPrompt,
 		"max_iterations":        agent.MaxIterations,
-		"enabled_builtin_tools": parseStringSlice(agent.ToolWhitelistJSON),
 		"network_allow":         parseStringSlice(agent.NetworkAllowJSON),
 		"mcp_servers":           parseStringSlice(agent.MCPServerIDsJSON),
 	}
+	if tools := parseStringSlice(agent.ToolWhitelistJSON); len(tools) > 0 {
+		profile["enabled_builtin_tools"] = tools
+	}
+	if projectRoot := metadataString(metadata, "project_root"); projectRoot != "" {
+		profile["project_root"] = projectRoot
+	}
+	return profile
+}
+
+func metadataString(metadata map[string]any, key string) string {
+	if len(metadata) == 0 {
+		return ""
+	}
+	value, ok := metadata[key]
+	if !ok {
+		return ""
+	}
+	text, ok := value.(string)
+	if !ok {
+		return ""
+	}
+	return strings.TrimSpace(text)
 }

@@ -27,6 +27,15 @@ type StartAgentInstanceSpec struct {
 	InternalToken string
 	ConfigDir     string
 	RunnerMode    string
+	Agent         AgentLaunchConfig
+}
+
+type AgentLaunchConfig struct {
+	ProviderID    string
+	ModelProvider string
+	ModelName     string
+	APIKey        string
+	BaseURL       string
 }
 
 type AgentProcess struct {
@@ -54,14 +63,19 @@ func (s *LocalProcessSupervisor) Start(ctx context.Context, spec StartAgentInsta
 	if err := ctx.Err(); err != nil {
 		return nil, err
 	}
+	binaryPath, err := resolveExecutablePath(spec.BinaryPath, spec.WorkDir)
+	if err != nil {
+		return nil, err
+	}
 	configPath, err := writeClawConfig(spec)
 	if err != nil {
 		return nil, err
 	}
-	cmd := exec.Command(spec.BinaryPath, "--config", configPath)
+	cmd := exec.Command(binaryPath, "--config", configPath)
 	if spec.WorkDir != "" {
 		cmd.Dir = spec.WorkDir
 	}
+	cmd.Env = append(os.Environ(), agentLaunchEnv(spec.Agent)...)
 	if err := cmd.Start(); err != nil {
 		return nil, fmt.Errorf("start claw process: %w", err)
 	}
@@ -100,6 +114,42 @@ func (s *LocalProcessSupervisor) Probe(ctx context.Context, instance model.Agent
 	return nil
 }
 
+func resolveExecutablePath(path string, workDir string) (string, error) {
+	if filepath.IsAbs(path) {
+		return path, nil
+	}
+
+	candidates := []string{path}
+	if executable, err := os.Executable(); err == nil {
+		candidates = append(candidates, filepath.Join(filepath.Dir(executable), path))
+	}
+	if workDir != "" {
+		candidates = append(candidates, filepath.Join(workDir, path))
+	}
+	if cwd, err := os.Getwd(); err == nil {
+		candidates = append(candidates, filepath.Join(cwd, path))
+	}
+
+	for _, candidate := range candidates {
+		if candidate == "" {
+			continue
+		}
+		abs, err := filepath.Abs(candidate)
+		if err != nil {
+			continue
+		}
+		if info, err := os.Stat(abs); err == nil && !info.IsDir() {
+			return abs, nil
+		}
+	}
+
+	found, err := exec.LookPath(path)
+	if err != nil {
+		return "", err
+	}
+	return filepath.Abs(found)
+}
+
 func processSpecFromConfig(cfg config.Config, instanceID, agentID string, port int) StartAgentInstanceSpec {
 	host := "127.0.0.1"
 	baseURL := "http://" + host + ":" + strconv.Itoa(port)
@@ -127,15 +177,35 @@ func writeClawConfig(spec StartAgentInstanceSpec) (string, error) {
 		return "", fmt.Errorf("create claw config dir: %w", err)
 	}
 	path := filepath.Join(dir, spec.InstanceID+".toml")
+	absPath, err := filepath.Abs(path)
+	if err != nil {
+		return "", fmt.Errorf("resolve claw config path: %w", err)
+	}
 	payload := fmt.Sprintf(
-		"http_addr = %q\nsession_api_url = %q\ninternal_token = %q\nrunner_mode = %q\n",
+		"http_addr = %q\nsession_api_url = %q\ninternal_token = %q\nrunner_mode = %q\n\n[agent]\nagent_id = %q\nprovider_id = %q\nmodel_provider = %q\nmodel_name = %q\nbase_url = %q\napi_key_set = %t\n",
 		spec.Host+":"+strconv.Itoa(spec.Port),
 		spec.SessionAPIURL,
 		spec.InternalToken,
 		spec.RunnerMode,
+		spec.AgentID,
+		spec.Agent.ProviderID,
+		spec.Agent.ModelProvider,
+		spec.Agent.ModelName,
+		spec.Agent.BaseURL,
+		spec.Agent.APIKey != "",
 	)
-	if err := os.WriteFile(path, []byte(payload), 0o600); err != nil {
+	if err := os.WriteFile(absPath, []byte(payload), 0o600); err != nil {
 		return "", fmt.Errorf("write claw config: %w", err)
 	}
-	return path, nil
+	return absPath, nil
+}
+
+func agentLaunchEnv(agent AgentLaunchConfig) []string {
+	return []string{
+		"ICOO_AGENT_PROVIDER_ID=" + agent.ProviderID,
+		"ICOO_AGENT_MODEL_PROVIDER=" + agent.ModelProvider,
+		"ICOO_AGENT_MODEL_NAME=" + agent.ModelName,
+		"ICOO_AGENT_BASE_URL=" + agent.BaseURL,
+		"ICOO_AGENT_API_KEY=" + agent.APIKey,
+	}
 }

@@ -3,6 +3,7 @@ package agent_sdk
 import (
 	"context"
 	"fmt"
+	"os"
 	"strings"
 
 	"icoo_claw/server/claw/pkg/agent_sdk/sdk/api"
@@ -74,10 +75,10 @@ type AgentProfile struct {
 
 func parseAgentProfile(input map[string]any) AgentProfile {
 	return AgentProfile{
-		ModelProvider:       stringValue(input, "model_provider"),
-		ModelName:           stringValue(input, "model_name"),
-		APIKey:              stringValue(input, "api_key"),
-		BaseURL:             stringValue(input, "base_url"),
+		ModelProvider:       firstStringValue(input, "model_provider", "ICOO_AGENT_MODEL_PROVIDER"),
+		ModelName:           firstStringValue(input, "model_name", "ICOO_AGENT_MODEL_NAME"),
+		APIKey:              firstStringValue(input, "api_key", "ICOO_AGENT_API_KEY"),
+		BaseURL:             firstStringValue(input, "base_url", "ICOO_AGENT_BASE_URL"),
 		ProjectRoot:         stringValue(input, "project_root"),
 		SystemPrompt:        stringValue(input, "system_prompt"),
 		MaxIterations:       intValue(input, "max_iterations"),
@@ -112,6 +113,13 @@ func stringValue(input map[string]any, key string) string {
 	}
 	value, _ := input[key].(string)
 	return strings.TrimSpace(value)
+}
+
+func firstStringValue(input map[string]any, key, envKey string) string {
+	if value := stringValue(input, key); value != "" {
+		return value
+	}
+	return strings.TrimSpace(os.Getenv(envKey))
 }
 
 func intValue(input map[string]any, key string) int {

@@ -3,6 +3,7 @@ package api
 import (
 	"context"
 	"encoding/json"
+	"sync/atomic"
 
 	"icoo_claw/server/claw/pkg/agent_sdk/sdk/middleware"
 	"icoo_claw/server/claw/pkg/agent_sdk/sdk/model"
@@ -23,7 +24,8 @@ func newProgressMiddleware(events chan<- StreamEvent) *progressMiddleware {
 // progressMiddleware centralises guarded writes to the event channel so the
 // middleware hooks stay terse and ordered.
 type progressMiddleware struct {
-	emitter progressEmitter
+	emitter           progressEmitter
+	modelTextStreamed atomic.Bool
 }
 
 func (p *progressMiddleware) Name() string { return "progress" }
@@ -33,7 +35,12 @@ func (p *progressMiddleware) emit(ctx context.Context, evt StreamEvent) {
 }
 
 func (p *progressMiddleware) streamEmit() streamEmitFunc {
-	return p.emit
+	return func(ctx context.Context, evt StreamEvent) {
+		if evt.Type == EventContentBlockDelta && evt.Delta != nil && evt.Delta.Type == "text_delta" && evt.Delta.Text != "" {
+			p.modelTextStreamed.Store(true)
+		}
+		p.emit(ctx, evt)
+	}
 }
 
 func (p *progressMiddleware) BeforeAgent(ctx context.Context, st *middleware.State) error {
@@ -57,7 +64,9 @@ func (p *progressMiddleware) AfterAgent(ctx context.Context, st *middleware.Stat
 
 	idx := 0
 	text := resp.Message.Content
-	p.textBlock(ctx, idx, text)
+	if !p.modelTextStreamed.Load() {
+		p.textBlock(ctx, idx, text)
+	}
 	if text != "" {
 		idx++
 	}

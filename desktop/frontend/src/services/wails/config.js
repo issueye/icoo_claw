@@ -28,14 +28,6 @@ export async function saveDesktopSettings(settings) {
   }
 }
 
-export async function chooseDirectory() {
-  try {
-    return await SystemService.ChooseDirectory()
-  } catch {
-    return ''
-  }
-}
-
 export async function getAppInfo() {
   try {
     return await SystemService.GetAppInfo()

@@ -19,17 +19,22 @@ const conversationsStore = useConversationsStore()
 const projectsStore = useProjectsStore()
 const settingsStore = useSettingsStore()
 const draft = computed({
-  get: () => chatStore.composerDraft || '',
+  get: () => chatStore.composerDraftFor(conversationId.value),
   set: (value) => {
-    chatStore.composerDraft = value
+    chatStore.setComposerDraft(conversationId.value, value)
   },
 })
 
 const conversationId = computed(() => String(route.params.id || ''))
 const conversation = computed(() => conversationsStore.byId(conversationId.value))
 const messages = computed(() => conversationsStore.messagesFor(conversationId.value))
-const selectedAgentName = computed(() => agentsStore.selectedAgent?.name || conversation.value?.agentId || '未选择')
+const selectedAgentName = computed(() => {
+  const agentId = conversation.value?.agentId || settingsStore.settings.gateway.defaultAgentId
+  return agentsStore.items.find((agent) => agent.id === agentId)?.name || agentId || '未选择'
+})
 const currentProjectContext = computed(() => projectsStore.currentProjectContext)
+const isConversationStreaming = computed(() => chatStore.isStreaming(conversationId.value))
+const conversationSocketState = computed(() => chatStore.socketStateFor(conversationId.value))
 
 watch(
   conversationId,
@@ -43,8 +48,8 @@ watch(
 
 async function submit() {
   const payload = draft.value
-  draft.value = ''
   try {
+    draft.value = ''
     await chatStore.sendPrompt(payload, conversationId.value)
   } catch (error) {
     draft.value = payload
@@ -59,7 +64,7 @@ async function submit() {
       :agent-name="selectedAgentName"
       :gateway-status="appStore.gatewayStatus"
       :project-context="currentProjectContext"
-      :socket-status="chatStore.socketState"
+      :socket-status="conversationSocketState"
     />
 
     <header class="border-b border-white/10 bg-[rgba(18,58,51,0.34)] px-4 py-3 backdrop-blur-xl">
@@ -75,10 +80,10 @@ async function submit() {
 
     <ChatComposer
       v-model="draft"
-      :busy="chatStore.streaming"
+      :busy="isConversationStreaming"
       :disabled="!draft.trim()"
       :project-context="currentProjectContext"
-      @cancel="chatStore.cancelStream"
+      @cancel="chatStore.cancelStream(conversationId)"
       @send="submit"
     />
   </section>

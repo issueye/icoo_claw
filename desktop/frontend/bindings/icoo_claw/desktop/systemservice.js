@@ -11,13 +11,6 @@ import { Call as $Call, CancellablePromise as $CancellablePromise, Create as $Cr
 import * as $models from "./models.js";
 
 /**
- * @returns {$CancellablePromise<string>}
- */
-export function ChooseDirectory() {
-    return $Call.ByID(1479459780);
-}
-
-/**
  * @returns {$CancellablePromise<$models.AppInfo | null>}
  */
 export function GetAppInfo() {

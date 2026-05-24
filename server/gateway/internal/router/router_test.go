@@ -35,6 +35,7 @@ func (f fakeInstanceRepo) Get(context.Context, string) (*model.AgentInstance, er
 }
 func (f fakeInstanceRepo) List(context.Context) ([]model.AgentInstance, error) { return nil, nil }
 func (f fakeInstanceRepo) Update(context.Context, model.AgentInstance) error   { return nil }
+func (f fakeInstanceRepo) Delete(context.Context, string) error                { return nil }
 func (f fakeInstanceRepo) AdjustInflight(context.Context, string, int) error   { return nil }
 
 type fakeConversationRepo struct{}
@@ -82,6 +83,7 @@ func TestHealthRoute(t *testing.T) {
 	instanceService := service.NewAgentInstanceService(
 		config.Config{ClawPortStart: 8101, ClawPortEnd: 8102, MaxAgentInstances: 2},
 		agentRepo,
+		nil,
 		instanceRepo,
 		fakeSupervisor{},
 	)
@@ -92,6 +94,7 @@ func TestHealthRoute(t *testing.T) {
 		Chat: controller.NewChatController(service.NewChatService(
 			conversationRepo,
 			agentRepo,
+			nil,
 			service.NewDefaultRouterPolicy(conversationRepo, instanceRepo, instanceService),
 			fakeSessionBackend{},
 			fakeClawRunner{},

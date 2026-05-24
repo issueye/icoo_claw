@@ -111,7 +111,7 @@ export function normalizeWSMessage(raw = {}) {
     conversationId: raw.conversation_id || raw.conversationId || '',
     sessionId: raw.session_id || raw.sessionId || '',
     requestId: raw.request_id || raw.requestId || '',
-    output: raw.output || '',
+    update: raw.update || null,
     stopReason: raw.stop_reason || raw.stopReason || '',
     code: raw.code || '',
     error: raw.error || '',

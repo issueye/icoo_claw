@@ -204,7 +204,7 @@ internal_token = "$token"
 claw_binary_path = "$(Join-Path $binDir "claw.exe" | ForEach-Object { $_ -replace '\\','/' })"
 claw_work_dir = "$( $packageRoot -replace '\\','/' )"
 claw_config_dir = "$(Join-Path $dataDir "claw-configs" | ForEach-Object { $_ -replace '\\','/' })"
-claw_runner_mode = "fake"
+claw_runner_mode = "sdk"
 claw_port_start = $clawPortStart
 claw_port_end = $clawPortEnd
 max_agent_instances = 2
@@ -231,7 +231,7 @@ $agentBody = @{
   id = $agentId
   name = "Desktop Default Agent"
   model_provider = "openai"
-  model_name = "fake"
+  model_name = ""
   max_iterations = 1
   tool_whitelist = @()
   enabled = $true
@@ -490,7 +490,7 @@ Write-Utf8NoBom -Path (Join-Path $configDir "desktop-settings.toml.example") -Co
 $readme = @'
 # Icoo Claw Test Bundle
 
-Windows test package for the chat-first desktop client and local fake gateway stack.
+Windows test package for the chat-first desktop client and local gateway stack.
 
 ## Included
 
@@ -526,7 +526,7 @@ After the stack is up, run `.\scripts\smoke-chat-flow.ps1`.
 
 - The desktop app writes settings to `%APPDATA%\icoo-claw\settings.toml`.
 - Runtime databases, generated configs, logs, and pid files live under `runtime/`.
-- This package uses local fake chat responses for testing and does not require a real model provider.
+- Configure a provider API Key, Base URL, and model in the desktop app before starting Agent instances.
 - Windows WebView2 runtime is required for the desktop window.
 - If the client shows that the gateway cannot be reached, start the package through `start-test-app.cmd` instead of opening `desktop.exe` by itself.
 '@

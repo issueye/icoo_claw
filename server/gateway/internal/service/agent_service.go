@@ -29,6 +29,7 @@ func (s *AgentService) Create(ctx context.Context, req dto.CreateAgentRequest) (
 	agent := model.AgentProfile{
 		ID:                strings.TrimSpace(req.ID),
 		Name:              strings.TrimSpace(req.Name),
+		ProviderID:        strings.TrimSpace(req.ProviderID),
 		ModelProvider:     defaultString(req.ModelProvider, "openai"),
 		ModelName:         strings.TrimSpace(req.ModelName),
 		BaseURL:           strings.TrimSpace(req.BaseURL),
@@ -77,6 +78,9 @@ func (s *AgentService) Update(ctx context.Context, id string, req dto.UpdateAgen
 	if req.Name != nil {
 		agent.Name = strings.TrimSpace(*req.Name)
 	}
+	if req.ProviderID != nil {
+		agent.ProviderID = strings.TrimSpace(*req.ProviderID)
+	}
 	if req.ModelProvider != nil {
 		agent.ModelProvider = defaultString(*req.ModelProvider, "openai")
 	}
@@ -121,6 +125,7 @@ func toAgentDTO(agent model.AgentProfile) *dto.AgentProfile {
 	return &dto.AgentProfile{
 		ID:            agent.ID,
 		Name:          agent.Name,
+		ProviderID:    agent.ProviderID,
 		ModelProvider: agent.ModelProvider,
 		ModelName:     agent.ModelName,
 		BaseURL:       agent.BaseURL,

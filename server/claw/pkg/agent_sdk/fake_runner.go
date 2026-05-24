@@ -41,9 +41,13 @@ func (r *FakeRunner) RunStream(ctx context.Context, req RunRequest) (<-chan Stre
 		defer close(out)
 		output := "fake agent response: " + req.Prompt
 		events := []StreamEvent{
-			{Type: "agent_start", SessionID: req.SessionID, RequestID: req.RequestID},
-			{Type: "content_block_delta", SessionID: req.SessionID, RequestID: req.RequestID, Output: output},
-			{Type: "message_stop", SessionID: req.SessionID, RequestID: req.RequestID},
+			{
+				Type:      StreamEventSessionUpdate,
+				SessionID: req.SessionID,
+				RequestID: req.RequestID,
+				Update:    &SessionUpdate{SessionUpdate: "agent_message_chunk", Content: &ContentBlock{Type: "text", Text: output}},
+			},
+			{Type: StreamEventSessionCompleted, SessionID: req.SessionID, RequestID: req.RequestID, StopReason: "end_turn"},
 		}
 		for _, event := range events {
 			select {

@@ -48,6 +48,15 @@ func (r *memoryInstanceRepo) Update(_ context.Context, instance model.AgentInsta
 	}
 	return nil
 }
+func (r *memoryInstanceRepo) Delete(_ context.Context, id string) error {
+	for i := range r.instances {
+		if r.instances[i].ID == id {
+			r.instances = append(r.instances[:i], r.instances[i+1:]...)
+			return nil
+		}
+	}
+	return nil
+}
 func (r *memoryInstanceRepo) AdjustInflight(_ context.Context, id string, delta int) error {
 	for i := range r.instances {
 		if r.instances[i].ID == id {
@@ -99,6 +108,7 @@ func TestAgentInstanceServiceStartAllocatesPort(t *testing.T) {
 	svc := NewAgentInstanceService(
 		config.Config{ClawPortStart: 8101, ClawPortEnd: 8102, MaxAgentInstances: 2},
 		instanceAgentRepo{},
+		nil,
 		repo,
 		memorySupervisor{},
 	)
@@ -116,6 +126,28 @@ func TestAgentInstanceServiceStartAllocatesPort(t *testing.T) {
 	}
 }
 
+func TestAgentInstanceServiceStartReusesFailedInstancePorts(t *testing.T) {
+	repo := &memoryInstanceRepo{instances: []model.AgentInstance{
+		{ID: "inst_failed_1", AgentID: "agent_1", Status: "failed", Port: 8101},
+		{ID: "inst_failed_2", AgentID: "agent_1", Status: "failed", Port: 8102},
+	}}
+	svc := NewAgentInstanceService(
+		config.Config{ClawPortStart: 8101, ClawPortEnd: 8102, MaxAgentInstances: 2},
+		instanceAgentRepo{},
+		nil,
+		repo,
+		memorySupervisor{},
+	)
+
+	started, err := svc.Start(context.Background(), dto.StartAgentInstanceRequest{AgentID: "agent_1"})
+	if err != nil {
+		t.Fatalf("start: %v", err)
+	}
+	if started.Port != 8101 {
+		t.Fatalf("port = %d, want failed port reused", started.Port)
+	}
+}
+
 func TestAgentInstanceServiceProbeInstancesUpdatesStatus(t *testing.T) {
 	now := time.Now().UTC()
 	repo := &memoryInstanceRepo{instances: []model.AgentInstance{
@@ -124,6 +156,7 @@ func TestAgentInstanceServiceProbeInstancesUpdatesStatus(t *testing.T) {
 	svc := NewAgentInstanceService(
 		config.Config{},
 		instanceAgentRepo{},
+		nil,
 		repo,
 		probeSupervisor{},
 	)
@@ -147,6 +180,7 @@ func TestAgentInstanceServiceProbeInstancesMarksFailed(t *testing.T) {
 	svc := NewAgentInstanceService(
 		config.Config{},
 		instanceAgentRepo{},
+		nil,
 		repo,
 		probeSupervisor{err: probeErr},
 	)
@@ -167,6 +201,7 @@ func TestAgentInstanceServiceStopWaitsForInflight(t *testing.T) {
 	svc := NewAgentInstanceService(
 		config.Config{ShutdownTimeout: time.Second},
 		instanceAgentRepo{},
+		nil,
 		repo,
 		supervisor,
 	)
@@ -195,5 +230,35 @@ func TestAgentInstanceServiceStopWaitsForInflight(t *testing.T) {
 	}
 	if repo.instances[0].Status != "stopped" {
 		t.Fatalf("status = %q, want stopped", repo.instances[0].Status)
+	}
+}
+
+func TestAgentInstanceServiceRemoveDeletesStoppedInstance(t *testing.T) {
+	repo := &memoryInstanceRepo{instances: []model.AgentInstance{
+		{ID: "inst_1", AgentID: "agent_1", Status: "stopped", Port: 8101},
+		{ID: "inst_2", AgentID: "agent_1", Status: "failed", Port: 8102},
+	}}
+	svc := NewAgentInstanceService(config.Config{}, instanceAgentRepo{}, nil, repo, memorySupervisor{})
+
+	if err := svc.Remove(context.Background(), "inst_1"); err != nil {
+		t.Fatalf("remove: %v", err)
+	}
+	if len(repo.instances) != 1 || repo.instances[0].ID != "inst_2" {
+		t.Fatalf("instances after remove = %+v", repo.instances)
+	}
+}
+
+func TestAgentInstanceServiceRemoveRejectsActiveInstance(t *testing.T) {
+	repo := &memoryInstanceRepo{instances: []model.AgentInstance{
+		{ID: "inst_1", AgentID: "agent_1", Status: "ready", Port: 8101},
+	}}
+	svc := NewAgentInstanceService(config.Config{}, instanceAgentRepo{}, nil, repo, memorySupervisor{})
+
+	err := svc.Remove(context.Background(), "inst_1")
+	if !errors.Is(err, ErrAgentInstanceActive) {
+		t.Fatalf("remove error = %v, want ErrAgentInstanceActive", err)
+	}
+	if len(repo.instances) != 1 {
+		t.Fatalf("active instance was removed: %+v", repo.instances)
 	}
 }

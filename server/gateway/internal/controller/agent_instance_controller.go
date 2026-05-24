@@ -1,6 +1,7 @@
 package controller
 
 import (
+	"errors"
 	"net/http"
 
 	"icoo_claw/server/gateway/internal/dto"
@@ -64,4 +65,16 @@ func (a *AgentInstanceController) Drain(c *gin.Context) {
 		return
 	}
 	c.JSON(http.StatusOK, instance)
+}
+
+func (a *AgentInstanceController) Delete(c *gin.Context) {
+	if err := a.instances.Remove(c.Request.Context(), c.Param("id")); err != nil {
+		if errors.Is(err, service.ErrAgentInstanceActive) {
+			writeGatewayError(c, http.StatusConflict, "instance_active", err)
+			return
+		}
+		writeGatewayRepositoryError(c, err)
+		return
+	}
+	c.Status(http.StatusNoContent)
 }
