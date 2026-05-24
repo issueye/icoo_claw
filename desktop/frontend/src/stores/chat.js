@@ -1,6 +1,10 @@
 import { defineStore } from 'pinia'
 import { markRaw } from 'vue'
 import router from '@/router'
+import {
+  dispatchSessionFrame,
+  isDisplayableSessionUpdate,
+} from '@/services/gateway/session-events'
 import { GatewayChatSocket } from '@/services/gateway/ws'
 import { buildConversationTitle } from '@/services/utils/title'
 import { useAgentsStore } from './agents'
@@ -170,17 +174,17 @@ export const useChatStore = defineStore('chat', {
       const settingsStore = useSettingsStore()
       const conversationId = message.conversationId || fallbackConversationId
 
-      switch (message.type) {
-        case 'session/accepted':
+      dispatchSessionFrame(message, {
+        onAccepted: () => {
           if (message.sessionId) {
             this.lastSessionId = message.sessionId
             this.updateStream(conversationId, { sessionId: message.sessionId })
           }
-          break
-        case 'session/update':
+        },
+        onUpdate: () => {
           this.applySessionUpdate(conversationId, message.update)
-          break
-        case 'session/completed':
+        },
+        onCompleted: async () => {
           conversationsStore.markAssistantDraftComplete(conversationId)
           conversationsStore.bumpConversationRunning(conversationId, false)
           this.error = ''
@@ -196,16 +200,14 @@ export const useChatStore = defineStore('chat', {
               { force: true },
             )
           }
-          break
-        case 'session/error':
+        },
+        onError: () => {
           this.error = message.error || 'chat request failed'
           conversationsStore.markAssistantDraftError(conversationId, this.error)
           conversationsStore.bumpConversationRunning(conversationId, false)
           this.cleanupStream(conversationId)
-          break
-        default:
-          break
-      }
+        },
+      })
     },
 
     applySessionUpdate(conversationId, update = {}) {
@@ -214,17 +216,8 @@ export const useChatStore = defineStore('chat', {
         return
       }
       conversationsStore.bumpConversationRunning(conversationId, true)
-      switch (update.sessionUpdate) {
-        case 'agent_message_chunk':
-          conversationsStore.appendAssistantUpdate(conversationId, update)
-          break
-        case 'tool_call':
-        case 'tool_call_update':
-        case 'usage_update':
-          conversationsStore.appendAssistantUpdate(conversationId, update)
-          break
-        default:
-          break
+      if (isDisplayableSessionUpdate(update)) {
+        conversationsStore.appendAssistantUpdate(conversationId, update)
       }
     },
 

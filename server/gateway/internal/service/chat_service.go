@@ -10,7 +10,6 @@ import (
 	"icoo_claw/server/gateway/internal/dto"
 	"icoo_claw/server/gateway/internal/model"
 	"icoo_claw/server/gateway/internal/repository"
-	agent_sdk "icoo_claw/server/claw/pkg/agent_sdk"
 )
 
 type SessionBackend interface {
@@ -189,9 +188,24 @@ func (s *ChatService) StreamMessage(ctx context.Context, conversationID string, 
 			conversation.UpdatedAt = now
 			_ = s.conversations.Update(context.Background(), *conversation)
 		}()
-		for event := range events {
-			out <- event
-		}
+		_ = client.DispatchStreamEvents(events, client.StreamEventHandlerFunc{
+			OnUpdate: func(event client.StreamEvent) error {
+				out <- event
+				return nil
+			},
+			OnCompleted: func(event client.StreamEvent) error {
+				out <- event
+				return nil
+			},
+			OnError: func(event client.StreamEvent) error {
+				out <- event
+				return nil
+			},
+			OnUnhandled: func(event client.StreamEvent) error {
+				out <- event
+				return nil
+			},
+		})
 	}()
 	return out, nil
 }
@@ -215,6 +229,27 @@ func collectClawStream(events <-chan client.StreamEvent, fallbackSessionID, fall
 	stopReason := "stream_closed"
 	sessionID := fallbackSessionID
 	requestID := fallbackRequestID
+
+	handler := client.StreamEventHandlerFunc{
+		OnUpdate: func(event client.StreamEvent) error {
+			if event.Update != nil && event.Update.SessionUpdate == "agent_message_chunk" && event.Update.Content != nil {
+				output.WriteString(event.Update.Content.Text)
+			}
+			return nil
+		},
+		OnCompleted: func(event client.StreamEvent) error {
+			stopReason = defaultString(event.StopReason, "end_turn")
+			return nil
+		},
+		OnError: func(event client.StreamEvent) error {
+			message := ""
+			if event.Error != nil {
+				message = event.Error.Message
+			}
+			return errors.New(defaultString(message, "stream error"))
+		},
+	}
+
 	for event := range events {
 		if event.SessionID != "" {
 			sessionID = event.SessionID
@@ -222,35 +257,11 @@ func collectClawStream(events <-chan client.StreamEvent, fallbackSessionID, fall
 		if event.RequestID != "" {
 			requestID = event.RequestID
 		}
-		if dispatchErr := agent_sdk.DispatchStreamEvent(agent_sdk.StreamEvent{
-			Type:       event.Type,
-			SessionID:  event.SessionID,
-			RequestID:  event.RequestID,
-			Update:     event.Update.ToAgentSDK(),
-			StopReason: event.StopReason,
-			Error:      event.Error.ToAgentSDK(),
-		}, agent_sdk.StreamEventHandlerFunc{
-			OnUpdate: func(update agent_sdk.StreamEvent) error {
-				if update.Update != nil && update.Update.SessionUpdate == "agent_message_chunk" && update.Update.Content != nil {
-					output.WriteString(update.Update.Content.Text)
-				}
-				return nil
-			},
-			OnCompleted: func(update agent_sdk.StreamEvent) error {
-				stopReason = defaultString(update.StopReason, "end_turn")
-				return nil
-			},
-			OnError: func(update agent_sdk.StreamEvent) error {
-				message := ""
-				if update.Error != nil {
-					message = update.Error.Message
-				}
-				return errors.New(defaultString(message, "stream error"))
-			},
-		}); dispatchErr != nil {
-			return "", "", sessionID, requestID, dispatchErr
+		if err := client.DispatchStreamEvent(event, handler); err != nil {
+			return "", "", sessionID, requestID, err
 		}
 	}
+
 	return output.String(), stopReason, sessionID, requestID, nil
 }
 
