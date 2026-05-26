@@ -42,7 +42,11 @@ func (b *BashTool) StreamExecute(ctx context.Context, params map[string]interfac
 		return nil, err
 	}
 	if err := b.validator.Validate(command); err != nil {
-		return nil, err
+		return &tool.ToolResult{
+			Success: false,
+			Output:  err.Error(),
+			Data:    map[string]any{"error": err.Error()},
+		}, nil
 	}
 	workdir, err := b.resolveWorkdir(params)
 	if err != nil {
