@@ -11,11 +11,17 @@ import (
 	"icoo_claw/server/gateway/internal/model"
 )
 
-type instanceAgentRepo struct{}
+type instanceAgentRepo struct {
+	agent model.AgentProfile
+}
 
 func (r instanceAgentRepo) Create(context.Context, model.AgentProfile) error { return nil }
 func (r instanceAgentRepo) Get(context.Context, string) (*model.AgentProfile, error) {
-	return &model.AgentProfile{ID: "agent_1", Name: "Default"}, nil
+	if r.agent.ID == "" {
+		return &model.AgentProfile{ID: "agent_1", Name: "Default"}, nil
+	}
+	agent := r.agent
+	return &agent, nil
 }
 func (r instanceAgentRepo) List(context.Context) ([]model.AgentProfile, error) { return nil, nil }
 func (r instanceAgentRepo) Update(context.Context, model.AgentProfile) error   { return nil }
@@ -77,6 +83,17 @@ func (s memorySupervisor) Start(context.Context, StartAgentInstanceSpec) (*Agent
 }
 func (s memorySupervisor) Stop(context.Context, model.AgentInstance) error  { return nil }
 func (s memorySupervisor) Probe(context.Context, model.AgentInstance) error { return nil }
+
+type captureSupervisor struct {
+	spec StartAgentInstanceSpec
+}
+
+func (s *captureSupervisor) Start(_ context.Context, spec StartAgentInstanceSpec) (*AgentProcess, error) {
+	s.spec = spec
+	return &AgentProcess{PID: 42}, nil
+}
+func (s *captureSupervisor) Stop(context.Context, model.AgentInstance) error  { return nil }
+func (s *captureSupervisor) Probe(context.Context, model.AgentInstance) error { return nil }
 
 type probeSupervisor struct {
 	err error
@@ -145,6 +162,52 @@ func TestAgentInstanceServiceStartReusesFailedInstancePorts(t *testing.T) {
 	}
 	if started.Port != 8101 {
 		t.Fatalf("port = %d, want failed port reused", started.Port)
+	}
+}
+
+func TestAgentInstanceServiceStartUsesAgentTransport(t *testing.T) {
+	repo := &memoryInstanceRepo{}
+	supervisor := &captureSupervisor{}
+	svc := NewAgentInstanceService(
+		config.Config{ClawPortStart: 8101, ClawPortEnd: 8101, MaxAgentInstances: 1},
+		instanceAgentRepo{agent: model.AgentProfile{ID: "agent_1", Name: "Default", Transport: "acp"}},
+		nil,
+		repo,
+		supervisor,
+	)
+
+	started, err := svc.Start(context.Background(), dto.StartAgentInstanceRequest{AgentID: "agent_1"})
+	if err != nil {
+		t.Fatalf("start: %v", err)
+	}
+	if started.Transport != "acp" || supervisor.spec.Transport != "acp" {
+		t.Fatalf("transport = dto %q spec %q, want acp", started.Transport, supervisor.spec.Transport)
+	}
+	if started.BaseURL != "acp://"+started.ID {
+		t.Fatalf("baseURL = %q, want acp instance URL", started.BaseURL)
+	}
+}
+
+func TestAgentInstanceServiceStartRequestTransportOverridesAgent(t *testing.T) {
+	repo := &memoryInstanceRepo{}
+	supervisor := &captureSupervisor{}
+	svc := NewAgentInstanceService(
+		config.Config{ClawPortStart: 8101, ClawPortEnd: 8101, MaxAgentInstances: 1},
+		instanceAgentRepo{agent: model.AgentProfile{ID: "agent_1", Name: "Default", Transport: "http"}},
+		nil,
+		repo,
+		supervisor,
+	)
+
+	started, err := svc.Start(context.Background(), dto.StartAgentInstanceRequest{AgentID: "agent_1", Transport: "acp"})
+	if err != nil {
+		t.Fatalf("start: %v", err)
+	}
+	if started.Transport != "acp" || supervisor.spec.Transport != "acp" {
+		t.Fatalf("transport = dto %q spec %q, want acp", started.Transport, supervisor.spec.Transport)
+	}
+	if started.BaseURL != "acp://"+started.ID {
+		t.Fatalf("baseURL = %q, want acp instance URL", started.BaseURL)
 	}
 }
 

@@ -66,7 +66,7 @@ func (c *ClawClient) Stream(ctx context.Context, baseURL string, req RunRequest)
 		for {
 			line, err := reader.readLine()
 			if err != nil {
-				if err != io.EOF {
+				if err != io.EOF && ctx.Err() == nil {
 					out <- StreamEvent{Type: "session/error", Error: &StreamError{Message: err.Error()}}
 				}
 				return

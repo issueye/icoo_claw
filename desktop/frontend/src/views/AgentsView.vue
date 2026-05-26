@@ -48,6 +48,11 @@ const modelProviderOptions = [
   { label: 'Anthropic', value: 'anthropic' },
 ]
 
+const transportOptions = [
+  { label: 'HTTP/SSE', value: 'http' },
+  { label: 'ACP stdio', value: 'acp' },
+]
+
 const readyInstances = computed(() => agentInstancesStore.items.filter((item) => item.status === 'ready'))
 const activeInstances = computed(() =>
   agentInstancesStore.items.filter((item) => ['ready', 'starting', 'draining'].includes(item.status)),
@@ -62,6 +67,7 @@ function emptyForm() {
     modelProvider: 'openai',
     modelName: '',
     baseUrl: '',
+    transport: 'http',
     systemPrompt: '',
     maxIterations: 0,
     toolWhitelist: '',
@@ -122,6 +128,7 @@ function openEditEditor(agent) {
     modelProvider: agent.modelProvider || 'openai',
     modelName: agent.modelName || '',
     baseUrl: agent.baseUrl || '',
+    transport: agent.transport || 'http',
     systemPrompt: agent.systemPrompt || '',
     maxIterations: agent.maxIterations || 0,
     toolWhitelist: listToText(agent.toolWhitelist),
@@ -164,6 +171,7 @@ async function saveAgent() {
     modelProvider: form.modelProvider.trim(),
     modelName: form.modelName.trim(),
     baseUrl: form.baseUrl.trim(),
+    transport: form.transport || 'http',
     systemPrompt: form.systemPrompt.trim(),
     maxIterations: Number(form.maxIterations) || 0,
   })
@@ -218,6 +226,7 @@ async function startAgent(agent) {
   await agentInstancesStore.startInstance(baseUrl.value, {
     agentId: agent.id,
     name: agent.name,
+    transport: agent.transport || 'http',
   })
   notificationsStore.notify({
     title: 'Agent 实例已启动',
@@ -347,6 +356,7 @@ onMounted(() => {
                   <div class="flex min-w-0 flex-wrap items-center gap-2">
                     <p class="truncate text-sm font-semibold text-[color:var(--qq-text-primary)]">{{ agent.name }}</p>
                     <span class="qq-badge rounded-[4px] px-2 py-0.5 text-[11px]">{{ agent.modelProvider || 'openai' }}</span>
+                    <span class="qq-badge rounded-[4px] px-2 py-0.5 text-[11px]">{{ agent.transport || 'http' }}</span>
                     <span
                       class="rounded-[4px] px-2 py-0.5 text-[11px]"
                       :class="agent.enabled ? 'bg-emerald-300/15 text-emerald-100' : 'bg-white/10 text-[color:var(--qq-text-tertiary)]'"
@@ -362,7 +372,7 @@ onMounted(() => {
                   </div>
                   <p class="mt-2 break-all text-xs leading-5 text-[color:var(--qq-text-tertiary)]">ID {{ agent.id }}</p>
                   <p class="mt-1 break-all text-xs leading-5 text-[color:var(--qq-text-secondary)]">
-                    {{ providerLabel(agent.providerId) }} · {{ agent.modelName || '使用供应商默认模型' }}
+                    {{ providerLabel(agent.providerId) }} · {{ agent.modelName || '使用供应商默认模型' }} · {{ agent.transport || 'http' }}
                   </p>
                   <p class="mt-1 break-all text-xs leading-5 text-[color:var(--qq-text-tertiary)]">
                     {{ agent.baseUrl || '不覆盖 Base URL' }}
@@ -427,6 +437,7 @@ onMounted(() => {
                       {{ instance.status }}
                     </span>
                     <span class="qq-badge rounded-[4px] px-2 py-0.5 text-[11px]">PID {{ instance.pid || '-' }}</span>
+                    <span class="qq-badge rounded-[4px] px-2 py-0.5 text-[11px]">{{ instance.transport || 'http' }}</span>
                   </div>
                   <p class="mt-2 break-all text-xs leading-5 text-[color:var(--qq-text-tertiary)]">
                     {{ instance.id }} · {{ instance.baseUrl }}
@@ -516,6 +527,10 @@ onMounted(() => {
           </QqFormField>
         </div>
 
+        <QqFormField label="连接方式" helper="HTTP/SSE 使用本地端口；ACP 通过标准输入输出连接 Agent。">
+          <QqSelect v-model="form.transport" :options="transportOptions" />
+        </QqFormField>
+
         <QqFormField label="系统提示词">
           <QqTextarea v-model="form.systemPrompt" :rows="4" placeholder="输入该 Agent 的默认系统提示词" />
         </QqFormField>
@@ -567,6 +582,7 @@ onMounted(() => {
           <p class="text-xs uppercase tracking-[0.16em] text-[color:var(--qq-text-tertiary)]">Instance</p>
           <p class="mt-2 break-all text-[color:var(--qq-text-primary)]">{{ selectedInstance.id }}</p>
           <p class="mt-1 break-all text-[color:var(--qq-text-secondary)]">{{ selectedInstance.baseUrl }}</p>
+          <p class="mt-1 break-all text-[color:var(--qq-text-secondary)]">{{ selectedInstance.transport || 'http' }}</p>
         </div>
         <div class="grid gap-3 md:grid-cols-2">
           <div class="rounded-[6px] border border-white/10 bg-[rgba(9,32,28,0.18)] px-3 py-3">

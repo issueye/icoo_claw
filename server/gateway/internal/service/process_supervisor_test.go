@@ -4,6 +4,8 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+
+	"icoo_claw/server/gateway/internal/config"
 )
 
 func TestResolveExecutablePathUsesCurrentDirectoryBinary(t *testing.T) {
@@ -65,5 +67,19 @@ func TestWriteClawConfigReturnsAbsolutePath(t *testing.T) {
 	}
 	if _, err := os.Stat(path); err != nil {
 		t.Fatalf("stat config: %v", err)
+	}
+}
+
+func TestProcessSpecFromConfigDefaultsToHTTPTransport(t *testing.T) {
+	spec := processSpecFromConfig(config.Config{
+		ClawPortStart: 8101,
+		ClawPortEnd:   8102,
+	}, "inst_http", "agent_1", 8101)
+
+	if spec.Transport != "http" {
+		t.Fatalf("transport = %q, want http", spec.Transport)
+	}
+	if spec.BaseURL != "http://127.0.0.1:8101" {
+		t.Fatalf("baseURL = %q, want http instance URL", spec.BaseURL)
 	}
 }

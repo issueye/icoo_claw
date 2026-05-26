@@ -105,6 +105,7 @@ func (p *DefaultRouterPolicy) startInstance(ctx context.Context, agentID string)
 		Host:            started.Host,
 		Port:            started.Port,
 		BaseURL:         started.BaseURL,
+		Transport:       started.Transport,
 		LastHeartbeatAt: started.LastHeartbeatAt,
 		LastError:       started.LastError,
 		Inflight:        started.Inflight,

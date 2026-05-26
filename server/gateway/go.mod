@@ -3,6 +3,7 @@ module icoo_claw/server/gateway
 go 1.25.0
 
 require (
+	github.com/coder/acp-go-sdk v0.13.0
 	github.com/gin-gonic/gin v1.12.0
 	github.com/glebarez/sqlite v1.11.0
 	github.com/gorilla/websocket v1.5.3

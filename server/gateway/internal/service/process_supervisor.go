@@ -9,8 +9,10 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strconv"
+	"strings"
 	"time"
 
+	"icoo_claw/server/gateway/internal/client"
 	"icoo_claw/server/gateway/internal/config"
 	"icoo_claw/server/gateway/internal/model"
 )
@@ -27,6 +29,7 @@ type StartAgentInstanceSpec struct {
 	InternalToken string
 	ConfigDir     string
 	RunnerMode    string
+	Transport     string
 	Agent         AgentLaunchConfig
 }
 
@@ -50,10 +53,15 @@ type ProcessSupervisor interface {
 
 type LocalProcessSupervisor struct {
 	httpClient *http.Client
+	acp        *client.ACPRegistry
 }
 
-func NewLocalProcessSupervisor() *LocalProcessSupervisor {
-	return &LocalProcessSupervisor{httpClient: &http.Client{Timeout: 2 * time.Second}}
+func NewLocalProcessSupervisor(acpRegistry ...*client.ACPRegistry) *LocalProcessSupervisor {
+	var acp *client.ACPRegistry
+	if len(acpRegistry) > 0 {
+		acp = acpRegistry[0]
+	}
+	return &LocalProcessSupervisor{httpClient: &http.Client{Timeout: 2 * time.Second}, acp: acp}
 }
 
 func (s *LocalProcessSupervisor) Start(ctx context.Context, spec StartAgentInstanceSpec) (*AgentProcess, error) {
@@ -71,11 +79,41 @@ func (s *LocalProcessSupervisor) Start(ctx context.Context, spec StartAgentInsta
 	if err != nil {
 		return nil, err
 	}
-	cmd := exec.Command(binaryPath, "--config", configPath)
+	args := []string{"--config", configPath}
+	if normalizeTransport(spec.Transport) == "acp" {
+		args = []string{"--acp", "--config", configPath}
+	}
+	cmd := exec.Command(binaryPath, args...)
 	if spec.WorkDir != "" {
 		cmd.Dir = spec.WorkDir
 	}
 	cmd.Env = append(os.Environ(), agentLaunchEnv(spec.Agent)...)
+	if normalizeTransport(spec.Transport) == "acp" {
+		if s.acp == nil {
+			return nil, errors.New("acp registry is required for acp transport")
+		}
+		stdin, err := cmd.StdinPipe()
+		if err != nil {
+			return nil, fmt.Errorf("create acp stdin pipe: %w", err)
+		}
+		stdout, err := cmd.StdoutPipe()
+		if err != nil {
+			return nil, fmt.Errorf("create acp stdout pipe: %w", err)
+		}
+		cmd.Stderr = os.Stderr
+		if err := cmd.Start(); err != nil {
+			return nil, fmt.Errorf("start claw acp process: %w", err)
+		}
+		if err := s.acp.Register(ctx, spec.InstanceID, stdin, stdout, cmd.Process.Kill); err != nil {
+			_ = cmd.Process.Kill()
+			return nil, err
+		}
+		go func() {
+			_ = cmd.Wait()
+			s.acp.Remove(spec.InstanceID)
+		}()
+		return &AgentProcess{PID: cmd.Process.Pid}, nil
+	}
 	if err := cmd.Start(); err != nil {
 		return nil, fmt.Errorf("start claw process: %w", err)
 	}
@@ -84,6 +122,11 @@ func (s *LocalProcessSupervisor) Start(ctx context.Context, spec StartAgentInsta
 }
 
 func (s *LocalProcessSupervisor) Stop(ctx context.Context, instance model.AgentInstance) error {
+	if normalizeTransport(instance.Transport) == "acp" || client.IsACPBaseURL(instance.BaseURL) {
+		if s.acp != nil {
+			_ = s.acp.Close(instance.ID)
+		}
+	}
 	process, err := os.FindProcess(instance.PID)
 	if err != nil {
 		return err
@@ -99,6 +142,12 @@ func (s *LocalProcessSupervisor) Stop(ctx context.Context, instance model.AgentI
 }
 
 func (s *LocalProcessSupervisor) Probe(ctx context.Context, instance model.AgentInstance) error {
+	if normalizeTransport(instance.Transport) == "acp" || client.IsACPBaseURL(instance.BaseURL) {
+		if s.acp == nil {
+			return errors.New("acp registry is not configured")
+		}
+		return s.acp.Probe(instance.ID)
+	}
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, instance.BaseURL+"/health", nil)
 	if err != nil {
 		return err
@@ -165,6 +214,7 @@ func processSpecFromConfig(cfg config.Config, instanceID, agentID string, port i
 		InternalToken: cfg.InternalToken,
 		ConfigDir:     cfg.ClawConfigDir,
 		RunnerMode:    cfg.ClawRunnerMode,
+		Transport:     "http",
 	}
 }
 
@@ -207,5 +257,14 @@ func agentLaunchEnv(agent AgentLaunchConfig) []string {
 		"ICOO_AGENT_MODEL_NAME=" + agent.ModelName,
 		"ICOO_AGENT_BASE_URL=" + agent.BaseURL,
 		"ICOO_AGENT_API_KEY=" + agent.APIKey,
+	}
+}
+
+func normalizeTransport(value string) string {
+	switch strings.ToLower(strings.TrimSpace(value)) {
+	case "acp":
+		return "acp"
+	default:
+		return "http"
 	}
 }

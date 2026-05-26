@@ -9,6 +9,7 @@ type AgentProfile struct {
 	ModelProvider string    `json:"model_provider"`
 	ModelName     string    `json:"model_name"`
 	BaseURL       string    `json:"base_url,omitempty"`
+	Transport     string    `json:"transport"`
 	SystemPrompt  string    `json:"system_prompt"`
 	MaxIterations int       `json:"max_iterations"`
 	ToolWhitelist []string  `json:"tool_whitelist"`
@@ -27,6 +28,7 @@ type CreateAgentRequest struct {
 	ModelProvider string   `json:"model_provider"`
 	ModelName     string   `json:"model_name"`
 	BaseURL       string   `json:"base_url"`
+	Transport     string   `json:"transport"`
 	SystemPrompt  string   `json:"system_prompt"`
 	MaxIterations int      `json:"max_iterations"`
 	ToolWhitelist []string `json:"tool_whitelist"`
@@ -42,6 +44,7 @@ type UpdateAgentRequest struct {
 	ModelProvider *string  `json:"model_provider"`
 	ModelName     *string  `json:"model_name"`
 	BaseURL       *string  `json:"base_url"`
+	Transport     *string  `json:"transport"`
 	SystemPrompt  *string  `json:"system_prompt"`
 	MaxIterations *int     `json:"max_iterations"`
 	ToolWhitelist []string `json:"tool_whitelist"`

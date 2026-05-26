@@ -9,6 +9,7 @@ type AgentProfile struct {
 	ModelProvider     string `gorm:"size:32;not null"`
 	ModelName         string `gorm:"size:128"`
 	BaseURL           string `gorm:"size:512"`
+	Transport         string `gorm:"size:32;not null;default:http"`
 	SystemPrompt      string `gorm:"type:text"`
 	MaxIterations     int
 	ToolWhitelistJSON string `gorm:"column:tool_whitelist;type:text"`

@@ -88,6 +88,24 @@ describe('chat store', () => {
     conversationsStore.bumpConversationRunning('conv_a', false)
     expect(conversationsStore.byId('conv_a').status).toBe('active')
   })
+
+  it('shows websocket errors even after partial assistant output', async () => {
+    const chatStore = useChatStore()
+    const conversationsStore = useConversationsStore()
+
+    conversationsStore.items = [{ id: 'conv_a', title: 'A', status: 'running' }]
+    conversationsStore.startAssistantDraft('conv_a')
+
+    await chatStore.handleSocketMessage({ type: 'session/update', update: textUpdate('partial') }, 'conv_a')
+    await chatStore.handleSocketMessage({ type: 'session/error', error: 'agent stream closed before completion' }, 'conv_a')
+
+    const draft = conversationsStore.messagesFor('conv_a').at(-1)
+    expect(draft.error).toBe(true)
+    expect(draft.draft).toBe(false)
+    expect(draft.content).toContain('partial')
+    expect(draft.content).toContain('agent stream closed before completion')
+    expect(conversationsStore.byId('conv_a').status).toBe('active')
+  })
 })
 
 function textUpdate(text) {

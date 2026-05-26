@@ -229,6 +229,7 @@ func collectClawStream(events <-chan client.StreamEvent, fallbackSessionID, fall
 	stopReason := "stream_closed"
 	sessionID := fallbackSessionID
 	requestID := fallbackRequestID
+	completed := false
 
 	handler := client.StreamEventHandlerFunc{
 		OnUpdate: func(event client.StreamEvent) error {
@@ -239,6 +240,7 @@ func collectClawStream(events <-chan client.StreamEvent, fallbackSessionID, fall
 		},
 		OnCompleted: func(event client.StreamEvent) error {
 			stopReason = defaultString(event.StopReason, "end_turn")
+			completed = true
 			return nil
 		},
 		OnError: func(event client.StreamEvent) error {
@@ -260,6 +262,10 @@ func collectClawStream(events <-chan client.StreamEvent, fallbackSessionID, fall
 		if err := client.DispatchStreamEvent(event, handler); err != nil {
 			return "", "", sessionID, requestID, err
 		}
+	}
+
+	if !completed {
+		return "", "", sessionID, requestID, errors.New("agent stream closed before completion")
 	}
 
 	return output.String(), stopReason, sessionID, requestID, nil
@@ -337,14 +343,14 @@ func agentProfileMap(agent model.AgentProfile, provider *model.ProviderProfile, 
 		apiKey = provider.APIKey
 	}
 	profile := map[string]any{
-		"model_provider":        modelProvider,
-		"model_name":            modelName,
-		"base_url":              baseURL,
-		"api_key":               apiKey,
-		"system_prompt":         agent.SystemPrompt,
-		"max_iterations":        agent.MaxIterations,
-		"network_allow":         parseStringSlice(agent.NetworkAllowJSON),
-		"mcp_servers":           parseStringSlice(agent.MCPServerIDsJSON),
+		"model_provider": modelProvider,
+		"model_name":     modelName,
+		"base_url":       baseURL,
+		"api_key":        apiKey,
+		"system_prompt":  agent.SystemPrompt,
+		"max_iterations": agent.MaxIterations,
+		"network_allow":  parseStringSlice(agent.NetworkAllowJSON),
+		"mcp_servers":    parseStringSlice(agent.MCPServerIDsJSON),
 	}
 	if tools := parseStringSlice(agent.ToolWhitelistJSON); len(tools) > 0 {
 		profile["enabled_builtin_tools"] = tools

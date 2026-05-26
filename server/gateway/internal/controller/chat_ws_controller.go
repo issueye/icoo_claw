@@ -184,8 +184,12 @@ func (s *chatWSSession) forwardEvents(ctx context.Context, state *activeStream, 
 	defer s.clearActive(state)
 
 	completed := false
+	sessionID := ""
+	requestID := state.requestID
 	for event := range events {
-		requestID := state.requestID
+		if event.SessionID != "" {
+			sessionID = event.SessionID
+		}
 		if event.RequestID != "" {
 			requestID = event.RequestID
 		}
@@ -203,7 +207,7 @@ func (s *chatWSSession) forwardEvents(ctx context.Context, state *activeStream, 
 			_ = s.writeJSON(dto.ChatWSResponse{
 				Type:           "session/error",
 				ConversationID: state.conversationID,
-				SessionID:      event.SessionID,
+				SessionID:      sessionID,
 				RequestID:      requestID,
 				Code:           code,
 				Error:          defaultOutput(message, "stream error"),
@@ -214,7 +218,7 @@ func (s *chatWSSession) forwardEvents(ctx context.Context, state *activeStream, 
 				_ = s.writeJSON(dto.ChatWSResponse{
 					Type:           "session/completed",
 					ConversationID: state.conversationID,
-					SessionID:      event.SessionID,
+					SessionID:      sessionID,
 					RequestID:      requestID,
 					StopReason:     defaultOutput(event.StopReason, "end_turn"),
 				})
@@ -224,7 +228,7 @@ func (s *chatWSSession) forwardEvents(ctx context.Context, state *activeStream, 
 			_ = s.writeJSON(dto.ChatWSResponse{
 				Type:           "session/update",
 				ConversationID: state.conversationID,
-				SessionID:      event.SessionID,
+				SessionID:      sessionID,
 				RequestID:      requestID,
 				Update:         toDTOUpdate(event.Update),
 			})
@@ -234,15 +238,23 @@ func (s *chatWSSession) forwardEvents(ctx context.Context, state *activeStream, 
 	if completed {
 		return
 	}
-	stopReason := "stream_closed"
 	if errors.Is(ctx.Err(), context.Canceled) {
-		stopReason = "cancelled"
+		_ = s.writeJSON(dto.ChatWSResponse{
+			Type:           "session/completed",
+			ConversationID: state.conversationID,
+			SessionID:      sessionID,
+			RequestID:      requestID,
+			StopReason:     "cancelled",
+		})
+		return
 	}
 	_ = s.writeJSON(dto.ChatWSResponse{
-		Type:           "session/completed",
+		Type:           "session/error",
 		ConversationID: state.conversationID,
-		RequestID:      state.requestID,
-		StopReason:     stopReason,
+		SessionID:      sessionID,
+		RequestID:      requestID,
+		Code:           "stream_closed",
+		Error:          "agent stream closed before completion",
 	})
 }
 

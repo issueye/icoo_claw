@@ -172,6 +172,28 @@ func TestChatServiceCreateAndSendMessage(t *testing.T) {
 	}
 }
 
+func TestCollectClawStreamErrorsWhenClosedBeforeCompletion(t *testing.T) {
+	events := make(chan client.StreamEvent, 1)
+	events <- client.StreamEvent{
+		Type:      "session/update",
+		SessionID: "sess_1",
+		RequestID: "req_1",
+		Update:    &client.SessionUpdate{SessionUpdate: "agent_message_chunk", Content: &client.ContentBlock{Type: "text", Text: "partial"}},
+	}
+	close(events)
+
+	_, _, sessionID, requestID, err := collectClawStream(events, "sess_fallback", "req_fallback")
+	if err == nil {
+		t.Fatal("expected stream close error")
+	}
+	if sessionID != "sess_1" || requestID != "req_1" {
+		t.Fatalf("ids = %q/%q, want stream ids", sessionID, requestID)
+	}
+	if err.Error() != "agent stream closed before completion" {
+		t.Fatalf("error = %q", err.Error())
+	}
+}
+
 type chatMultiInstanceRepo struct {
 	instances []model.AgentInstance
 }

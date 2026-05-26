@@ -41,8 +41,8 @@ func (a *Agent) Initialize(ctx context.Context, _ acp.InitializeRequest) (acp.In
 		AgentCapabilities: acp.AgentCapabilities{
 			LoadSession: false,
 			SessionCapabilities: acp.SessionCapabilities{
-				Close: &acp.SessionCloseCapabilities{},
-				List:  nil,
+				Close:  &acp.SessionCloseCapabilities{},
+				List:   nil,
 				Resume: nil,
 			},
 			PromptCapabilities: acp.PromptCapabilities{
@@ -82,9 +82,13 @@ func (a *Agent) Prompt(ctx context.Context, params acp.PromptRequest) (acp.Promp
 	state.cancel = cancel
 
 	req := agent_sdk.RunRequest{
-		SessionID: sessionID,
-		RequestID: firstNonEmpty(stringPtr(params.MessageId), "req_"+randomID()),
-		Prompt:    promptText(params.Prompt),
+		SessionID:     sessionID,
+		RequestID:     firstNonEmpty(metaString(params.Meta, "request_id"), stringPtr(params.MessageId), "req_"+randomID()),
+		Prompt:        promptText(params.Prompt),
+		Agent:         metaMap(params.Meta, "agent"),
+		ToolWhitelist: metaStringSlice(params.Meta, "tool_whitelist"),
+		ForceSkills:   metaStringSlice(params.Meta, "force_skills"),
+		Metadata:      metaMap(params.Meta, "metadata"),
 	}
 	events, err := a.runner.RunStream(runCtx, req)
 	if err != nil {
@@ -243,6 +247,49 @@ func firstNonEmpty(values ...string) string {
 		}
 	}
 	return ""
+}
+
+func metaString(meta map[string]any, key string) string {
+	if meta == nil {
+		return ""
+	}
+	value, _ := meta[key].(string)
+	return strings.TrimSpace(value)
+}
+
+func metaMap(meta map[string]any, key string) map[string]any {
+	if meta == nil {
+		return nil
+	}
+	raw, ok := meta[key].(map[string]any)
+	if !ok {
+		return nil
+	}
+	out := make(map[string]any, len(raw))
+	for k, v := range raw {
+		out[k] = v
+	}
+	return out
+}
+
+func metaStringSlice(meta map[string]any, key string) []string {
+	if meta == nil {
+		return nil
+	}
+	switch raw := meta[key].(type) {
+	case []string:
+		return append([]string(nil), raw...)
+	case []any:
+		out := make([]string, 0, len(raw))
+		for _, item := range raw {
+			if value, ok := item.(string); ok && strings.TrimSpace(value) != "" {
+				out = append(out, strings.TrimSpace(value))
+			}
+		}
+		return out
+	default:
+		return nil
+	}
 }
 
 func randomID() string {

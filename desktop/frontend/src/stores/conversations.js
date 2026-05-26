@@ -171,7 +171,7 @@ export const useConversationsStore = defineStore('conversations', {
       if (draft) {
         draft.draft = false
         draft.error = true
-        draft.content = draft.content || message
+        draft.content = errorContent(draft.content, message)
       } else {
         messages.push(buildLocalMessage('assistant', message, { error: true }))
       }
@@ -233,6 +233,18 @@ function buildLocalMessage(role, content, extra = {}) {
     metadata: {},
     ...extra,
   }
+}
+
+function errorContent(existing, message) {
+  const error = String(message || '请求异常中断').trim()
+  const current = String(existing || '').trim()
+  if (!current) {
+    return error
+  }
+  if (current.includes(error)) {
+    return current
+  }
+  return `${current}\n\n**错误：** ${error}`
 }
 
 function sortConversations(items) {

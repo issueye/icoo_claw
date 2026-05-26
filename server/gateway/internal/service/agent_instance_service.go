@@ -7,6 +7,7 @@ import (
 	"log"
 	"time"
 
+	"icoo_claw/server/gateway/internal/client"
 	"icoo_claw/server/gateway/internal/config"
 	"icoo_claw/server/gateway/internal/dto"
 	"icoo_claw/server/gateway/internal/model"
@@ -50,6 +51,13 @@ func (s *AgentInstanceService) Start(ctx context.Context, req dto.StartAgentInst
 	}
 	instanceID := "inst_" + randomID()
 	spec := processSpecFromConfig(s.cfg, instanceID, req.AgentID, port)
+	spec.Transport = normalizeTransport(agent.Transport)
+	if req.Transport != "" {
+		spec.Transport = normalizeTransport(req.Transport)
+	}
+	if spec.Transport == "acp" {
+		spec.BaseURL = client.ACPBaseURL(instanceID)
+	}
 	spec.Agent = launch
 	process, err := s.supervisor.Start(ctx, spec)
 	if err != nil {
@@ -66,6 +74,7 @@ func (s *AgentInstanceService) Start(ctx context.Context, req dto.StartAgentInst
 		Host:          spec.Host,
 		Port:          spec.Port,
 		BaseURL:       spec.BaseURL,
+		Transport:     spec.Transport,
 		ProviderID:    launch.ProviderID,
 		ModelProvider: launch.ModelProvider,
 		ModelName:     launch.ModelName,
@@ -366,6 +375,7 @@ func toAgentInstanceDTO(instance model.AgentInstance) *dto.AgentInstance {
 		Host:            instance.Host,
 		Port:            instance.Port,
 		BaseURL:         instance.BaseURL,
+		Transport:       defaultString(instance.Transport, "http"),
 		ProviderID:      instance.ProviderID,
 		ModelProvider:   instance.ModelProvider,
 		ModelName:       instance.ModelName,

@@ -33,6 +33,7 @@ func (s *AgentService) Create(ctx context.Context, req dto.CreateAgentRequest) (
 		ModelProvider:     defaultString(req.ModelProvider, "openai"),
 		ModelName:         strings.TrimSpace(req.ModelName),
 		BaseURL:           strings.TrimSpace(req.BaseURL),
+		Transport:         normalizeTransport(req.Transport),
 		SystemPrompt:      strings.TrimSpace(req.SystemPrompt),
 		MaxIterations:     req.MaxIterations,
 		ToolWhitelistJSON: mustJSON(req.ToolWhitelist),
@@ -90,6 +91,9 @@ func (s *AgentService) Update(ctx context.Context, id string, req dto.UpdateAgen
 	if req.BaseURL != nil {
 		agent.BaseURL = strings.TrimSpace(*req.BaseURL)
 	}
+	if req.Transport != nil {
+		agent.Transport = normalizeTransport(*req.Transport)
+	}
 	if req.SystemPrompt != nil {
 		agent.SystemPrompt = strings.TrimSpace(*req.SystemPrompt)
 	}
@@ -129,6 +133,7 @@ func toAgentDTO(agent model.AgentProfile) *dto.AgentProfile {
 		ModelProvider: agent.ModelProvider,
 		ModelName:     agent.ModelName,
 		BaseURL:       agent.BaseURL,
+		Transport:     normalizeTransport(agent.Transport),
 		SystemPrompt:  agent.SystemPrompt,
 		MaxIterations: agent.MaxIterations,
 		ToolWhitelist: parseStringSlice(agent.ToolWhitelistJSON),

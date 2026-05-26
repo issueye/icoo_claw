@@ -1,3 +1,8 @@
+param(
+  [string]$OutputPath = "",
+  [switch]$NoZip
+)
+
 Set-StrictMode -Version Latest
 $ErrorActionPreference = "Stop"
 
@@ -5,8 +10,19 @@ $repoRoot = (Resolve-Path (Join-Path $PSScriptRoot "..\..")).Path
 $releaseRoot = Join-Path $repoRoot "release"
 $bundleStamp = Get-Date -Format "yyyyMMdd-HHmmss"
 $bundleName = "icoo-claw-test-windows-x64-$bundleStamp"
-$bundleRoot = Join-Path $releaseRoot $bundleName
-$zipPath = Join-Path $releaseRoot "$bundleName.zip"
+if ([string]::IsNullOrWhiteSpace($OutputPath)) {
+  $bundleRoot = Join-Path $releaseRoot $bundleName
+} elseif ([System.IO.Path]::IsPathRooted($OutputPath)) {
+  $bundleRoot = $OutputPath
+} else {
+  $bundleRoot = Join-Path $repoRoot $OutputPath
+}
+$releaseRoot = [System.IO.Path]::GetFullPath($releaseRoot)
+$bundleRoot = [System.IO.Path]::GetFullPath($bundleRoot)
+if (-not $bundleRoot.StartsWith($releaseRoot + [System.IO.Path]::DirectorySeparatorChar, [System.StringComparison]::OrdinalIgnoreCase)) {
+  throw "OutputPath must be inside the release directory: $releaseRoot"
+}
+$zipPath = "$bundleRoot.zip"
 
 function Write-Utf8NoBom {
   param(
@@ -459,7 +475,7 @@ while ($ws.State -eq [System.Net.WebSockets.WebSocketState]::Open) {
   $message = $text | ConvertFrom-Json
   $messages += $message
 
-  if ($message.type -eq "message.completed" -or $message.type -eq "message.error") {
+  if ($message.type -eq "session/completed" -or $message.type -eq "session/error") {
     break
   }
 }
@@ -534,10 +550,17 @@ Write-Utf8NoBom -Path (Join-Path $bundleRoot "README.md") -Content $readme
 
 Copy-Item -LiteralPath (Join-Path $repoRoot "config\gateway.toml.example") -Destination (Join-Path $configDir "gateway.toml.example") -Force
 Copy-Item -LiteralPath (Join-Path $repoRoot "config\claw.toml.example") -Destination (Join-Path $configDir "claw.toml.example") -Force
-Write-Host "Creating zip archive..."
-[System.IO.Compression.ZipFile]::CreateFromDirectory($bundleRoot, $zipPath)
+if (-not $NoZip) {
+  if (Test-Path $zipPath) {
+    Remove-Item -LiteralPath $zipPath -Force
+  }
+  Write-Host "Creating zip archive..."
+  [System.IO.Compression.ZipFile]::CreateFromDirectory($bundleRoot, $zipPath)
+}
 
 Write-Host ""
 Write-Host "Bundle ready:"
 Write-Host "  Folder: $bundleRoot"
-Write-Host "  Zip:    $zipPath"
+if (-not $NoZip) {
+  Write-Host "  Zip:    $zipPath"
+}

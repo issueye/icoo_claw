@@ -64,8 +64,10 @@ func NewContainer(cfgPath string) (*Container, error) {
 	sessionService := sessionservice.NewSessionService(sessionRepository)
 	providerService := service.NewProviderService(providerRepository)
 	agentService := service.NewAgentService(agentRepository)
-	instanceService := service.NewAgentInstanceService(cfg, agentRepository, providerRepository, instanceRepository, service.NewLocalProcessSupervisor())
-	taskService := service.NewScheduledTaskService(taskRepository, taskRunRepository, agentRepository, providerRepository, instanceRepository, instanceService, client.NewClawClient(nil, cfg.InternalToken))
+	acpRegistry := client.NewACPRegistry()
+	agentRunner := client.NewAgentRunner(client.NewClawClient(nil, cfg.InternalToken), acpRegistry)
+	instanceService := service.NewAgentInstanceService(cfg, agentRepository, providerRepository, instanceRepository, service.NewLocalProcessSupervisor(acpRegistry))
+	taskService := service.NewScheduledTaskService(taskRepository, taskRunRepository, agentRepository, providerRepository, instanceRepository, instanceService, agentRunner)
 	routerPolicy := service.NewDefaultRouterPolicy(conversationRepository, instanceRepository, instanceService)
 	chatService := service.NewChatService(
 		conversationRepository,
@@ -73,7 +75,7 @@ func NewContainer(cfgPath string) (*Container, error) {
 		providerRepository,
 		routerPolicy,
 		service.NewLocalSessionBackend(sessionService),
-		client.NewClawClient(nil, cfg.InternalToken),
+		agentRunner,
 	)
 	healthController := controller.NewHealthController()
 	providerController := controller.NewProviderController(providerService)

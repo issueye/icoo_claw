@@ -109,6 +109,54 @@ func TestChatWSControllerPropagatesBusyError(t *testing.T) {
 	}
 }
 
+func TestChatWSControllerReportsStreamClosedBeforeCompletion(t *testing.T) {
+	gin.SetMode(gin.ReleaseMode)
+	engine := gin.New()
+	engine.GET("/v1/ws/chat", NewChatWSController(fakeChatStreamer{
+		stream: func(ctx context.Context, conversationID string, req dto.SendMessageRequest) (<-chan client.StreamEvent, error) {
+			out := make(chan client.StreamEvent, 1)
+			out <- client.StreamEvent{
+				Type:      "session/update",
+				SessionID: "sess_1",
+				RequestID: req.RequestID,
+				Update:    &client.SessionUpdate{SessionUpdate: "agent_message_chunk", Content: &client.ContentBlock{Type: "text", Text: "partial"}},
+			}
+			close(out)
+			return out, nil
+		},
+	}).Serve)
+
+	server := httptest.NewServer(engine)
+	defer server.Close()
+
+	conn := mustDialWS(t, server.URL+"/v1/ws/chat")
+	defer conn.Close()
+
+	if err := conn.WriteJSON(dto.ChatWSRequest{
+		Type:           "chat.start",
+		ConversationID: "conv_1",
+		RequestID:      "req_closed",
+		Prompt:         "hello",
+	}); err != nil {
+		t.Fatalf("write request: %v", err)
+	}
+
+	accepted := mustReadWSMessage(t, conn)
+	if accepted.Type != "session/accepted" {
+		t.Fatalf("accepted = %+v", accepted)
+	}
+
+	update := mustReadWSMessage(t, conn)
+	if update.Type != "session/update" {
+		t.Fatalf("update = %+v", update)
+	}
+
+	errFrame := mustReadWSMessage(t, conn)
+	if errFrame.Type != "session/error" || errFrame.Code != "stream_closed" || errFrame.SessionID != "sess_1" || errFrame.RequestID != "req_closed" {
+		t.Fatalf("error frame = %+v", errFrame)
+	}
+}
+
 func TestChatWSControllerRespondsToPing(t *testing.T) {
 	gin.SetMode(gin.ReleaseMode)
 	engine := gin.New()

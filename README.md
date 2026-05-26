@@ -21,6 +21,7 @@ Copy-Item .\config\claw.toml.example .\config\claw.toml
 ```
 
 Gateway can launch additional Claw instances using `claw_binary_path` from `config/gateway.toml`.
+By default Gateway connects to Claw through HTTP/SSE. To use ACP stdio, set the Agent connection mode to `acp` in Gateway Agent management, or pass `transport: "acp"` when starting an Agent instance through `/v1/agent-instances`.
 
 ## Local Run
 
@@ -111,3 +112,11 @@ Pop-Location
 ```
 
 Runtime files and logs are written to `.local/fake-stack/`.
+
+## Test Release Package
+
+Build a reusable Windows test package into `release\test`:
+
+```powershell
+.\scripts\release\build-release-test.ps1
+```
