@@ -60,7 +60,7 @@ func (b *BashTool) StreamExecute(ctx context.Context, params map[string]interfac
 		defer cancel()
 	}
 
-	cmd := exec.CommandContext(execCtx, "bash", "-c", command)
+	cmd, shellName := newBashCommandContext(execCtx, command)
 	cmd.Env = os.Environ()
 	cmd.Dir = workdir
 
@@ -140,6 +140,7 @@ func (b *BashTool) StreamExecute(ctx context.Context, params map[string]interfac
 		"workdir":     workdir,
 		"duration_ms": duration.Milliseconds(),
 		"timeout_ms":  timeout.Milliseconds(),
+		"shell":       shellName,
 	}
 	if outputFile != "" {
 		data["output_file"] = outputFile

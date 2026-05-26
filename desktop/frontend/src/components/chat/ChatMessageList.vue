@@ -1,5 +1,5 @@
 <script setup>
-import { nextTick, ref, watch } from 'vue'
+import { computed, nextTick, ref, watch } from 'vue'
 import ChatMessageItem from './ChatMessageItem.vue'
 
 const props = defineProps({
@@ -14,9 +14,16 @@ const props = defineProps({
 })
 
 const viewport = ref(null)
+const visibleMessages = computed(() => props.messages.filter((message) => (
+  message.role !== 'assistant' ||
+  String(message.content || '').trim() ||
+  message.error ||
+  message.metadata?.toolCallId ||
+  message.metadata?.usage
+)))
 
 watch(
-  () => props.messages.map((message) => `${message.id}:${message.content.length}`).join('|'),
+  () => visibleMessages.value.map((message) => `${message.id}:${message.content.length}`).join('|'),
   async () => {
     await nextTick()
     if (viewport.value) {
@@ -29,7 +36,7 @@ watch(
 <template>
   <div ref="viewport" class="scrollbar-thin h-full overflow-y-auto">
     <ChatMessageItem
-      v-for="message in messages"
+      v-for="message in visibleMessages"
       :key="message.id"
       :message="message"
       :show-timestamps="showTimestamps"

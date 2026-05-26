@@ -34,6 +34,7 @@ func (s *AgentService) Create(ctx context.Context, req dto.CreateAgentRequest) (
 		ModelName:         strings.TrimSpace(req.ModelName),
 		BaseURL:           strings.TrimSpace(req.BaseURL),
 		Transport:         normalizeTransport(req.Transport),
+		CommandArgsJSON:   mustJSON(cleanStringSlice(req.CommandArgs)),
 		SystemPrompt:      strings.TrimSpace(req.SystemPrompt),
 		MaxIterations:     req.MaxIterations,
 		ToolWhitelistJSON: mustJSON(req.ToolWhitelist),
@@ -94,6 +95,9 @@ func (s *AgentService) Update(ctx context.Context, id string, req dto.UpdateAgen
 	if req.Transport != nil {
 		agent.Transport = normalizeTransport(*req.Transport)
 	}
+	if req.CommandArgs != nil {
+		agent.CommandArgsJSON = mustJSON(cleanStringSlice(req.CommandArgs))
+	}
 	if req.SystemPrompt != nil {
 		agent.SystemPrompt = strings.TrimSpace(*req.SystemPrompt)
 	}
@@ -134,6 +138,7 @@ func toAgentDTO(agent model.AgentProfile) *dto.AgentProfile {
 		ModelName:     agent.ModelName,
 		BaseURL:       agent.BaseURL,
 		Transport:     normalizeTransport(agent.Transport),
+		CommandArgs:   parseStringSlice(agent.CommandArgsJSON),
 		SystemPrompt:  agent.SystemPrompt,
 		MaxIterations: agent.MaxIterations,
 		ToolWhitelist: parseStringSlice(agent.ToolWhitelistJSON),
@@ -161,6 +166,19 @@ func parseStringSlice(raw string) []string {
 	var out []string
 	if err := json.Unmarshal([]byte(raw), &out); err != nil {
 		return []string{}
+	}
+	return out
+}
+
+func cleanStringSlice(values []string) []string {
+	if values == nil {
+		return nil
+	}
+	out := make([]string, 0, len(values))
+	for _, value := range values {
+		if trimmed := strings.TrimSpace(value); trimmed != "" {
+			out = append(out, trimmed)
+		}
 	}
 	return out
 }

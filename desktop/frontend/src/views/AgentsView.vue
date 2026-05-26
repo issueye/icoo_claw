@@ -68,6 +68,7 @@ function emptyForm() {
     modelName: '',
     baseUrl: '',
     transport: 'http',
+    commandArgs: '',
     systemPrompt: '',
     maxIterations: 0,
     toolWhitelist: '',
@@ -129,6 +130,7 @@ function openEditEditor(agent) {
     modelName: agent.modelName || '',
     baseUrl: agent.baseUrl || '',
     transport: agent.transport || 'http',
+    commandArgs: listToText(agent.commandArgs),
     systemPrompt: agent.systemPrompt || '',
     maxIterations: agent.maxIterations || 0,
     toolWhitelist: listToText(agent.toolWhitelist),
@@ -172,6 +174,7 @@ async function saveAgent() {
     modelName: form.modelName.trim(),
     baseUrl: form.baseUrl.trim(),
     transport: form.transport || 'http',
+    commandArgs: form.commandArgs,
     systemPrompt: form.systemPrompt.trim(),
     maxIterations: Number(form.maxIterations) || 0,
   })
@@ -227,6 +230,7 @@ async function startAgent(agent) {
     agentId: agent.id,
     name: agent.name,
     transport: agent.transport || 'http',
+    commandArgs: agent.commandArgs || [],
   })
   notificationsStore.notify({
     title: 'Agent 实例已启动',
@@ -531,6 +535,10 @@ onMounted(() => {
           <QqSelect v-model="form.transport" :options="transportOptions" />
         </QqFormField>
 
+        <QqFormField label="命令参数" helper="每行一个参数，会追加到网关自动生成的启动参数之后。">
+          <QqTextarea v-model="form.commandArgs" :rows="3" placeholder="例如：--runner-mode&#10;sdk" />
+        </QqFormField>
+
         <QqFormField label="系统提示词">
           <QqTextarea v-model="form.systemPrompt" :rows="4" placeholder="输入该 Agent 的默认系统提示词" />
         </QqFormField>
@@ -583,6 +591,12 @@ onMounted(() => {
           <p class="mt-2 break-all text-[color:var(--qq-text-primary)]">{{ selectedInstance.id }}</p>
           <p class="mt-1 break-all text-[color:var(--qq-text-secondary)]">{{ selectedInstance.baseUrl }}</p>
           <p class="mt-1 break-all text-[color:var(--qq-text-secondary)]">{{ selectedInstance.transport || 'http' }}</p>
+          <p
+            v-if="selectedInstance.commandArgs?.length"
+            class="mt-1 break-all text-[color:var(--qq-text-secondary)]"
+          >
+            {{ selectedInstance.commandArgs.join(' ') }}
+          </p>
         </div>
         <div class="grid gap-3 md:grid-cols-2">
           <div class="rounded-[6px] border border-white/10 bg-[rgba(9,32,28,0.18)] px-3 py-3">

@@ -1,7 +1,7 @@
 <script setup>
 import { computed } from 'vue'
 import { renderMarkdown } from '@/services/utils/markdown'
-import { LoaderCircle } from 'lucide-vue-next'
+import { CheckCircle2, LoaderCircle, Terminal, XCircle } from 'lucide-vue-next'
 
 const props = defineProps({
   message: {
@@ -35,10 +35,24 @@ const usageLabel = computed(() => {
   return parts.join(' · ')
 })
 
-const isToolMessage = computed(() => Boolean(props.message.metadata?.toolCallId))
+const isToolMessage = computed(() => props.message.role === 'tool' || Boolean(props.message.metadata?.toolCallId))
 const statusLabel = computed(() => props.message.draft ? 'streaming' : '')
+const toolStatus = computed(() => props.message.metadata?.toolStatus || '')
+const toolIcon = computed(() => {
+  if (toolStatus.value === 'completed') return CheckCircle2
+  if (toolStatus.value === 'failed' || toolStatus.value === 'cancelled') return XCircle
+  return LoaderCircle
+})
+const toolIconClass = computed(() => {
+  if (toolStatus.value === 'completed') return 'text-emerald-100'
+  if (toolStatus.value === 'failed' || toolStatus.value === 'cancelled') return 'text-rose-100'
+  return 'animate-spin text-[var(--qq-accent)]'
+})
 
 function roleLabel(role) {
+  if (isToolMessage.value) {
+    return 'Tool'
+  }
   return role === 'user' ? 'You' : 'Assistant'
 }
 
@@ -70,7 +84,7 @@ function formatTimestamp(value) {
         </span>
         <span v-if="message.draft" class="text-xs text-[color:var(--qq-text-tertiary)]">streaming</span>
         <span
-          v-if="toolLabel"
+          v-if="toolLabel && !isToolMessage"
           class="inline-flex items-center gap-1 rounded-[4px] bg-[rgba(255,255,255,0.08)] px-2 py-0.5 text-[11px] text-[color:var(--qq-text-secondary)]"
         >
           <LoaderCircle class="h-3 w-3 animate-spin" />
@@ -85,9 +99,18 @@ function formatTimestamp(value) {
 
       <div
         class="border border-white/10 px-3 py-2.5"
-        :class="message.role === 'user' ? 'bg-[rgba(255,255,255,0.12)]' : 'bg-[rgba(18,58,51,0.36)]'"
+        :class="[
+          message.role === 'user' ? 'bg-[rgba(255,255,255,0.12)]' : 'bg-[rgba(18,58,51,0.36)]',
+          isToolMessage ? 'border-[rgba(54,220,200,0.24)] bg-[rgba(8,34,31,0.48)]' : '',
+        ]"
         style="border-radius: 6px;"
       >
+        <div v-if="isToolMessage" class="mb-2 flex items-center gap-2 text-xs text-[color:var(--qq-text-secondary)]">
+          <component :is="toolIcon" class="h-3.5 w-3.5" :class="toolIconClass" />
+          <Terminal class="h-3.5 w-3.5 text-[color:var(--qq-text-tertiary)]" />
+          <span class="font-medium text-slate-100">{{ message.metadata.toolTitle || message.metadata.toolKind || '工具调用' }}</span>
+          <span v-if="message.metadata.toolStatus">· {{ message.metadata.toolStatus }}</span>
+        </div>
         <div
           class="markdown-body text-sm leading-7"
           :class="message.error ? 'text-rose-100' : 'text-slate-50'"
@@ -185,6 +208,53 @@ function formatTimestamp(value) {
   color: var(--qq-accent);
   text-decoration: underline;
   text-underline-offset: 3px;
+}
+
+.markdown-body :deep(table) {
+  display: block;
+  width: 100%;
+  max-width: 100%;
+  overflow-x: auto;
+  border-collapse: collapse;
+  border-spacing: 0;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 6px;
+  background: rgba(3, 24, 22, 0.24);
+}
+
+.markdown-body :deep(thead) {
+  background: rgba(54, 220, 200, 0.12);
+}
+
+.markdown-body :deep(th),
+.markdown-body :deep(td) {
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  padding: 0.55rem 0.75rem;
+  text-align: left;
+  vertical-align: top;
+  white-space: nowrap;
+}
+
+.markdown-body :deep(th) {
+  color: rgb(225 255 250);
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+
+.markdown-body :deep(td) {
+  color: rgb(241 245 249);
+}
+
+.markdown-body :deep(tbody tr:last-child td) {
+  border-bottom: 0;
+}
+
+.markdown-body :deep(tbody tr:hover) {
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.markdown-body :deep(table code) {
+  white-space: nowrap;
 }
 
 .markdown-body :deep(code) {

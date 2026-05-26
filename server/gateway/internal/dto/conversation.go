@@ -39,9 +39,11 @@ type ConversationMessagesResponse struct {
 }
 
 type SessionMessage struct {
-	ID        string         `json:"id"`
-	Role      string         `json:"role"`
-	Content   string         `json:"content"`
-	Metadata  map[string]any `json:"metadata,omitempty"`
-	CreatedAt time.Time      `json:"created_at"`
+	ID            string         `json:"id"`
+	Role          string         `json:"role"`
+	Content       string         `json:"content"`
+	ContentBlocks []any          `json:"content_blocks,omitempty"`
+	ToolCalls     []any          `json:"tool_calls,omitempty"`
+	Metadata      map[string]any `json:"metadata,omitempty"`
+	CreatedAt     time.Time      `json:"created_at"`
 }

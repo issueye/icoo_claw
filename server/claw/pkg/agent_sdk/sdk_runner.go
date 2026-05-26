@@ -114,6 +114,7 @@ func mapRuntimeStreamEvent(event api.StreamEvent, req RunRequest) StreamEvent {
 		if event.Delta != nil && event.Delta.Type == "input_json_delta" && len(event.Delta.PartialJSON) > 0 {
 			base.Update = &SessionUpdate{
 				SessionUpdate: "tool_call_update",
+				ToolCallID:    event.ToolUseID,
 				RawInput:      jsonRawMessageString(event.Delta.PartialJSON),
 			}
 			return base

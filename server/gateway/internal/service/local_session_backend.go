@@ -35,11 +35,13 @@ func (s *LocalSessionBackend) ListMessages(ctx context.Context, sessionID string
 	out := make([]dto.SessionMessage, len(list.Messages))
 	for i, msg := range list.Messages {
 		out[i] = dto.SessionMessage{
-			ID:        msg.ID,
-			Role:      msg.Role,
-			Content:   msg.Content,
-			Metadata:  msg.Metadata,
-			CreatedAt: msg.CreatedAt,
+			ID:            msg.ID,
+			Role:          msg.Role,
+			Content:       msg.Content,
+			ContentBlocks: msg.ContentBlocks,
+			ToolCalls:     msg.ToolCalls,
+			Metadata:      msg.Metadata,
+			CreatedAt:     msg.CreatedAt,
 		}
 	}
 	return out, nil

@@ -12,6 +12,7 @@ export async function startAgentInstance(baseUrl, input) {
       agent_id: input.agentId,
       name: input.name || '',
       transport: input.transport || '',
+      command_args: normalizeList(input.commandArgs),
     },
   })
   return normalizeInstance(payload)
@@ -54,6 +55,7 @@ function normalizeInstance(instance) {
     port: instance.port || 0,
     baseUrl: instance.base_url || '',
     transport: instance.transport || 'http',
+    commandArgs: instance.command_args || [],
     providerId: instance.provider_id || '',
     modelProvider: instance.model_provider || '',
     modelName: instance.model_name || '',
@@ -65,4 +67,14 @@ function normalizeInstance(instance) {
     createdAt: instance.created_at,
     updatedAt: instance.updated_at,
   }
+}
+
+function normalizeList(value) {
+  if (Array.isArray(value)) {
+    return value.map((item) => String(item || '').trim()).filter(Boolean)
+  }
+  return String(value || '')
+    .split(/\n/)
+    .map((item) => item.trim())
+    .filter(Boolean)
 }

@@ -30,8 +30,15 @@ internal_token = "token"
 	if err != nil {
 		t.Fatalf("load file: %v", err)
 	}
-	if cfg.HTTPAddr != ":18080" || cfg.DBPath != "./tmp/gateway.sqlite" {
+	wantDBPath := filepath.Join(filepath.Dir(path), "tmp", "gateway.sqlite")
+	if cfg.HTTPAddr != ":18080" || cfg.DBPath != wantDBPath {
 		t.Fatalf("cfg = %+v", cfg)
+	}
+	if cfg.ClawBinaryPath != filepath.Join(filepath.Dir(path), "bin", "claw.exe") {
+		t.Fatalf("ClawBinaryPath = %q", cfg.ClawBinaryPath)
+	}
+	if cfg.ClawWorkDir != filepath.Dir(path) || cfg.ClawConfigDir != filepath.Join(filepath.Dir(path), "tmp", "claw_configs") {
+		t.Fatalf("path config = %+v", cfg)
 	}
 	if cfg.ClawPortStart != 9101 || cfg.ClawPortEnd != 9199 || cfg.MaxAgentInstances != 8 {
 		t.Fatalf("ports/instances = %+v", cfg)
@@ -41,5 +48,20 @@ internal_token = "token"
 	}
 	if cfg.SessionAPIURL != "http://127.0.0.1:18080" || cfg.InternalToken != "token" {
 		t.Fatalf("remote config = %+v", cfg)
+	}
+}
+
+func TestLoadFileLeavesBareExecutableOnPath(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "gateway.toml")
+	if err := os.WriteFile(path, []byte(`claw_binary_path = "claw"`), 0o600); err != nil {
+		t.Fatalf("write config: %v", err)
+	}
+
+	cfg, err := LoadFile(path)
+	if err != nil {
+		t.Fatalf("load file: %v", err)
+	}
+	if cfg.ClawBinaryPath != "claw" {
+		t.Fatalf("ClawBinaryPath = %q, want bare executable unchanged", cfg.ClawBinaryPath)
 	}
 }

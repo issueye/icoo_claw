@@ -13,4 +13,11 @@ describe('markdown rendering', () => {
     expect(html).not.toContain('<script>')
     expect(html).toContain('&lt;script&gt;')
   })
+
+  it('renders markdown tables', () => {
+    const html = renderMarkdown('| 名称 | 说明 |\n| --- | --- |\n| `claw.exe` | claw 可执行程序 |')
+    expect(html).toContain('<table>')
+    expect(html).toContain('<th>名称</th>')
+    expect(html).toContain('<code>claw.exe</code>')
+  })
 })

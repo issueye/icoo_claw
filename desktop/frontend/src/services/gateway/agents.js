@@ -35,6 +35,7 @@ function agentPayload(input, options = {}) {
     model_name: input.modelName || '',
     base_url: input.baseUrl || '',
     transport: input.transport || 'http',
+    command_args: normalizeCommandArgs(input.commandArgs),
     system_prompt: input.systemPrompt || '',
     max_iterations: Number(input.maxIterations) || 0,
     tool_whitelist: normalizeList(input.toolWhitelist),
@@ -59,6 +60,16 @@ function normalizeList(value) {
     .filter(Boolean)
 }
 
+function normalizeCommandArgs(value) {
+  if (Array.isArray(value)) {
+    return value.map((item) => String(item || '').trim()).filter(Boolean)
+  }
+  return String(value || '')
+    .split(/\n/)
+    .map((item) => item.trim())
+    .filter(Boolean)
+}
+
 function normalizeAgent(agent) {
   return {
     id: agent.id,
@@ -68,6 +79,7 @@ function normalizeAgent(agent) {
     modelName: agent.model_name,
     baseUrl: agent.base_url,
     transport: agent.transport || 'http',
+    commandArgs: agent.command_args || [],
     systemPrompt: agent.system_prompt,
     maxIterations: agent.max_iterations,
     toolWhitelist: agent.tool_whitelist || [],

@@ -38,9 +38,60 @@ function New-CleanDirectory {
   param([string]$Path)
 
   if (Test-Path $Path) {
-    Remove-Item -LiteralPath $Path -Recurse -Force
+    Get-ChildItem -LiteralPath $Path -File -Recurse -Force | Remove-Item -Force
+    Get-ChildItem -LiteralPath $Path -Directory -Recurse -Force |
+      Sort-Object FullName -Descending |
+      Remove-Item -Recurse -Force -ErrorAction SilentlyContinue
+  } else {
+    New-Item -ItemType Directory -Force -Path $Path | Out-Null
   }
-  New-Item -ItemType Directory -Force -Path $Path | Out-Null
+}
+
+function Backup-RuntimeData {
+  param([string]$BundleRoot)
+
+  $source = Join-Path $BundleRoot "runtime\data"
+  if (-not (Test-Path $source)) {
+    return ""
+  }
+
+  $backupRoot = Join-Path ([System.IO.Path]::GetTempPath()) ("icoo-claw-runtime-" + [System.Guid]::NewGuid().ToString("N"))
+  $backupData = Join-Path $backupRoot "data"
+  New-Item -ItemType Directory -Force -Path $backupRoot | Out-Null
+  Copy-Item -LiteralPath $source -Destination $backupData -Recurse -Force
+  return $backupRoot
+}
+
+function Restore-RuntimeData {
+  param(
+    [string]$BackupRoot,
+    [string]$RuntimeDataDir
+  )
+
+  if ([string]::IsNullOrWhiteSpace($BackupRoot)) {
+    return
+  }
+  $backupData = Join-Path $BackupRoot "data"
+  if (-not (Test-Path $backupData)) {
+    return
+  }
+  New-Item -ItemType Directory -Force -Path $RuntimeDataDir | Out-Null
+  Get-ChildItem -LiteralPath $backupData -Force | ForEach-Object {
+    Copy-Item -LiteralPath $_.FullName -Destination $RuntimeDataDir -Recurse -Force
+  }
+}
+
+function Remove-RuntimeBackup {
+  param([string]$BackupRoot)
+
+  if ([string]::IsNullOrWhiteSpace($BackupRoot)) {
+    return
+  }
+  $backupPath = [System.IO.Path]::GetFullPath($BackupRoot)
+  $tempPath = [System.IO.Path]::GetFullPath([System.IO.Path]::GetTempPath())
+  if ($backupPath.StartsWith($tempPath, [System.StringComparison]::OrdinalIgnoreCase) -and (Test-Path $backupPath)) {
+    Remove-Item -LiteralPath $backupPath -Recurse -Force
+  }
 }
 
 function Assert-Command {
@@ -75,10 +126,12 @@ Assert-Command "wails3"
 Add-Type -AssemblyName System.IO.Compression.FileSystem
 
 New-Item -ItemType Directory -Force -Path $releaseRoot | Out-Null
+$runtimeBackupRoot = Backup-RuntimeData -BundleRoot $bundleRoot
 New-CleanDirectory $bundleRoot
 
 $binDir = Join-Path $bundleRoot "bin"
 $configDir = Join-Path $bundleRoot "config"
+$binConfigDir = Join-Path $binDir "config"
 $runtimeDir = Join-Path $bundleRoot "runtime"
 $runtimeConfigDir = Join-Path $runtimeDir "config"
 $runtimeDataDir = Join-Path $runtimeDir "data"
@@ -88,6 +141,7 @@ $scriptDir = Join-Path $bundleRoot "scripts"
 
 foreach ($dir in @(
   $binDir,
+  $binConfigDir,
   $configDir,
   $runtimeConfigDir,
   $runtimeDataDir,
@@ -97,6 +151,8 @@ foreach ($dir in @(
 )) {
   New-Item -ItemType Directory -Force -Path $dir | Out-Null
 }
+Restore-RuntimeData -BackupRoot $runtimeBackupRoot -RuntimeDataDir $runtimeDataDir
+Remove-RuntimeBackup -BackupRoot $runtimeBackupRoot
 
 Write-Host "Building claw.exe..."
 Invoke-Native -FilePath "go" -ArgumentList @("build", "-o", (Join-Path $binDir "claw.exe"), "./server/claw/cmd/claw")
@@ -112,6 +168,44 @@ if (-not (Test-Path $desktopExe)) {
   throw "desktop.exe not found after Wails build: $desktopExe"
 }
 Copy-Item -LiteralPath $desktopExe -Destination (Join-Path $binDir "desktop.exe") -Force
+
+$manualRootGatewayConfig = @"
+http_addr = "127.0.0.1:8080"
+db_path = "../runtime/data/gateway.sqlite"
+
+session_api_url = "http://127.0.0.1:8080"
+internal_token = "dev-internal-token"
+
+claw_binary_path = "../bin/claw.exe"
+claw_work_dir = ".."
+claw_config_dir = "../runtime/data/claw-configs"
+claw_runner_mode = "sdk"
+claw_port_start = 8101
+claw_port_end = 8199
+max_agent_instances = 4
+health_interval_seconds = 10
+shutdown_timeout_seconds = 10
+"@
+Write-Utf8NoBom -Path (Join-Path $configDir "gateway.toml") -Content $manualRootGatewayConfig
+
+$manualBinGatewayConfig = @"
+http_addr = "127.0.0.1:8080"
+db_path = "../../runtime/data/gateway.sqlite"
+
+session_api_url = "http://127.0.0.1:8080"
+internal_token = "dev-internal-token"
+
+claw_binary_path = "../claw.exe"
+claw_work_dir = "../.."
+claw_config_dir = "../../runtime/data/claw-configs"
+claw_runner_mode = "sdk"
+claw_port_start = 8101
+claw_port_end = 8199
+max_agent_instances = 4
+health_interval_seconds = 10
+shutdown_timeout_seconds = 10
+"@
+Write-Utf8NoBom -Path (Join-Path $binConfigDir "gateway.toml") -Content $manualBinGatewayConfig
 
 $startStackScript = @'
 Set-StrictMode -Version Latest
@@ -537,6 +631,20 @@ Double-click `stop-test-app.cmd`.
 ## Smoke Check
 
 After the stack is up, run `.\scripts\smoke-chat-flow.ps1`.
+
+## Manual Gateway Start
+
+From this package root:
+
+```powershell
+.\bin\gateway.exe --config .\config\gateway.toml
+```
+
+From `bin\`:
+
+```powershell
+.\gateway.exe --config .\config\gateway.toml
+```
 
 ## Notes
 

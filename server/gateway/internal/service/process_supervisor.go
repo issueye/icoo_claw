@@ -30,6 +30,7 @@ type StartAgentInstanceSpec struct {
 	ConfigDir     string
 	RunnerMode    string
 	Transport     string
+	CommandArgs   []string
 	Agent         AgentLaunchConfig
 }
 
@@ -83,6 +84,7 @@ func (s *LocalProcessSupervisor) Start(ctx context.Context, spec StartAgentInsta
 	if normalizeTransport(spec.Transport) == "acp" {
 		args = []string{"--acp", "--config", configPath}
 	}
+	args = append(args, spec.CommandArgs...)
 	cmd := exec.Command(binaryPath, args...)
 	if spec.WorkDir != "" {
 		cmd.Dir = spec.WorkDir

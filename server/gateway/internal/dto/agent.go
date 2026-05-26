@@ -10,6 +10,7 @@ type AgentProfile struct {
 	ModelName     string    `json:"model_name"`
 	BaseURL       string    `json:"base_url,omitempty"`
 	Transport     string    `json:"transport"`
+	CommandArgs   []string  `json:"command_args"`
 	SystemPrompt  string    `json:"system_prompt"`
 	MaxIterations int       `json:"max_iterations"`
 	ToolWhitelist []string  `json:"tool_whitelist"`
@@ -29,6 +30,7 @@ type CreateAgentRequest struct {
 	ModelName     string   `json:"model_name"`
 	BaseURL       string   `json:"base_url"`
 	Transport     string   `json:"transport"`
+	CommandArgs   []string `json:"command_args"`
 	SystemPrompt  string   `json:"system_prompt"`
 	MaxIterations int      `json:"max_iterations"`
 	ToolWhitelist []string `json:"tool_whitelist"`
@@ -45,6 +47,7 @@ type UpdateAgentRequest struct {
 	ModelName     *string  `json:"model_name"`
 	BaseURL       *string  `json:"base_url"`
 	Transport     *string  `json:"transport"`
+	CommandArgs   []string `json:"command_args"`
 	SystemPrompt  *string  `json:"system_prompt"`
 	MaxIterations *int     `json:"max_iterations"`
 	ToolWhitelist []string `json:"tool_whitelist"`

@@ -103,10 +103,14 @@ func (a *Agent) Prompt(ctx context.Context, params acp.PromptRequest) (acp.Promp
 			if event.Update == nil {
 				continue
 			}
+			update, ok := toACPUpdate(event.Update)
+			if !ok {
+				continue
+			}
 			if a.conn != nil {
 				if err := a.conn.SessionUpdate(runCtx, acp.SessionNotification{
 					SessionId: acp.SessionId(sessionID),
-					Update:    toACPUpdate(event.Update),
+					Update:    update,
 				}); err != nil {
 					state.cancel = nil
 					return acp.PromptResponse{}, err
@@ -182,11 +186,11 @@ func promptText(blocks []acp.ContentBlock) string {
 	return strings.TrimSpace(b.String())
 }
 
-func toACPUpdate(update *agent_sdk.SessionUpdate) acp.SessionUpdate {
+func toACPUpdate(update *agent_sdk.SessionUpdate) (acp.SessionUpdate, bool) {
 	switch update.SessionUpdate {
 	case "agent_message_chunk":
 		if update.Content != nil {
-			return acp.UpdateAgentMessageText(update.Content.Text)
+			return acp.UpdateAgentMessageText(update.Content.Text), true
 		}
 	case "tool_call":
 		opts := []acp.ToolCallStartOpt{
@@ -206,7 +210,7 @@ func toACPUpdate(update *agent_sdk.SessionUpdate) acp.SessionUpdate {
 		if update.RawOutput != nil {
 			opts = append(opts, acp.WithStartRawOutput(update.RawOutput))
 		}
-		return acp.StartToolCall(acp.ToolCallId(update.ToolCallID), update.Title, opts...)
+		return acp.StartToolCall(acp.ToolCallId(update.ToolCallID), update.Title, opts...), true
 	case "tool_call_update":
 		opts := []acp.ToolCallUpdateOpt{
 			acp.WithUpdateKind(acp.ToolKind(update.Kind)),
@@ -218,7 +222,7 @@ func toACPUpdate(update *agent_sdk.SessionUpdate) acp.SessionUpdate {
 		if update.RawOutput != nil {
 			opts = append(opts, acp.WithUpdateRawOutput(update.RawOutput))
 		}
-		return acp.UpdateToolCall(acp.ToolCallId(update.ToolCallID), opts...)
+		return acp.UpdateToolCall(acp.ToolCallId(update.ToolCallID), opts...), true
 	case "usage_update":
 		if update.Usage != nil {
 			return acp.SessionUpdate{
@@ -227,10 +231,10 @@ func toACPUpdate(update *agent_sdk.SessionUpdate) acp.SessionUpdate {
 					Size:          update.Usage.TotalTokens,
 					Used:          update.Usage.InputTokens + update.Usage.OutputTokens,
 				},
-			}
+			}, true
 		}
 	}
-	return acp.SessionUpdate{}
+	return acp.SessionUpdate{}, false
 }
 
 func stringPtr(v *string) string {

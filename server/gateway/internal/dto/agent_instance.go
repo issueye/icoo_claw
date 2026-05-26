@@ -12,6 +12,7 @@ type AgentInstance struct {
 	Port            int        `json:"port"`
 	BaseURL         string     `json:"base_url"`
 	Transport       string     `json:"transport"`
+	CommandArgs     []string   `json:"command_args"`
 	ProviderID      string     `json:"provider_id,omitempty"`
 	ModelProvider   string     `json:"model_provider,omitempty"`
 	ModelName       string     `json:"model_name,omitempty"`
@@ -25,7 +26,8 @@ type AgentInstance struct {
 }
 
 type StartAgentInstanceRequest struct {
-	AgentID   string `json:"agent_id" binding:"required"`
-	Name      string `json:"name"`
-	Transport string `json:"transport,omitempty"`
+	AgentID     string   `json:"agent_id" binding:"required"`
+	Name        string   `json:"name"`
+	Transport   string   `json:"transport,omitempty"`
+	CommandArgs []string `json:"command_args,omitempty"`
 }

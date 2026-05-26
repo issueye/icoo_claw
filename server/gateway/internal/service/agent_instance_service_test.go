@@ -211,6 +211,65 @@ func TestAgentInstanceServiceStartRequestTransportOverridesAgent(t *testing.T) {
 	}
 }
 
+func TestAgentInstanceServiceStartUsesAgentCommandArgs(t *testing.T) {
+	repo := &memoryInstanceRepo{}
+	supervisor := &captureSupervisor{}
+	svc := NewAgentInstanceService(
+		config.Config{ClawPortStart: 8101, ClawPortEnd: 8101, MaxAgentInstances: 1},
+		instanceAgentRepo{agent: model.AgentProfile{
+			ID:              "agent_1",
+			Name:            "Default",
+			CommandArgsJSON: `["--runner-mode","fake"]`,
+		}},
+		nil,
+		repo,
+		supervisor,
+	)
+
+	started, err := svc.Start(context.Background(), dto.StartAgentInstanceRequest{AgentID: "agent_1"})
+	if err != nil {
+		t.Fatalf("start: %v", err)
+	}
+	want := []string{"--runner-mode", "fake"}
+	if !stringSlicesEqual(supervisor.spec.CommandArgs, want) {
+		t.Fatalf("spec command args = %+v, want %+v", supervisor.spec.CommandArgs, want)
+	}
+	if !stringSlicesEqual(started.CommandArgs, want) {
+		t.Fatalf("dto command args = %+v, want %+v", started.CommandArgs, want)
+	}
+}
+
+func TestAgentInstanceServiceStartRequestCommandArgsOverrideAgent(t *testing.T) {
+	repo := &memoryInstanceRepo{}
+	supervisor := &captureSupervisor{}
+	svc := NewAgentInstanceService(
+		config.Config{ClawPortStart: 8101, ClawPortEnd: 8101, MaxAgentInstances: 1},
+		instanceAgentRepo{agent: model.AgentProfile{
+			ID:              "agent_1",
+			Name:            "Default",
+			CommandArgsJSON: `["--runner-mode","sdk"]`,
+		}},
+		nil,
+		repo,
+		supervisor,
+	)
+
+	started, err := svc.Start(context.Background(), dto.StartAgentInstanceRequest{
+		AgentID:     "agent_1",
+		CommandArgs: []string{" --runner-mode ", "fake", ""},
+	})
+	if err != nil {
+		t.Fatalf("start: %v", err)
+	}
+	want := []string{"--runner-mode", "fake"}
+	if !stringSlicesEqual(supervisor.spec.CommandArgs, want) {
+		t.Fatalf("spec command args = %+v, want %+v", supervisor.spec.CommandArgs, want)
+	}
+	if !stringSlicesEqual(started.CommandArgs, want) {
+		t.Fatalf("dto command args = %+v, want %+v", started.CommandArgs, want)
+	}
+}
+
 func TestAgentInstanceServiceProbeInstancesUpdatesStatus(t *testing.T) {
 	now := time.Now().UTC()
 	repo := &memoryInstanceRepo{instances: []model.AgentInstance{
@@ -233,6 +292,18 @@ func TestAgentInstanceServiceProbeInstancesUpdatesStatus(t *testing.T) {
 	if repo.instances[0].LastHeartbeatAt == nil {
 		t.Fatal("expected heartbeat")
 	}
+}
+
+func stringSlicesEqual(a []string, b []string) bool {
+	if len(a) != len(b) {
+		return false
+	}
+	for i := range a {
+		if a[i] != b[i] {
+			return false
+		}
+	}
+	return true
 }
 
 func TestAgentInstanceServiceProbeInstancesMarksFailed(t *testing.T) {

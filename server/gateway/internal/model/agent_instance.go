@@ -12,6 +12,7 @@ type AgentInstance struct {
 	Port            int
 	BaseURL         string `gorm:"size:512"`
 	Transport       string `gorm:"size:32;not null;default:http"`
+	CommandArgsJSON string `gorm:"column:command_args;type:text"`
 	ProviderID      string `gorm:"size:64;index"`
 	ModelProvider   string `gorm:"size:32"`
 	ModelName       string `gorm:"size:128"`

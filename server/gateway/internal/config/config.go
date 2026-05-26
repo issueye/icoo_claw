@@ -3,6 +3,7 @@ package config
 import (
 	"fmt"
 	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"time"
@@ -68,6 +69,7 @@ func LoadFile(path string) (Config, error) {
 		return Config{}, fmt.Errorf("parse config %s: %w", path, err)
 	}
 	applyFile(&cfg, file)
+	resolveRelativePaths(&cfg, path)
 	return cfg, nil
 }
 
@@ -181,6 +183,63 @@ func applyEnv(cfg *Config) {
 	if value := os.Getenv("INTERNAL_TOKEN"); value != "" {
 		cfg.InternalToken = value
 	}
+}
+
+func resolveRelativePaths(cfg *Config, configFilePath string) {
+	baseDir := configBaseDir(configFilePath)
+	cfg.DBPath = resolveConfigDataPath(cfg.DBPath, baseDir)
+	cfg.ClawWorkDir = resolveConfigDataPath(cfg.ClawWorkDir, baseDir)
+	cfg.ClawConfigDir = resolveConfigDataPath(cfg.ClawConfigDir, baseDir)
+	cfg.ClawBinaryPath = resolveConfigExecutablePath(cfg.ClawBinaryPath, baseDir)
+}
+
+func configBaseDir(configFilePath string) string {
+	if configFilePath == "" {
+		return ""
+	}
+	abs, err := filepath.Abs(configFilePath)
+	if err != nil {
+		return filepath.Dir(configFilePath)
+	}
+	return filepath.Dir(abs)
+}
+
+func resolveConfigDataPath(value string, baseDir string) string {
+	value = strings.TrimSpace(value)
+	if value == "" || baseDir == "" || value == ":memory:" || strings.HasPrefix(value, "file::memory:") {
+		return value
+	}
+	if strings.HasPrefix(value, "file:") {
+		return resolveSQLiteURIPath(value, baseDir)
+	}
+	if filepath.IsAbs(value) {
+		return filepath.Clean(value)
+	}
+	return filepath.Clean(filepath.Join(baseDir, value))
+}
+
+func resolveSQLiteURIPath(value string, baseDir string) string {
+	pathWithQuery := strings.TrimPrefix(value, "file:")
+	query := ""
+	if index := strings.Index(pathWithQuery, "?"); index >= 0 {
+		query = pathWithQuery[index:]
+		pathWithQuery = pathWithQuery[:index]
+	}
+	if pathWithQuery == "" || pathWithQuery == ":memory:" || filepath.IsAbs(pathWithQuery) {
+		return value
+	}
+	return "file:" + filepath.Clean(filepath.Join(baseDir, pathWithQuery)) + query
+}
+
+func resolveConfigExecutablePath(value string, baseDir string) string {
+	value = strings.TrimSpace(value)
+	if value == "" || baseDir == "" || filepath.IsAbs(value) {
+		return value
+	}
+	if !strings.HasPrefix(value, ".") && !strings.ContainsAny(value, `/\`) {
+		return value
+	}
+	return filepath.Clean(filepath.Join(baseDir, value))
 }
 
 func envInt(key string) int {

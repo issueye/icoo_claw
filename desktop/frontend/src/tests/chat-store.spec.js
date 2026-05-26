@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { createPinia, setActivePinia } from 'pinia'
 import { useChatStore } from '@/stores/chat'
 import { useConversationsStore } from '@/stores/conversations'
+import { normalizeMessages } from '@/services/gateway/conversations'
 
 vi.mock('@/router', () => ({
   default: {
@@ -105,6 +106,124 @@ describe('chat store', () => {
     expect(draft.content).toContain('partial')
     expect(draft.content).toContain('agent stream closed before completion')
     expect(conversationsStore.byId('conv_a').status).toBe('active')
+  })
+
+  it('renders tool calls as separate messages instead of empty assistant drafts', () => {
+    const chatStore = useChatStore()
+    const conversationsStore = useConversationsStore()
+
+    conversationsStore.items = [{ id: 'conv_a', title: 'A', status: 'active' }]
+    conversationsStore.startAssistantDraft('conv_a')
+
+    chatStore.applySessionUpdate('conv_a', {
+      sessionUpdate: 'tool_call',
+      toolCallId: 'tool_1',
+      title: 'list directory',
+      kind: 'bash',
+      status: 'in_progress',
+      rawInput: { command: 'ls' },
+    })
+    chatStore.applySessionUpdate('conv_a', {
+      sessionUpdate: 'tool_call_update',
+      toolCallId: 'tool_1',
+      status: 'completed',
+      rawOutput: 'README.md',
+    })
+
+    const messages = conversationsStore.messagesFor('conv_a')
+    expect(messages).toHaveLength(1)
+    expect(messages[0].metadata.toolCallId).toBe('tool_1')
+    expect(messages[0].metadata.toolStatus).toBe('completed')
+    expect(messages[0].draft).toBe(false)
+    expect(messages[0].content).toContain('list directory')
+    expect(messages[0].content).toContain('README.md')
+  })
+
+  it('keeps assistant text after a tool call in display order', () => {
+    const chatStore = useChatStore()
+    const conversationsStore = useConversationsStore()
+
+    conversationsStore.items = [{ id: 'conv_a', title: 'A', status: 'active' }]
+    conversationsStore.startAssistantDraft('conv_a')
+
+    chatStore.applySessionUpdate('conv_a', textUpdate('before tool'))
+    chatStore.applySessionUpdate('conv_a', {
+      sessionUpdate: 'tool_call',
+      toolCallId: 'tool_1',
+      title: 'read file',
+      kind: 'read',
+      status: 'in_progress',
+      rawInput: { file: 'README.md' },
+    })
+    chatStore.applySessionUpdate('conv_a', {
+      sessionUpdate: 'tool_call_update',
+      toolCallId: 'tool_1',
+      status: 'completed',
+      rawOutput: 'contents',
+    })
+    chatStore.applySessionUpdate('conv_a', textUpdate('after tool'))
+
+    const messages = conversationsStore.messagesFor('conv_a')
+    expect(messages.map((message) => message.metadata.toolCallId ? 'tool' : message.content)).toEqual([
+      'before tool',
+      'tool',
+      'after tool',
+    ])
+  })
+
+  it('normalizes persisted tool calls into visible tool messages', () => {
+    const messages = normalizeMessages([
+      {
+        id: 'msg_user',
+        role: 'user',
+        content: 'read file',
+        created_at: '2026-05-26T00:00:00Z',
+      },
+      {
+        id: 'msg_call',
+        role: 'assistant',
+        content: '',
+        tool_calls: [{ ID: 'tool_1', Name: 'read', Arguments: { file: 'README.md' } }],
+        created_at: '2026-05-26T00:00:01Z',
+      },
+      {
+        id: 'msg_result',
+        role: 'tool',
+        content: '',
+        tool_calls: [{ ID: 'tool_1', Name: 'read', Result: 'contents' }],
+        created_at: '2026-05-26T00:00:02Z',
+      },
+      {
+        id: 'msg_final',
+        role: 'assistant',
+        content: 'done',
+        created_at: '2026-05-26T00:00:03Z',
+      },
+    ])
+
+    expect(messages).toHaveLength(3)
+    expect(messages[1].role).toBe('tool')
+    expect(messages[1].metadata.toolCallId).toBe('tool_1')
+    expect(messages[1].metadata.toolStatus).toBe('completed')
+    expect(messages[1].content).toContain('README.md')
+    expect(messages[1].content).toContain('contents')
+    expect(messages[2].content).toBe('done')
+  })
+
+  it('does not create empty assistant messages for usage-only updates', () => {
+    const chatStore = useChatStore()
+    const conversationsStore = useConversationsStore()
+
+    conversationsStore.items = [{ id: 'conv_a', title: 'A', status: 'active' }]
+    conversationsStore.startAssistantDraft('conv_a')
+
+    chatStore.applySessionUpdate('conv_a', {
+      sessionUpdate: 'usage_update',
+      usage: { inputTokens: 1, outputTokens: 2, totalTokens: 3 },
+    })
+    conversationsStore.markAssistantDraftComplete('conv_a')
+
+    expect(conversationsStore.messagesFor('conv_a')).toHaveLength(0)
   })
 })
 

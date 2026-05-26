@@ -58,6 +58,10 @@ func (s *AgentInstanceService) Start(ctx context.Context, req dto.StartAgentInst
 	if spec.Transport == "acp" {
 		spec.BaseURL = client.ACPBaseURL(instanceID)
 	}
+	spec.CommandArgs = parseStringSlice(agent.CommandArgsJSON)
+	if req.CommandArgs != nil {
+		spec.CommandArgs = cleanStringSlice(req.CommandArgs)
+	}
 	spec.Agent = launch
 	process, err := s.supervisor.Start(ctx, spec)
 	if err != nil {
@@ -66,22 +70,23 @@ func (s *AgentInstanceService) Start(ctx context.Context, req dto.StartAgentInst
 
 	now := time.Now().UTC()
 	instance := model.AgentInstance{
-		ID:            instanceID,
-		AgentID:       req.AgentID,
-		Name:          req.Name,
-		Status:        "starting",
-		PID:           process.PID,
-		Host:          spec.Host,
-		Port:          spec.Port,
-		BaseURL:       spec.BaseURL,
-		Transport:     spec.Transport,
-		ProviderID:    launch.ProviderID,
-		ModelProvider: launch.ModelProvider,
-		ModelName:     launch.ModelName,
-		ModelBaseURL:  launch.BaseURL,
-		APIKeySet:     launch.APIKey != "",
-		CreatedAt:     now,
-		UpdatedAt:     now,
+		ID:              instanceID,
+		AgentID:         req.AgentID,
+		Name:            req.Name,
+		Status:          "starting",
+		PID:             process.PID,
+		Host:            spec.Host,
+		Port:            spec.Port,
+		BaseURL:         spec.BaseURL,
+		Transport:       spec.Transport,
+		CommandArgsJSON: mustJSON(spec.CommandArgs),
+		ProviderID:      launch.ProviderID,
+		ModelProvider:   launch.ModelProvider,
+		ModelName:       launch.ModelName,
+		ModelBaseURL:    launch.BaseURL,
+		APIKeySet:       launch.APIKey != "",
+		CreatedAt:       now,
+		UpdatedAt:       now,
 	}
 	probeCtx, cancel := context.WithTimeout(ctx, startupTimeout(s.cfg))
 	defer cancel()
@@ -376,6 +381,7 @@ func toAgentInstanceDTO(instance model.AgentInstance) *dto.AgentInstance {
 		Port:            instance.Port,
 		BaseURL:         instance.BaseURL,
 		Transport:       defaultString(instance.Transport, "http"),
+		CommandArgs:     parseStringSlice(instance.CommandArgsJSON),
 		ProviderID:      instance.ProviderID,
 		ModelProvider:   instance.ModelProvider,
 		ModelName:       instance.ModelName,
