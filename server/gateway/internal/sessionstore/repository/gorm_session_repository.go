@@ -4,12 +4,12 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"fmt"
 	"slices"
 	"strings"
 	"time"
 
 	"icoo_claw/server/gateway/internal/sessionstore/model"
+	sharedErrors "icoo_claw/server/shared/errors"
 
 	"gorm.io/gorm"
 )
@@ -407,7 +407,7 @@ func nextRunPosition(tx *gorm.DB, sessionID string) (int64, error) {
 func sessionToRecord(session model.Session) (model.SessionRecord, error) {
 	metadata, err := marshalJSON(session.Metadata, map[string]any{})
 	if err != nil {
-		return model.SessionRecord{}, fmt.Errorf("encode session metadata: %w", err)
+		return model.SessionRecord{}, sharedErrors.Wrap("encode session metadata", err)
 	}
 	return model.SessionRecord{
 		SessionID:    session.SessionID,
@@ -425,7 +425,7 @@ func sessionToRecord(session model.Session) (model.SessionRecord, error) {
 func recordToSession(record model.SessionRecord) (model.Session, error) {
 	metadata := map[string]any{}
 	if err := unmarshalJSON(record.MetadataJSON, &metadata); err != nil {
-		return model.Session{}, fmt.Errorf("decode session metadata: %w", err)
+		return model.Session{}, sharedErrors.Wrap("decode session metadata", err)
 	}
 	return model.Session{
 		SessionID: record.SessionID,
@@ -443,15 +443,15 @@ func recordToSession(record model.SessionRecord) (model.Session, error) {
 func messageToRecord(sessionID string, position int64, message model.Message) (model.MessageRecord, error) {
 	contentBlocks, err := marshalJSON(message.ContentBlocks, []any{})
 	if err != nil {
-		return model.MessageRecord{}, fmt.Errorf("encode message content blocks: %w", err)
+		return model.MessageRecord{}, sharedErrors.Wrap("encode message content blocks", err)
 	}
 	toolCalls, err := marshalJSON(message.ToolCalls, []any{})
 	if err != nil {
-		return model.MessageRecord{}, fmt.Errorf("encode message tool calls: %w", err)
+		return model.MessageRecord{}, sharedErrors.Wrap("encode message tool calls", err)
 	}
 	metadata, err := marshalJSON(message.Metadata, map[string]any{})
 	if err != nil {
-		return model.MessageRecord{}, fmt.Errorf("encode message metadata: %w", err)
+		return model.MessageRecord{}, sharedErrors.Wrap("encode message metadata", err)
 	}
 	return model.MessageRecord{
 		ID:                message.ID,
@@ -469,15 +469,15 @@ func messageToRecord(sessionID string, position int64, message model.Message) (m
 func recordToMessage(record model.MessageRecord) (model.Message, error) {
 	contentBlocks := []any{}
 	if err := unmarshalJSON(record.ContentBlocksJSON, &contentBlocks); err != nil {
-		return model.Message{}, fmt.Errorf("decode message content blocks: %w", err)
+		return model.Message{}, sharedErrors.Wrap("decode message content blocks", err)
 	}
 	toolCalls := []any{}
 	if err := unmarshalJSON(record.ToolCallsJSON, &toolCalls); err != nil {
-		return model.Message{}, fmt.Errorf("decode message tool calls: %w", err)
+		return model.Message{}, sharedErrors.Wrap("decode message tool calls", err)
 	}
 	metadata := map[string]any{}
 	if err := unmarshalJSON(record.MetadataJSON, &metadata); err != nil {
-		return model.Message{}, fmt.Errorf("decode message metadata: %w", err)
+		return model.Message{}, sharedErrors.Wrap("decode message metadata", err)
 	}
 	return model.Message{
 		ID:            record.ID,
@@ -505,11 +505,11 @@ func recordsToMessages(records []model.MessageRecord) ([]model.Message, error) {
 func runToRecord(sessionID string, position int64, run model.Run) (model.RunRecord, error) {
 	usage, err := marshalJSON(run.Usage, map[string]any{})
 	if err != nil {
-		return model.RunRecord{}, fmt.Errorf("encode run usage: %w", err)
+		return model.RunRecord{}, sharedErrors.Wrap("encode run usage", err)
 	}
 	metadata, err := marshalJSON(run.Metadata, map[string]any{})
 	if err != nil {
-		return model.RunRecord{}, fmt.Errorf("encode run metadata: %w", err)
+		return model.RunRecord{}, sharedErrors.Wrap("encode run metadata", err)
 	}
 	return model.RunRecord{
 		ID:           run.ID,
@@ -529,11 +529,11 @@ func runToRecord(sessionID string, position int64, run model.Run) (model.RunReco
 func recordToRun(record model.RunRecord) (model.Run, error) {
 	usage := map[string]any{}
 	if err := unmarshalJSON(record.UsageJSON, &usage); err != nil {
-		return model.Run{}, fmt.Errorf("decode run usage: %w", err)
+		return model.Run{}, sharedErrors.Wrap("decode run usage", err)
 	}
 	metadata := map[string]any{}
 	if err := unmarshalJSON(record.MetadataJSON, &metadata); err != nil {
-		return model.Run{}, fmt.Errorf("decode run metadata: %w", err)
+		return model.Run{}, sharedErrors.Wrap("decode run metadata", err)
 	}
 	return model.Run{
 		ID:          record.ID,
@@ -563,11 +563,11 @@ func recordsToRuns(records []model.RunRecord) ([]model.Run, error) {
 func runEventToRecord(sessionID string, runID string, event model.RunEvent) (model.RunEventRecord, error) {
 	payload, err := marshalJSON(event.Payload, map[string]any{})
 	if err != nil {
-		return model.RunEventRecord{}, fmt.Errorf("encode run event payload: %w", err)
+		return model.RunEventRecord{}, sharedErrors.Wrap("encode run event payload", err)
 	}
 	metadata, err := marshalJSON(event.Metadata, map[string]any{})
 	if err != nil {
-		return model.RunEventRecord{}, fmt.Errorf("encode run event metadata: %w", err)
+		return model.RunEventRecord{}, sharedErrors.Wrap("encode run event metadata", err)
 	}
 	if event.RunID != "" {
 		runID = event.RunID
@@ -587,11 +587,11 @@ func runEventToRecord(sessionID string, runID string, event model.RunEvent) (mod
 func recordToRunEvent(record model.RunEventRecord) (model.RunEvent, error) {
 	payload := map[string]any{}
 	if err := unmarshalJSON(record.PayloadJSON, &payload); err != nil {
-		return model.RunEvent{}, fmt.Errorf("decode run event payload: %w", err)
+		return model.RunEvent{}, sharedErrors.Wrap("decode run event payload", err)
 	}
 	metadata := map[string]any{}
 	if err := unmarshalJSON(record.MetadataJSON, &metadata); err != nil {
-		return model.RunEvent{}, fmt.Errorf("decode run event metadata: %w", err)
+		return model.RunEvent{}, sharedErrors.Wrap("decode run event metadata", err)
 	}
 	return model.RunEvent{
 		ID:        record.ID,

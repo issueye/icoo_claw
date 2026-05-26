@@ -11,20 +11,20 @@ type Runner interface {
 }
 
 type RunRequest struct {
-	SessionID     string
-	RequestID     string
-	Prompt        string
-	Agent         map[string]any
-	ToolWhitelist []string
-	ForceSkills   []string
-	Metadata      map[string]any
+	SessionID     string         `json:"session_id"`
+	RequestID     string         `json:"request_id"`
+	Prompt        string         `json:"prompt"`
+	Agent         map[string]any `json:"agent,omitempty"`
+	ToolWhitelist []string       `json:"tool_whitelist,omitempty"`
+	ForceSkills   []string       `json:"force_skills,omitempty"`
+	Metadata      map[string]any `json:"metadata,omitempty"`
 }
 
 type RunResponse struct {
-	SessionID  string
-	RequestID  string
-	Output     string
-	StopReason string
+	SessionID  string `json:"session_id"`
+	RequestID  string `json:"request_id,omitempty"`
+	Output     string `json:"output"`
+	StopReason string `json:"stop_reason"`
 }
 
 type StreamEvent struct {

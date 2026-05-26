@@ -230,7 +230,7 @@ func (s *chatWSSession) forwardEvents(ctx context.Context, state *activeStream, 
 				ConversationID: state.conversationID,
 				SessionID:      sessionID,
 				RequestID:      requestID,
-				Update:         toDTOUpdate(event.Update),
+				Update:         event.Update,
 			})
 		}
 	}
@@ -313,59 +313,6 @@ func (s *chatWSSession) writeErrorResponse(req dto.ChatWSRequest, err error) err
 	})
 }
 
-func toDTOUpdate(update *client.SessionUpdate) *dto.SessionUpdate {
-	if update == nil {
-		return nil
-	}
-	return &dto.SessionUpdate{
-		SessionUpdate: update.SessionUpdate,
-		Content:       toDTOContentBlock(update.Content),
-		MessageID:     update.MessageID,
-		ToolCallID:    update.ToolCallID,
-		Title:         update.Title,
-		Kind:          update.Kind,
-		Status:        update.Status,
-		Locations:     toDTOToolCallLocations(update.Locations),
-		RawInput:      update.RawInput,
-		RawOutput:     update.RawOutput,
-		Usage:         toDTOUsage(update.Usage),
-	}
-}
-
-func toDTOContentBlock(content *client.ContentBlock) *dto.ContentBlock {
-	if content == nil {
-		return nil
-	}
-	return &dto.ContentBlock{
-		Type: content.Type,
-		Text: content.Text,
-		URI:  content.URI,
-		Mime: content.Mime,
-		Data: content.Data,
-	}
-}
-
-func toDTOToolCallLocations(locations []client.ToolCallLocation) []dto.ToolCallLocation {
-	if len(locations) == 0 {
-		return nil
-	}
-	out := make([]dto.ToolCallLocation, len(locations))
-	for i, location := range locations {
-		out[i] = dto.ToolCallLocation{Path: location.Path, Line: location.Line}
-	}
-	return out
-}
-
-func toDTOUsage(usage *client.UsageUpdate) *dto.UsageUpdate {
-	if usage == nil {
-		return nil
-	}
-	return &dto.UsageUpdate{
-		InputTokens:  usage.InputTokens,
-		OutputTokens: usage.OutputTokens,
-		TotalTokens:  usage.TotalTokens,
-	}
-}
 
 func (s *chatWSSession) writeJSON(payload dto.ChatWSResponse) error {
 	s.writeMu.Lock()

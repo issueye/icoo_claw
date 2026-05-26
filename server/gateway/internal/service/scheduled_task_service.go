@@ -174,17 +174,7 @@ func (s *ScheduledTaskService) ListRuns(ctx context.Context, taskID string, limi
 	}
 	out := make([]dto.ScheduledTaskRun, len(runs))
 	for i, run := range runs {
-		out[i] = dto.ScheduledTaskRun{
-			ID:         run.ID,
-			TaskID:     run.TaskID,
-			AgentID:    run.AgentID,
-			Status:     run.Status,
-			Summary:    run.Summary,
-			Error:      run.Error,
-			ExecutedAt: run.ExecutedAt,
-			CreatedAt:  run.CreatedAt,
-			UpdatedAt:  run.UpdatedAt,
-		}
+		out[i] = dto.ScheduledTaskRun(run)
 	}
 	return out, nil
 }

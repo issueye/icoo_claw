@@ -4,4 +4,5 @@ use (
 	./desktop
 	./server/claw
 	./server/gateway
+	./server/shared/errors
 )
