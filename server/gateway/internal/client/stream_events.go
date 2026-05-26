@@ -22,14 +22,17 @@ func DispatchStreamEvent(event StreamEvent, handler StreamEventHandlerFunc) erro
 		if handler.OnUpdate != nil {
 			return handler.OnUpdate(event)
 		}
+		return nil
 	case "session/completed":
 		if handler.OnCompleted != nil {
 			return handler.OnCompleted(event)
 		}
+		return nil
 	case "session/error":
 		if handler.OnError != nil {
 			return handler.OnError(event)
 		}
+		return nil
 	}
 	if handler.OnUnhandled != nil {
 		return handler.OnUnhandled(event)

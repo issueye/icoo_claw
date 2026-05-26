@@ -16,6 +16,7 @@ describe('markdown rendering', () => {
 
   it('renders markdown tables', () => {
     const html = renderMarkdown('| 名称 | 说明 |\n| --- | --- |\n| `claw.exe` | claw 可执行程序 |')
+    expect(html).toContain('class="markdown-table-scroll scrollbar-thin"')
     expect(html).toContain('<table>')
     expect(html).toContain('<th>名称</th>')
     expect(html).toContain('<code>claw.exe</code>')

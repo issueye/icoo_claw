@@ -174,14 +174,13 @@ func mapRuntimeStreamEvent(event api.StreamEvent, req RunRequest) StreamEvent {
 			return base
 		}
 		if event.Delta != nil && event.Delta.StopReason != "" {
-			return StreamEvent{
-				Type:       StreamEventSessionCompleted,
-				SessionID:  sessionID,
-				RequestID:  req.RequestID,
-				StopReason: normalizeStopReason(event.Delta.StopReason),
-			}
+			base.Update = &SessionUpdate{SessionUpdate: event.Type}
+			return base
 		}
-	case api.EventMessageStop, api.EventAgentStop:
+	case api.EventMessageStop:
+		base.Update = &SessionUpdate{SessionUpdate: event.Type}
+		return base
+	case api.EventAgentStop:
 		return StreamEvent{
 			Type:       StreamEventSessionCompleted,
 			SessionID:  sessionID,

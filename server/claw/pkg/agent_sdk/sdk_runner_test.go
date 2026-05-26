@@ -315,6 +315,66 @@ func TestSDKRunnerStreamsModelDeltasWithoutFinalDuplicate(t *testing.T) {
 	}
 }
 
+func TestSDKRunnerStreamCompletesOnlyAfterToolLoopFinishes(t *testing.T) {
+	root := t.TempDir()
+	if err := os.WriteFile(root+"/fixture.txt", []byte("tool-call-secret\n"), 0o600); err != nil {
+		t.Fatalf("write fixture: %v", err)
+	}
+
+	store := &memoryHistoryStore{}
+	history := NewHistoryAdapter(store)
+	model := &toolCallingModel{t: t}
+	runner := NewSDKRunner(NewRuntimeFactory(history, model), history)
+
+	events, err := runner.RunStream(context.Background(), RunRequest{
+		SessionID:     "sess_tool_stream",
+		Prompt:        "read the fixture",
+		ToolWhitelist: []string{"read"},
+		Agent: map[string]any{
+			"project_root":          root,
+			"enabled_builtin_tools": []any{"read"},
+			"max_iterations":        float64(3),
+		},
+	})
+	if err != nil {
+		t.Fatalf("run stream: %v", err)
+	}
+
+	output := ""
+	toolResultSeen := false
+	completedCount := 0
+	completedBeforeToolResult := false
+	for event := range events {
+		output += streamEventText(event)
+		if event.Type == StreamEventSessionUpdate && event.Update != nil &&
+			event.Update.SessionUpdate == "tool_call_update" && event.Update.Status == "completed" {
+			toolResultSeen = true
+		}
+		if event.Type == StreamEventSessionCompleted {
+			completedCount++
+			if !toolResultSeen {
+				completedBeforeToolResult = true
+			}
+		}
+	}
+
+	if output != "read tool-call-secret" {
+		t.Fatalf("stream output = %q, want final tool-informed response", output)
+	}
+	if !toolResultSeen {
+		t.Fatalf("stream did not surface completed tool result")
+	}
+	if completedBeforeToolResult {
+		t.Fatalf("stream completed before tool result was emitted")
+	}
+	if completedCount != 1 {
+		t.Fatalf("completed events = %d, want 1", completedCount)
+	}
+	if model.callCount != 2 || !model.toolResultOK {
+		t.Fatalf("model callCount=%d toolResultOK=%v", model.callCount, model.toolResultOK)
+	}
+}
+
 func streamEventText(event StreamEvent) string {
 	if event.Type != StreamEventSessionUpdate || event.Update == nil {
 		return ""
