@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { renderMarkdown } from '@/services/utils/markdown'
+import { hasVisibleMarkdownContent, renderMarkdown } from '@/services/utils/markdown'
 
 describe('markdown rendering', () => {
   it('renders common markdown', () => {
@@ -20,5 +20,10 @@ describe('markdown rendering', () => {
     expect(html).toContain('<table>')
     expect(html).toContain('<th>名称</th>')
     expect(html).toContain('<code>claw.exe</code>')
+  })
+
+  it('detects invisible assistant placeholders', () => {
+    expect(hasVisibleMarkdownContent('\u001b[32m\u001b[0m\u200b')).toBe(false)
+    expect(hasVisibleMarkdownContent('正常内容')).toBe(true)
   })
 })

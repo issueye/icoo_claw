@@ -5,6 +5,7 @@ import {
   listConversationMessages,
   listConversations,
 } from '@/services/gateway/conversations'
+import { hasVisibleMarkdownContent } from '@/services/utils/markdown'
 
 export const useConversationsStore = defineStore('conversations', {
   state: () => ({
@@ -214,10 +215,11 @@ export const useConversationsStore = defineStore('conversations', {
 
     markAssistantDraftComplete(conversationId) {
       const messages = this.ensureMessageBuffer(conversationId)
-      removeEmptyAssistantDrafts(messages)
+      removeEmptyAssistantMessages(messages)
       for (const draft of messages.filter((message) => message.role === 'assistant' && message.draft)) {
         draft.draft = false
       }
+      removeEmptyAssistantMessages(messages)
     },
 
     bumpConversationRunning(conversationId, running = true) {
@@ -330,10 +332,13 @@ function findTextAssistantDraft(messages) {
 }
 
 function isEmptyAssistantDraft(message) {
+  return isEmptyAssistantMessage(message) && message.draft
+}
+
+function isEmptyAssistantMessage(message) {
   return Boolean(
     message?.role === 'assistant' &&
-    message.draft &&
-    !String(message.content || '').trim() &&
+    !hasVisibleMarkdownContent(message.content) &&
     !message.error &&
     !message.metadata?.toolCallId,
   )
@@ -347,6 +352,14 @@ function removeEmptyAssistantDrafts(messages) {
   }
 }
 
+function removeEmptyAssistantMessages(messages) {
+  for (let index = messages.length - 1; index >= 0; index -= 1) {
+    if (isEmptyAssistantMessage(messages[index])) {
+      messages.splice(index, 1)
+    }
+  }
+}
+
 function attachUsageToLastAssistant(messages, usage) {
   if (!usage) {
     return
@@ -354,7 +367,7 @@ function attachUsageToLastAssistant(messages, usage) {
   const target = [...messages].reverse().find((message) => (
     message.role === 'assistant' &&
     !message.metadata?.toolCallId &&
-    String(message.content || '').trim()
+    hasVisibleMarkdownContent(message.content)
   ))
   if (!target) {
     return

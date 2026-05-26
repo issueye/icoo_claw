@@ -1,6 +1,7 @@
 <script setup>
 import { computed, nextTick, ref, watch } from 'vue'
 import ChatMessageItem from './ChatMessageItem.vue'
+import { hasVisibleMarkdownContent } from '@/services/utils/markdown'
 
 const props = defineProps({
   messages: {
@@ -14,16 +15,10 @@ const props = defineProps({
 })
 
 const viewport = ref(null)
-const visibleMessages = computed(() => props.messages.filter((message) => (
-  message.role !== 'assistant' ||
-  String(message.content || '').trim() ||
-  message.error ||
-  message.metadata?.toolCallId ||
-  message.metadata?.usage
-)))
+const visibleMessages = computed(() => props.messages.filter(isVisibleMessage))
 
 watch(
-  () => visibleMessages.value.map((message) => `${message.id}:${message.content.length}`).join('|'),
+  () => visibleMessages.value.map((message) => `${message.id}:${String(message.content || '').length}`).join('|'),
   async () => {
     await nextTick()
     if (viewport.value) {
@@ -31,6 +26,18 @@ watch(
     }
   },
 )
+
+function isVisibleMessage(message) {
+  if (message.role !== 'assistant') {
+    return true
+  }
+  return Boolean(
+    hasVisibleMarkdownContent(message.content) ||
+    message.error ||
+    message.metadata?.toolCallId ||
+    message.metadata?.usage,
+  )
+}
 </script>
 
 <template>

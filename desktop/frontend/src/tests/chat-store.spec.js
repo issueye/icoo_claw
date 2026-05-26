@@ -225,6 +225,19 @@ describe('chat store', () => {
 
     expect(conversationsStore.messagesFor('conv_a')).toHaveLength(0)
   })
+
+  it('removes invisible assistant placeholders when a stream completes', () => {
+    const chatStore = useChatStore()
+    const conversationsStore = useConversationsStore()
+
+    conversationsStore.items = [{ id: 'conv_a', title: 'A', status: 'active' }]
+    conversationsStore.startAssistantDraft('conv_a')
+
+    chatStore.applySessionUpdate('conv_a', textUpdate('\u001b[32m\u001b[0m\u200b'))
+    conversationsStore.markAssistantDraftComplete('conv_a')
+
+    expect(conversationsStore.messagesFor('conv_a')).toHaveLength(0)
+  })
 })
 
 function textUpdate(text) {
