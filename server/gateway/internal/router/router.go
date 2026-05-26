@@ -11,6 +11,7 @@ import (
 type Controllers struct {
 	Health        *controller.HealthController
 	Provider      *controller.ProviderController
+	Skill         *controller.SkillController
 	Agent         *controller.AgentController
 	AgentInstance *controller.AgentInstanceController
 	ScheduledTask *controller.ScheduledTaskController
@@ -32,6 +33,16 @@ func New(controllers Controllers) *gin.Engine {
 		engine.GET("/v1/providers/:id", controllers.Provider.Get)
 		engine.PATCH("/v1/providers/:id", controllers.Provider.Update)
 		engine.DELETE("/v1/providers/:id", controllers.Provider.Delete)
+	}
+	if controllers.Skill != nil {
+		engine.POST("/v1/skills", controllers.Skill.Create)
+		engine.GET("/v1/skills", controllers.Skill.List)
+		engine.GET("/v1/skills/:id", controllers.Skill.Get)
+		engine.GET("/v1/skills/:id/download", controllers.Skill.Download)
+		engine.PATCH("/v1/skills/:id", controllers.Skill.Update)
+		engine.DELETE("/v1/skills/:id", controllers.Skill.Delete)
+		engine.POST("/v1/skills/install", controllers.Skill.Create)
+		engine.POST("/v1/skills/sync", controllers.Skill.Sync)
 	}
 	engine.POST("/v1/agents", controllers.Agent.Create)
 	engine.GET("/v1/agents", controllers.Agent.List)

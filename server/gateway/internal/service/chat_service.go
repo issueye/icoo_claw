@@ -34,16 +34,22 @@ type ChatService struct {
 	conversations repository.ConversationRepository
 	agents        repository.AgentRepository
 	providers     repository.ProviderRepository
+	skills        *SkillService
 	router        RouterPolicy
 	sessions      SessionBackend
 	claw          AgentRunner
 }
 
-func NewChatService(conversations repository.ConversationRepository, agents repository.AgentRepository, providers repository.ProviderRepository, router RouterPolicy, sessions SessionBackend, claw AgentRunner) *ChatService {
+func NewChatService(conversations repository.ConversationRepository, agents repository.AgentRepository, providers repository.ProviderRepository, router RouterPolicy, sessions SessionBackend, claw AgentRunner, skills ...*SkillService) *ChatService {
+	var skillService *SkillService
+	if len(skills) > 0 {
+		skillService = skills[0]
+	}
 	return &ChatService{
 		conversations: conversations,
 		agents:        agents,
 		providers:     providers,
+		skills:        skillService,
 		router:        router,
 		sessions:      sessions,
 		claw:          claw,
@@ -117,11 +123,15 @@ func (s *ChatService) SendMessage(ctx context.Context, conversationID string, re
 		_ = s.markConversationStatus(context.Background(), conversation, "active")
 	}()
 
+	agentPayload, err := s.agentProfilePayload(ctx, *agent, provider, req.Metadata)
+	if err != nil {
+		return nil, err
+	}
 	stream, err := s.claw.Stream(ctx, instance.BaseURL, client.RunRequest{
 		SessionID:     conversation.SessionID,
 		RequestID:     req.RequestID,
 		Prompt:        req.Prompt,
-		Agent:         agentProfileMap(*agent, provider, req.Metadata),
+		Agent:         agentPayload,
 		ToolWhitelist: parseStringSlice(agent.ToolWhitelistJSON),
 		Metadata:      req.Metadata,
 	})
@@ -162,11 +172,16 @@ func (s *ChatService) StreamMessage(ctx context.Context, conversationID string, 
 		return nil, err
 	}
 
+	agentPayload, err := s.agentProfilePayload(ctx, *agent, provider, req.Metadata)
+	if err != nil {
+		_ = s.router.MarkInflight(context.Background(), instance.ID, -1)
+		return nil, err
+	}
 	events, err := s.claw.Stream(ctx, instance.BaseURL, client.RunRequest{
 		SessionID:     conversation.SessionID,
 		RequestID:     req.RequestID,
 		Prompt:        req.Prompt,
-		Agent:         agentProfileMap(*agent, provider, req.Metadata),
+		Agent:         agentPayload,
 		ToolWhitelist: parseStringSlice(agent.ToolWhitelistJSON),
 		Metadata:      req.Metadata,
 	})
@@ -323,6 +338,23 @@ func toConversationDTO(conversation model.Conversation) *dto.Conversation {
 		CreatedAt:     conversation.CreatedAt,
 		UpdatedAt:     conversation.UpdatedAt,
 	}
+}
+
+func (s *ChatService) agentProfilePayload(ctx context.Context, agent model.AgentProfile, provider *model.ProviderProfile, metadata map[string]any) (map[string]any, error) {
+	profile := agentProfileMap(agent, provider, metadata)
+	if s != nil && s.skills != nil {
+		summary, err := s.skills.SyncSummary(ctx)
+		if err != nil {
+			return nil, err
+		}
+		profile["gateway_skills"] = summary
+		if projectRoot := strings.TrimSpace(summary.Path); projectRoot != "" {
+			if _, exists := profile["project_root"]; !exists {
+				profile["project_root"] = projectRoot
+			}
+		}
+	}
+	return profile, nil
 }
 
 func agentProfileMap(agent model.AgentProfile, provider *model.ProviderProfile, metadata map[string]any) map[string]any {

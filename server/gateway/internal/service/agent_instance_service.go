@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"log"
+	"strings"
 	"time"
 
 	"icoo_claw/server/gateway/internal/client"
@@ -63,6 +64,7 @@ func (s *AgentInstanceService) Start(ctx context.Context, req dto.StartAgentInst
 		spec.CommandArgs = cleanStringSlice(req.CommandArgs)
 	}
 	spec.Agent = launch
+	spec.GatewaySkills.Skills = gatewaySkillInfos(parseStringSlice(agent.SkillIDsJSON))
 	process, err := s.supervisor.Start(ctx, spec)
 	if err != nil {
 		return nil, err
@@ -103,6 +105,21 @@ func (s *AgentInstanceService) Start(ctx context.Context, req dto.StartAgentInst
 		return nil, err
 	}
 	return toAgentInstanceDTO(instance), nil
+}
+
+func gatewaySkillInfos(names []string) []GatewaySkillInfo {
+	if len(names) == 0 {
+		return nil
+	}
+	out := make([]GatewaySkillInfo, 0, len(names))
+	for _, name := range names {
+		name = strings.TrimSpace(name)
+		if name == "" {
+			continue
+		}
+		out = append(out, GatewaySkillInfo{Name: name})
+	}
+	return out
 }
 
 func (s *AgentInstanceService) waitUntilReady(ctx context.Context, instance model.AgentInstance) error {

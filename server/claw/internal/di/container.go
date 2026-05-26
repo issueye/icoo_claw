@@ -31,6 +31,11 @@ func NewContainer(cfgPath string) (*Container, error) {
 	runner := agent_sdk.Runner(agent_sdk.NewFakeRunner(historyAdapter))
 	if strings.ToLower(strings.TrimSpace(cfg.RunnerMode)) != "fake" {
 		runtimeFactory := agent_sdk.NewRuntimeFactory(historyAdapter, nil)
+		gatewaySkills := agent_sdk.GatewaySkillsFromJSON(cfg.GatewaySkills.JSON)
+		if strings.TrimSpace(gatewaySkills.Path) == "" {
+			gatewaySkills.Path = cfg.GatewaySkills.Path
+		}
+		runtimeFactory.SetGatewaySkills(gatewaySkills)
 		runner = agent_sdk.NewSDKRunner(runtimeFactory, historyAdapter)
 	}
 	agentService := service.NewAgentService(runner)

@@ -47,7 +47,7 @@ func NewContainer(cfgPath string) (*Container, error) {
 	if err := configureSQLite(db); err != nil {
 		return nil, fmt.Errorf("configure gateway db: %w", err)
 	}
-	if err := db.AutoMigrate(&model.ProviderProfile{}, &model.AgentProfile{}, &model.AgentInstance{}, &model.Conversation{}, &model.ScheduledTask{}, &model.ScheduledTaskRun{}); err != nil {
+	if err := db.AutoMigrate(&model.ProviderProfile{}, &model.AgentProfile{}, &model.SkillProfile{}, &model.AgentInstance{}, &model.Conversation{}, &model.ScheduledTask{}, &model.ScheduledTaskRun{}); err != nil {
 		return nil, fmt.Errorf("migrate gateway db: %w", err)
 	}
 	if err := sessionrepo.AutoMigrate(db); err != nil {
@@ -56,6 +56,7 @@ func NewContainer(cfgPath string) (*Container, error) {
 
 	agentRepository := repository.NewGormAgentRepository(db)
 	providerRepository := repository.NewGormProviderRepository(db)
+	skillRepository := repository.NewGormSkillRepository(db)
 	instanceRepository := repository.NewGormAgentInstanceRepository(db)
 	conversationRepository := repository.NewGormConversationRepository(db)
 	taskRepository := repository.NewGormScheduledTaskRepository(db)
@@ -64,10 +65,11 @@ func NewContainer(cfgPath string) (*Container, error) {
 	sessionService := sessionservice.NewSessionService(sessionRepository)
 	providerService := service.NewProviderService(providerRepository)
 	agentService := service.NewAgentService(agentRepository)
+	skillService := service.NewSkillService(service.SkillGatewayConfig{BaseDir: cfg.GatewaySkillsDir}, skillRepository)
 	acpRegistry := client.NewACPRegistry()
 	agentRunner := client.NewAgentRunner(client.NewClawClient(nil, cfg.InternalToken), acpRegistry)
 	instanceService := service.NewAgentInstanceService(cfg, agentRepository, providerRepository, instanceRepository, service.NewLocalProcessSupervisor(acpRegistry))
-	taskService := service.NewScheduledTaskService(taskRepository, taskRunRepository, agentRepository, providerRepository, instanceRepository, instanceService, agentRunner)
+	taskService := service.NewScheduledTaskService(taskRepository, taskRunRepository, agentRepository, providerRepository, instanceRepository, instanceService, agentRunner, skillService)
 	routerPolicy := service.NewDefaultRouterPolicy(conversationRepository, instanceRepository, instanceService)
 	chatService := service.NewChatService(
 		conversationRepository,
@@ -76,9 +78,11 @@ func NewContainer(cfgPath string) (*Container, error) {
 		routerPolicy,
 		service.NewLocalSessionBackend(sessionService),
 		agentRunner,
+		skillService,
 	)
 	healthController := controller.NewHealthController()
 	providerController := controller.NewProviderController(providerService)
+	skillController := controller.NewSkillController(skillService)
 	agentController := controller.NewAgentController(agentService)
 	instanceController := controller.NewAgentInstanceController(instanceService)
 	taskController := controller.NewScheduledTaskController(taskService)
@@ -88,6 +92,7 @@ func NewContainer(cfgPath string) (*Container, error) {
 	engine := router.New(router.Controllers{
 		Health:        healthController,
 		Provider:      providerController,
+		Skill:         skillController,
 		Agent:         agentController,
 		AgentInstance: instanceController,
 		ScheduledTask: taskController,
@@ -143,6 +148,7 @@ func (c *Container) printStartupBanner() {
  Claw binary        %s
  Claw work dir      %s
  Claw config dir    %s
+ Gateway skills     %s
  Agent port range   %d-%d
  Max agents         %d
  Health interval    %s
@@ -163,6 +169,7 @@ func (c *Container) printStartupBanner() {
 		displayValue(c.Config.ClawBinaryPath, "auto"),
 		displayValue(c.Config.ClawWorkDir, "current"),
 		displayValue(c.Config.ClawConfigDir, "data/claw_configs"),
+		displayValue(c.Config.GatewaySkillsDir, "data/gateway_skills"),
 		c.Config.ClawPortStart,
 		c.Config.ClawPortEnd,
 		c.Config.MaxAgentInstances,

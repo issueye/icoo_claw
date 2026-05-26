@@ -21,6 +21,7 @@ type ScheduledTaskService struct {
 	agents    repository.AgentRepository
 	providers repository.ProviderRepository
 	instances repository.AgentInstanceRepository
+	skills    *SkillService
 	starter   AgentInstanceStarter
 	claw      scheduledTaskRunner
 }
@@ -37,13 +38,19 @@ func NewScheduledTaskService(
 	instances repository.AgentInstanceRepository,
 	starter AgentInstanceStarter,
 	claw scheduledTaskRunner,
+	skills ...*SkillService,
 ) *ScheduledTaskService {
+	var skillService *SkillService
+	if len(skills) > 0 {
+		skillService = skills[0]
+	}
 	return &ScheduledTaskService{
 		repo:      repo,
 		runRepo:   runRepo,
 		agents:    agents,
 		providers: providers,
 		instances: instances,
+		skills:    skillService,
 		starter:   starter,
 		claw:      claw,
 	}
@@ -450,11 +457,15 @@ func (s *ScheduledTaskService) executeAgentTask(ctx context.Context, task model.
 		metadata["project_root"] = projectRoot
 	}
 
+	agentPayload, err := s.agentProfilePayload(ctx, *agent, provider, metadata)
+	if err != nil {
+		return "", err
+	}
 	resp, err := s.claw.Run(ctx, instance.BaseURL, client.RunRequest{
 		SessionID:     taskSessionID(task.ID, now),
 		RequestID:     "req_" + randomID(),
 		Prompt:        prompt,
-		Agent:         agentProfileMap(*agent, provider, metadata),
+		Agent:         agentPayload,
 		ToolWhitelist: parseStringSlice(agent.ToolWhitelistJSON),
 		Metadata:      metadata,
 	})
@@ -469,6 +480,23 @@ func (s *ScheduledTaskService) executeAgentTask(ctx context.Context, task model.
 		summary = prompt
 	}
 	return summary, nil
+}
+
+func (s *ScheduledTaskService) agentProfilePayload(ctx context.Context, agent model.AgentProfile, provider *model.ProviderProfile, metadata map[string]any) (map[string]any, error) {
+	profile := agentProfileMap(agent, provider, metadata)
+	if s != nil && s.skills != nil {
+		summary, err := s.skills.SyncSummary(ctx)
+		if err != nil {
+			return nil, err
+		}
+		profile["gateway_skills"] = summary
+		if projectRoot := strings.TrimSpace(summary.Path); projectRoot != "" {
+			if _, exists := profile["project_root"]; !exists {
+				profile["project_root"] = projectRoot
+			}
+		}
+	}
+	return profile, nil
 }
 
 func (s *ScheduledTaskService) selectAgentInstance(ctx context.Context, task model.ScheduledTask, agent *model.AgentProfile) (*model.AgentInstance, error) {

@@ -13,13 +13,25 @@ type Config struct {
 	SessionAPIURL string
 	InternalToken string
 	RunnerMode    string
+	GatewaySkills GatewaySkillsConfig
 }
 
 type fileConfig struct {
-	HTTPAddr      string `toml:"http_addr"`
-	SessionAPIURL string `toml:"session_api_url"`
-	InternalToken string `toml:"internal_token"`
-	RunnerMode    string `toml:"runner_mode"`
+	HTTPAddr      string                  `toml:"http_addr"`
+	SessionAPIURL string                  `toml:"session_api_url"`
+	InternalToken string                  `toml:"internal_token"`
+	RunnerMode    string                  `toml:"runner_mode"`
+	GatewaySkills gatewaySkillsFileConfig `toml:"gateway_skills"`
+}
+
+type gatewaySkillsFileConfig struct {
+	Path string `toml:"path"`
+	JSON string `toml:"json"`
+}
+
+type GatewaySkillsConfig struct {
+	Path string
+	JSON string
 }
 
 func Load() Config {
@@ -57,6 +69,12 @@ func LoadFile(path string) (Config, error) {
 	}
 	if file.RunnerMode != "" {
 		cfg.RunnerMode = file.RunnerMode
+	}
+	if file.GatewaySkills.Path != "" {
+		cfg.GatewaySkills.Path = file.GatewaySkills.Path
+	}
+	if file.GatewaySkills.JSON != "" {
+		cfg.GatewaySkills.JSON = file.GatewaySkills.JSON
 	}
 	return cfg, nil
 }

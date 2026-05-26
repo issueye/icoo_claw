@@ -2,6 +2,7 @@ package agent_sdk
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"os"
 	"strings"
@@ -12,16 +13,30 @@ import (
 )
 
 type RuntimeFactory struct {
-	history *HistoryAdapter
-	model   sdkmodel.Model
+	history       *HistoryAdapter
+	model         sdkmodel.Model
+	gatewaySkills GatewaySkills
 }
 
 func NewRuntimeFactory(history *HistoryAdapter, model sdkmodel.Model) *RuntimeFactory {
 	return &RuntimeFactory{history: history, model: model}
 }
 
+func (f *RuntimeFactory) SetGatewaySkills(skills GatewaySkills) {
+	if f == nil {
+		return
+	}
+	f.gatewaySkills = skills
+}
+
 func (f *RuntimeFactory) New(ctx context.Context, req RunRequest) (*api.Runtime, error) {
 	profile := parseAgentProfile(req.Agent)
+	if strings.TrimSpace(profile.GatewaySkills.Path) == "" {
+		profile.GatewaySkills = f.gatewaySkills
+	}
+	if strings.TrimSpace(profile.ProjectRoot) == "" && strings.TrimSpace(profile.GatewaySkills.Path) != "" {
+		profile.ProjectRoot = profile.GatewaySkills.Path
+	}
 	options := api.Options{
 		EntryPoint:          api.EntryPointPlatform,
 		ProjectRoot:         profile.ProjectRoot,
@@ -71,10 +86,21 @@ type AgentProfile struct {
 	EnabledBuiltinTools []string
 	MCPServers          []string
 	NetworkAllow        []string
+	GatewaySkills       GatewaySkills
+}
+
+type GatewaySkills struct {
+	Path   string
+	Skills []GatewaySkill
+}
+
+type GatewaySkill struct {
+	Name        string
+	Description string
 }
 
 func parseAgentProfile(input map[string]any) AgentProfile {
-	return AgentProfile{
+	profile := AgentProfile{
 		ModelProvider:       firstStringValue(input, "model_provider", "ICOO_AGENT_MODEL_PROVIDER"),
 		ModelName:           firstStringValue(input, "model_name", "ICOO_AGENT_MODEL_NAME"),
 		APIKey:              firstStringValue(input, "api_key", "ICOO_AGENT_API_KEY"),
@@ -86,6 +112,11 @@ func parseAgentProfile(input map[string]any) AgentProfile {
 		MCPServers:          stringSlice(input, "mcp_servers"),
 		NetworkAllow:        firstStringSlice(input, "network_allow", "allowed_domains"),
 	}
+	profile.GatewaySkills = gatewaySkillsValue(input, "gateway_skills")
+	if strings.TrimSpace(profile.ProjectRoot) == "" && strings.TrimSpace(profile.GatewaySkills.Path) != "" {
+		profile.ProjectRoot = profile.GatewaySkills.Path
+	}
+	return profile
 }
 
 func modelProvider(profile AgentProfile) (api.ModelFactory, error) {
@@ -163,4 +194,67 @@ func firstStringSlice(input map[string]any, keys ...string) []string {
 		}
 	}
 	return nil
+}
+
+func gatewaySkillsValue(input map[string]any, key string) GatewaySkills {
+	if input == nil {
+		return GatewaySkills{}
+	}
+	raw, ok := input[key]
+	if !ok {
+		return GatewaySkills{}
+	}
+	payload, ok := raw.(map[string]any)
+	if !ok {
+		return GatewaySkills{}
+	}
+	out := GatewaySkills{Path: stringValue(payload, "path")}
+	for _, item := range anySlice(payload, "skills") {
+		entry, ok := item.(map[string]any)
+		if !ok {
+			continue
+		}
+		name := stringValue(entry, "name")
+		if name == "" {
+			continue
+		}
+		out.Skills = append(out.Skills, GatewaySkill{
+			Name:        name,
+			Description: firstMapStringValue(entry, "description", "Description"),
+		})
+	}
+	return out
+}
+
+func GatewaySkillsFromJSON(raw string) GatewaySkills {
+	raw = strings.TrimSpace(raw)
+	if raw == "" {
+		return GatewaySkills{}
+	}
+	var payload map[string]any
+	if err := json.Unmarshal([]byte(raw), &payload); err != nil {
+		return GatewaySkills{}
+	}
+	return gatewaySkillsValue(payload, "gateway_skills")
+}
+
+func anySlice(input map[string]any, key string) []any {
+	if input == nil {
+		return nil
+	}
+	switch raw := input[key].(type) {
+	case []any:
+		return raw
+	default:
+		return nil
+	}
+}
+
+func firstMapStringValue(input map[string]any, keys ...string) string {
+	for _, key := range keys {
+		if value := stringValue(input, key); value != "" {
+			return value
+		}
+	}
+	return ""
 }
