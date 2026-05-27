@@ -7,7 +7,6 @@ internal_token = "dev-internal-token"
 claw_binary_path = "./bin/claw.exe"
 claw_work_dir = "."
 claw_config_dir = "./data/claw_configs"
-gateway_skills_dir = "./data/gateway_skills"
 claw_runner_mode = "sdk"
 claw_port_start = 8101
 claw_port_end = 8199

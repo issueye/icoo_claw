@@ -17,7 +17,7 @@ type Config struct {
 	ClawBinaryPath    string
 	ClawWorkDir       string
 	ClawConfigDir     string
-	GatewaySkillsDir  string
+	GatewayWorkDir    string
 	ClawRunnerMode    string
 	ClawPortStart     int
 	ClawPortEnd       int
@@ -34,7 +34,6 @@ type fileConfig struct {
 	ClawBinaryPath     string `toml:"claw_binary_path"`
 	ClawWorkDir        string `toml:"claw_work_dir"`
 	ClawConfigDir      string `toml:"claw_config_dir"`
-	GatewaySkillsDir   string `toml:"gateway_skills_dir"`
 	ClawRunnerMode     string `toml:"claw_runner_mode"`
 	ClawPortStart      int    `toml:"claw_port_start"`
 	ClawPortEnd        int    `toml:"claw_port_end"`
@@ -89,11 +88,18 @@ func configPath(fallback string) string {
 }
 
 func defaults() Config {
+	workDir, err := os.Getwd()
+	if err != nil {
+		workDir = "."
+	}
+	if abs, err := filepath.Abs(workDir); err == nil {
+		workDir = abs
+	}
 	return Config{
 		HTTPAddr:          ":8080",
 		DBPath:            "gateway.sqlite",
 		ClawConfigDir:     "data/claw_configs",
-		GatewaySkillsDir:  "data/gateway_skills",
+		GatewayWorkDir:    workDir,
 		ClawRunnerMode:    "sdk",
 		ClawPortStart:     8101,
 		ClawPortEnd:       8199,
@@ -119,9 +125,6 @@ func applyFile(cfg *Config, file fileConfig) {
 	}
 	if file.ClawConfigDir != "" {
 		cfg.ClawConfigDir = file.ClawConfigDir
-	}
-	if file.GatewaySkillsDir != "" {
-		cfg.GatewaySkillsDir = file.GatewaySkillsDir
 	}
 	if file.ClawRunnerMode != "" {
 		cfg.ClawRunnerMode = file.ClawRunnerMode
@@ -165,9 +168,6 @@ func applyEnv(cfg *Config) {
 	if value := os.Getenv("CLAW_CONFIG_DIR"); value != "" {
 		cfg.ClawConfigDir = value
 	}
-	if value := os.Getenv("GATEWAY_SKILLS_DIR"); value != "" {
-		cfg.GatewaySkillsDir = value
-	}
 	if value := os.Getenv("CLAW_RUNNER_MODE"); value != "" {
 		cfg.ClawRunnerMode = value
 	}
@@ -199,8 +199,15 @@ func resolveRelativePaths(cfg *Config, configFilePath string) {
 	cfg.DBPath = resolveConfigDataPath(cfg.DBPath, baseDir)
 	cfg.ClawWorkDir = resolveConfigDataPath(cfg.ClawWorkDir, baseDir)
 	cfg.ClawConfigDir = resolveConfigDataPath(cfg.ClawConfigDir, baseDir)
-	cfg.GatewaySkillsDir = resolveConfigDataPath(cfg.GatewaySkillsDir, baseDir)
 	cfg.ClawBinaryPath = resolveConfigExecutablePath(cfg.ClawBinaryPath, baseDir)
+}
+
+func (cfg Config) GatewaySkillsRoot() string {
+	workDir := strings.TrimSpace(cfg.GatewayWorkDir)
+	if workDir == "" {
+		workDir = "."
+	}
+	return filepath.Clean(filepath.Join(workDir, ".skills"))
 }
 
 func configBaseDir(configFilePath string) string {

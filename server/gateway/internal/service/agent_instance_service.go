@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"log"
-	"strings"
 	"time"
 
 	"icoo_claw/server/gateway/internal/client"
@@ -21,12 +20,17 @@ type AgentInstanceService struct {
 	providers  repository.ProviderRepository
 	instances  repository.AgentInstanceRepository
 	supervisor ProcessSupervisor
+	skills     *SkillService
 }
 
 var ErrAgentInstanceActive = errors.New("agent instance is still active")
 
-func NewAgentInstanceService(cfg config.Config, agents repository.AgentRepository, providers repository.ProviderRepository, instances repository.AgentInstanceRepository, supervisor ProcessSupervisor) *AgentInstanceService {
-	return &AgentInstanceService{cfg: cfg, agents: agents, providers: providers, instances: instances, supervisor: supervisor}
+func NewAgentInstanceService(cfg config.Config, agents repository.AgentRepository, providers repository.ProviderRepository, instances repository.AgentInstanceRepository, supervisor ProcessSupervisor, skills ...*SkillService) *AgentInstanceService {
+	var skillService *SkillService
+	if len(skills) > 0 {
+		skillService = skills[0]
+	}
+	return &AgentInstanceService{cfg: cfg, agents: agents, providers: providers, instances: instances, supervisor: supervisor, skills: skillService}
 }
 
 func (s *AgentInstanceService) Start(ctx context.Context, req dto.StartAgentInstanceRequest) (*dto.AgentInstance, error) {
@@ -64,7 +68,15 @@ func (s *AgentInstanceService) Start(ctx context.Context, req dto.StartAgentInst
 		spec.CommandArgs = cleanStringSlice(req.CommandArgs)
 	}
 	spec.Agent = launch
-	spec.GatewaySkills.Skills = gatewaySkillInfos(parseStringSlice(agent.SkillIDsJSON))
+	if s.skills != nil {
+		skillsRoot, err := s.skills.PublishForAgent(instanceID, agent.SkillIDsJSON)
+		if err != nil {
+			return nil, fmt.Errorf("publish skills for agent: %w", err)
+		}
+		if skillsRoot != "" {
+			spec.DefaultProjectRoot = skillsRoot
+		}
+	}
 	process, err := s.supervisor.Start(ctx, spec)
 	if err != nil {
 		return nil, err
@@ -105,21 +117,6 @@ func (s *AgentInstanceService) Start(ctx context.Context, req dto.StartAgentInst
 		return nil, err
 	}
 	return toAgentInstanceDTO(instance), nil
-}
-
-func gatewaySkillInfos(names []string) []GatewaySkillInfo {
-	if len(names) == 0 {
-		return nil
-	}
-	out := make([]GatewaySkillInfo, 0, len(names))
-	for _, name := range names {
-		name = strings.TrimSpace(name)
-		if name == "" {
-			continue
-		}
-		out = append(out, GatewaySkillInfo{Name: name})
-	}
-	return out
 }
 
 func (s *AgentInstanceService) waitUntilReady(ctx context.Context, instance model.AgentInstance) error {

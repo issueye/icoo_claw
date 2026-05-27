@@ -21,9 +21,10 @@ type CreateConversationRequest struct {
 }
 
 type SendMessageRequest struct {
-	Prompt    string         `json:"prompt" binding:"required"`
-	RequestID string         `json:"request_id"`
-	Metadata  map[string]any `json:"metadata"`
+	Prompt      string         `json:"prompt" binding:"required"`
+	RequestID   string         `json:"request_id"`
+	ForceSkills []string       `json:"force_skills,omitempty"`
+	Metadata    map[string]any `json:"metadata"`
 }
 
 type ChatResponse struct {

@@ -7,6 +7,7 @@ import { useConversationsStore } from './conversations'
 import { useProvidersStore } from './providers'
 import { useScheduledTasksStore } from './scheduledTasks'
 import { useSettingsStore } from './settings'
+import { useSkillsStore } from './skills'
 
 export const useAppStore = defineStore('app', {
   state: () => ({
@@ -49,6 +50,7 @@ export const useAppStore = defineStore('app', {
       const agentInstancesStore = useAgentInstancesStore()
       const providersStore = useProvidersStore()
       const scheduledTasksStore = useScheduledTasksStore()
+      const skillsStore = useSkillsStore()
       const conversationsStore = useConversationsStore()
       const baseUrl = String(settingsStore.settings.gateway.baseUrl || '').trim()
 
@@ -67,6 +69,7 @@ export const useAppStore = defineStore('app', {
           agentInstancesStore,
           conversationsStore,
           scheduledTasksStore,
+          skillsStore,
         )
         this.gatewayStatus = 'connected'
         this.lastRefreshedAt = new Date().toISOString()
@@ -78,7 +81,7 @@ export const useAppStore = defineStore('app', {
       }
     },
 
-    async loadGatewayData(baseUrl, providersStore, agentsStore, agentInstancesStore, conversationsStore, scheduledTasksStore) {
+    async loadGatewayData(baseUrl, providersStore, agentsStore, agentInstancesStore, conversationsStore, scheduledTasksStore, skillsStore) {
       this.gatewayInfo = await getGatewayHealth(baseUrl)
       const resourceRequests = [
         { label: '供应商', run: () => providersStore.fetchProviders(baseUrl) },
@@ -86,6 +89,7 @@ export const useAppStore = defineStore('app', {
         { label: 'Agent 实例', run: () => agentInstancesStore.fetchInstances(baseUrl) },
         { label: '会话', run: () => conversationsStore.fetchConversations(baseUrl) },
         { label: '定时任务', run: () => scheduledTasksStore.fetchTasks(baseUrl) },
+        { label: '技能', run: () => skillsStore.fetchSkills(baseUrl) },
       ]
 
       const results = await Promise.allSettled(resourceRequests.map((request) => request.run()))

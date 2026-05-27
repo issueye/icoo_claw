@@ -9,11 +9,11 @@ import (
 )
 
 type Config struct {
-	HTTPAddr      string
-	SessionAPIURL string
-	InternalToken string
-	RunnerMode    string
-	GatewaySkills GatewaySkillsConfig
+	HTTPAddr           string
+	SessionAPIURL      string
+	InternalToken      string
+	RunnerMode         string
+	DefaultProjectRoot string
 }
 
 type fileConfig struct {
@@ -26,12 +26,6 @@ type fileConfig struct {
 
 type gatewaySkillsFileConfig struct {
 	Path string `toml:"path"`
-	JSON string `toml:"json"`
-}
-
-type GatewaySkillsConfig struct {
-	Path string
-	JSON string
 }
 
 func Load() Config {
@@ -71,10 +65,7 @@ func LoadFile(path string) (Config, error) {
 		cfg.RunnerMode = file.RunnerMode
 	}
 	if file.GatewaySkills.Path != "" {
-		cfg.GatewaySkills.Path = file.GatewaySkills.Path
-	}
-	if file.GatewaySkills.JSON != "" {
-		cfg.GatewaySkills.JSON = file.GatewaySkills.JSON
+		cfg.DefaultProjectRoot = file.GatewaySkills.Path
 	}
 	return cfg, nil
 }

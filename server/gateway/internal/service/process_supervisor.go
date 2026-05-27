@@ -2,7 +2,6 @@ package service
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"net/http"
@@ -19,21 +18,21 @@ import (
 )
 
 type StartAgentInstanceSpec struct {
-	InstanceID    string
-	AgentID       string
-	Host          string
-	Port          int
-	BaseURL       string
-	BinaryPath    string
-	WorkDir       string
-	SessionAPIURL string
-	InternalToken string
-	ConfigDir     string
-	GatewaySkills GatewaySkillsConfig
-	RunnerMode    string
-	Transport     string
-	CommandArgs   []string
-	Agent         AgentLaunchConfig
+	InstanceID         string
+	AgentID            string
+	Host               string
+	Port               int
+	BaseURL            string
+	BinaryPath         string
+	WorkDir            string
+	SessionAPIURL      string
+	InternalToken      string
+	ConfigDir          string
+	DefaultProjectRoot string
+	RunnerMode         string
+	Transport          string
+	CommandArgs        []string
+	Agent              AgentLaunchConfig
 }
 
 type AgentLaunchConfig struct {
@@ -42,16 +41,6 @@ type AgentLaunchConfig struct {
 	ModelName     string
 	APIKey        string
 	BaseURL       string
-}
-
-type GatewaySkillsConfig struct {
-	Path   string             `json:"path"`
-	Skills []GatewaySkillInfo `json:"skills"`
-}
-
-type GatewaySkillInfo struct {
-	Name        string `json:"name"`
-	Description string `json:"Description"`
 }
 
 type AgentProcess struct {
@@ -217,19 +206,19 @@ func processSpecFromConfig(cfg config.Config, instanceID, agentID string, port i
 	host := "127.0.0.1"
 	baseURL := "http://" + host + ":" + strconv.Itoa(port)
 	return StartAgentInstanceSpec{
-		InstanceID:    instanceID,
-		AgentID:       agentID,
-		Host:          host,
-		Port:          port,
-		BaseURL:       baseURL,
-		BinaryPath:    cfg.ClawBinaryPath,
-		WorkDir:       cfg.ClawWorkDir,
-		SessionAPIURL: cfg.SessionAPIURL,
-		InternalToken: cfg.InternalToken,
-		ConfigDir:     cfg.ClawConfigDir,
-		GatewaySkills: GatewaySkillsConfig{Path: filepath.Join(cfg.GatewaySkillsDir, "active")},
-		RunnerMode:    cfg.ClawRunnerMode,
-		Transport:     "http",
+		InstanceID:         instanceID,
+		AgentID:            agentID,
+		Host:               host,
+		Port:               port,
+		BaseURL:            baseURL,
+		BinaryPath:         cfg.ClawBinaryPath,
+		WorkDir:            cfg.ClawWorkDir,
+		SessionAPIURL:      cfg.SessionAPIURL,
+		InternalToken:      cfg.InternalToken,
+		ConfigDir:          cfg.ClawConfigDir,
+		DefaultProjectRoot: filepath.Join(cfg.GatewaySkillsRoot(), "active"),
+		RunnerMode:         cfg.ClawRunnerMode,
+		Transport:          "http",
 	}
 }
 
@@ -246,12 +235,8 @@ func writeClawConfig(spec StartAgentInstanceSpec) (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("resolve claw config path: %w", err)
 	}
-	gatewaySkillsJSON, err := json.Marshal(map[string]any{"gateway_skills": spec.GatewaySkills})
-	if err != nil {
-		return "", fmt.Errorf("encode gateway skills: %w", err)
-	}
 	payload := fmt.Sprintf(
-		"http_addr = %q\nsession_api_url = %q\ninternal_token = %q\nrunner_mode = %q\n\n[agent]\nagent_id = %q\nprovider_id = %q\nmodel_provider = %q\nmodel_name = %q\nbase_url = %q\napi_key_set = %t\n\n[gateway_skills]\npath = %q\njson = %q\n",
+		"http_addr = %q\nsession_api_url = %q\ninternal_token = %q\nrunner_mode = %q\n\n[agent]\nagent_id = %q\nprovider_id = %q\nmodel_provider = %q\nmodel_name = %q\nbase_url = %q\napi_key_set = %t\n\n[gateway_skills]\npath = %q\n",
 		spec.Host+":"+strconv.Itoa(spec.Port),
 		spec.SessionAPIURL,
 		spec.InternalToken,
@@ -262,8 +247,7 @@ func writeClawConfig(spec StartAgentInstanceSpec) (string, error) {
 		spec.Agent.ModelName,
 		spec.Agent.BaseURL,
 		spec.Agent.APIKey != "",
-		spec.GatewaySkills.Path,
-		string(gatewaySkillsJSON),
+		spec.DefaultProjectRoot,
 	)
 	if err := os.WriteFile(absPath, []byte(payload), 0o600); err != nil {
 		return "", fmt.Errorf("write claw config: %w", err)

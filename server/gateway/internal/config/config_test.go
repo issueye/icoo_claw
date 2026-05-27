@@ -3,6 +3,7 @@ package config
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 )
@@ -40,6 +41,9 @@ internal_token = "token"
 	if cfg.ClawWorkDir != filepath.Dir(path) || cfg.ClawConfigDir != filepath.Join(filepath.Dir(path), "tmp", "claw_configs") {
 		t.Fatalf("path config = %+v", cfg)
 	}
+	if cfg.GatewaySkillsRoot() != filepath.Join(cfg.GatewayWorkDir, ".skills") {
+		t.Fatalf("gateway skills root = %q, work dir = %q", cfg.GatewaySkillsRoot(), cfg.GatewayWorkDir)
+	}
 	if cfg.ClawPortStart != 9101 || cfg.ClawPortEnd != 9199 || cfg.MaxAgentInstances != 8 {
 		t.Fatalf("ports/instances = %+v", cfg)
 	}
@@ -48,6 +52,21 @@ internal_token = "token"
 	}
 	if cfg.SessionAPIURL != "http://127.0.0.1:18080" || cfg.InternalToken != "token" {
 		t.Fatalf("remote config = %+v", cfg)
+	}
+}
+
+func TestLoadFileIgnoresRemovedGatewaySkillsDir(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "gateway.toml")
+	if err := os.WriteFile(path, []byte(`gateway_skills_dir = "./legacy_skills"`), 0o600); err != nil {
+		t.Fatalf("write config: %v", err)
+	}
+
+	cfg, err := LoadFile(path)
+	if err != nil {
+		t.Fatalf("load file: %v", err)
+	}
+	if strings.Contains(cfg.GatewaySkillsRoot(), "legacy_skills") {
+		t.Fatalf("gateway skills root = %q, removed config should be ignored", cfg.GatewaySkillsRoot())
 	}
 }
 

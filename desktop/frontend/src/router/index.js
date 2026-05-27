@@ -9,6 +9,7 @@ import QqUedView from '@/views/QqUedView.vue'
 import ScheduledTasksView from '@/views/ScheduledTasksView.vue'
 import SearchView from '@/views/SearchView.vue'
 import SettingsView from '@/views/SettingsView.vue'
+import SkillsView from '@/views/SkillsView.vue'
 
 const router = createRouter({
   history: createWebHistory(),
@@ -43,12 +44,7 @@ const router = createRouter({
         {
           path: '/skills',
           name: 'skills',
-          component: PlaceholderView,
-          meta: {
-            eyebrow: '占位模块',
-            title: 'Skills',
-            description: '技能管理后续再接入，当前版本只保留导航和信息架子。',
-          },
+          component: SkillsView,
         },
         {
           path: '/plugins',

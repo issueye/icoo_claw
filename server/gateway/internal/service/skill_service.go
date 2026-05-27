@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"regexp"
 	"sort"
 	"strings"
 	"time"
@@ -17,16 +18,32 @@ import (
 )
 
 type SkillService struct {
-	cfg  SkillGatewayConfig
-	repo repository.SkillRepository
+	baseDir string
+	repo    repository.SkillRepository
 }
 
-type SkillGatewayConfig struct {
-	BaseDir string
+var skillNameRegexp = regexp.MustCompile(`^[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?$`)
+
+func NewSkillService(baseDir string, repo repository.SkillRepository) *SkillService {
+	return &SkillService{baseDir: filepath.Clean(strings.TrimSpace(baseDir)), repo: repo}
 }
 
-func NewSkillService(cfg SkillGatewayConfig, repo repository.SkillRepository) *SkillService {
-	return &SkillService{cfg: cfg, repo: repo}
+func (s *SkillService) EnsureLayout() error {
+	if strings.TrimSpace(s.baseDir) == "" || s.baseDir == "." {
+		return fmt.Errorf("gateway skills base dir is required")
+	}
+	for _, dir := range []string{
+		s.baseDir,
+		s.ActiveSkillPath(),
+		s.activeSkillsRoot(),
+		filepath.Join(s.baseDir, "versions"),
+		filepath.Join(s.baseDir, "agents"),
+	} {
+		if err := os.MkdirAll(dir, 0o755); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func (s *SkillService) Create(ctx context.Context, req dto.CreateSkillRequest) (*dto.SkillProfile, error) {
@@ -47,7 +64,10 @@ func (s *SkillService) Create(ctx context.Context, req dto.CreateSkillRequest) (
 	if skill.ID == "" {
 		skill.ID = "skill_" + randomID()
 	}
-	if err := s.publishSkillFiles(skill); err != nil {
+	if !isValidSkillName(skill.Name) {
+		return nil, invalidSkillNameError(skill.Name)
+	}
+	if err := s.publishSkillFiles(skill, req.Files); err != nil {
 		return nil, err
 	}
 	if err := s.repo.Create(ctx, skill); err != nil {
@@ -105,8 +125,11 @@ func (s *SkillService) Update(ctx context.Context, id string, req dto.UpdateSkil
 	if req.Metadata != nil {
 		skill.MetadataJSON = mustAnyJSON(req.Metadata)
 	}
+	if !isValidSkillName(skill.Name) {
+		return nil, invalidSkillNameError(skill.Name)
+	}
 	skill.UpdatedAt = time.Now().UTC()
-	if err := s.publishSkillFiles(*skill); err != nil {
+	if err := s.publishSkillFiles(*skill, req.Files); err != nil {
 		return nil, err
 	}
 	if err := s.repo.Update(ctx, *skill); err != nil {
@@ -154,26 +177,68 @@ func (s *SkillService) SyncSummary(ctx context.Context) (*dto.SkillSummary, erro
 	}
 	sort.Slice(items, func(i, j int) bool { return items[i].Name < items[j].Name })
 	return &dto.SkillSummary{
-		Path:   s.activeSkillPath(),
 		Skills: items,
 	}, nil
 }
 
-func (s *SkillService) publishSkillFiles(skill model.SkillProfile) error {
-	if strings.TrimSpace(s.cfg.BaseDir) == "" {
+func (s *SkillService) PublishForAgent(agentID, skillIDsJSON string) (string, error) {
+	if strings.TrimSpace(s.baseDir) == "" {
+		return "", nil
+	}
+	names := cleanStringSlice(parseStringSlice(skillIDsJSON))
+	if len(names) == 0 {
+		return s.ActiveSkillPath(), nil
+	}
+	for _, name := range names {
+		if !isValidSkillName(name) {
+			return "", invalidSkillNameError(name)
+		}
+	}
+
+	root := s.agentSkillPath(agentID)
+	if err := os.RemoveAll(root); err != nil {
+		return "", err
+	}
+	for _, name := range names {
+		source := filepath.Join(s.activeSkillsRoot(), name, "SKILL.md")
+		target := filepath.Join(root, ".agents", "skills", name, "SKILL.md")
+		if err := copyFile(source, target); err != nil {
+			return "", fmt.Errorf("publish skill %s for agent %s: %w", name, agentID, err)
+		}
+	}
+	return root, nil
+}
+
+func (s *SkillService) publishSkillFiles(skill model.SkillProfile, files []dto.SkillFile) error {
+	if strings.TrimSpace(s.baseDir) == "" {
 		return nil
 	}
 	if strings.TrimSpace(skill.Name) == "" || strings.TrimSpace(skill.Path) == "" {
 		return fmt.Errorf("skill name and path are required")
 	}
-	versionRoot := filepath.Join(s.cfg.BaseDir, "versions", skill.Name, skill.Version)
-	if err := writeSkillFile(versionRoot, skill); err != nil {
+	versionRoot := filepath.Join(s.baseDir, "versions", skill.Name, skill.Version)
+	if err := writeSkillPackage(versionRoot, skill, files); err != nil {
 		return err
 	}
 	if skill.Status != "active" {
 		return os.RemoveAll(filepath.Join(s.activeSkillsRoot(), skill.Name))
 	}
-	return writeSkillFile(filepath.Join(s.activeSkillsRoot(), skill.Name), skill)
+	return writeSkillPackage(filepath.Join(s.activeSkillsRoot(), skill.Name), skill, files)
+}
+
+func writeSkillPackage(root string, skill model.SkillProfile, files []dto.SkillFile) error {
+	if err := os.RemoveAll(root); err != nil {
+		return err
+	}
+	if err := writeSkillFile(root, skill); err != nil {
+		return err
+	}
+	for _, file := range files {
+		if err := writeSupportFile(root, file); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func writeSkillFile(root string, skill model.SkillProfile) error {
@@ -185,25 +250,94 @@ func writeSkillFile(root string, skill model.SkillProfile) error {
 	return os.WriteFile(filepath.Join(root, "SKILL.md"), []byte(content), 0o600)
 }
 
+func writeSupportFile(root string, file dto.SkillFile) error {
+	rel := filepath.Clean(filepath.FromSlash(strings.TrimSpace(file.Path)))
+	if rel == "" || rel == "." || filepath.IsAbs(rel) || strings.HasPrefix(rel, ".."+string(filepath.Separator)) || rel == ".." {
+		return fmt.Errorf("invalid skill support file path %q", file.Path)
+	}
+	if strings.EqualFold(rel, "SKILL.md") {
+		return nil
+	}
+	top := strings.Split(filepath.ToSlash(rel), "/")[0]
+	switch top {
+	case "assets", "references", "scripts":
+	default:
+		return fmt.Errorf("unsupported skill support file path %q", file.Path)
+	}
+	target := filepath.Join(root, rel)
+	if err := os.MkdirAll(filepath.Dir(target), 0o755); err != nil {
+		return err
+	}
+	return os.WriteFile(target, []byte(file.Content), 0o600)
+}
+
 func (s *SkillService) removeSkillFiles(skill model.SkillProfile) error {
-	if strings.TrimSpace(s.cfg.BaseDir) == "" {
+	if strings.TrimSpace(s.baseDir) == "" {
 		return nil
 	}
 	return errorsJoin(
-		os.RemoveAll(filepath.Join(s.cfg.BaseDir, "versions", skill.Name)),
+		os.RemoveAll(filepath.Join(s.baseDir, "versions", skill.Name)),
 		os.RemoveAll(filepath.Join(s.activeSkillsRoot(), skill.Name)),
 	)
 }
 
-func (s *SkillService) activeSkillPath() string {
-	if strings.TrimSpace(s.cfg.BaseDir) == "" {
+func (s *SkillService) ActiveSkillPath() string {
+	if strings.TrimSpace(s.baseDir) == "" {
 		return ""
 	}
-	return filepath.Clean(filepath.Join(s.cfg.BaseDir, "active"))
+	return filepath.Clean(filepath.Join(s.baseDir, "active"))
 }
 
 func (s *SkillService) activeSkillsRoot() string {
-	return filepath.Join(s.activeSkillPath(), ".agents", "skills")
+	return filepath.Join(s.ActiveSkillPath(), ".agents", "skills")
+}
+
+func (s *SkillService) agentSkillPath(agentID string) string {
+	agentID = sanitizePathComponent(agentID)
+	return filepath.Clean(filepath.Join(s.baseDir, "agents", agentID))
+}
+
+func copyFile(source, target string) error {
+	data, err := os.ReadFile(source)
+	if err != nil {
+		return err
+	}
+	if err := os.MkdirAll(filepath.Dir(target), 0o755); err != nil {
+		return err
+	}
+	return os.WriteFile(target, data, 0o600)
+}
+
+func isValidSkillName(name string) bool {
+	return skillNameRegexp.MatchString(strings.TrimSpace(name))
+}
+
+func invalidSkillNameError(name string) error {
+	return fmt.Errorf("invalid skill name %q (must be 1-64 chars, lowercase alphanumeric + hyphens)", name)
+}
+
+func sanitizePathComponent(value string) string {
+	value = strings.TrimSpace(value)
+	if value == "" {
+		return "default"
+	}
+	var b strings.Builder
+	for _, r := range value {
+		switch {
+		case r >= 'a' && r <= 'z',
+			r >= 'A' && r <= 'Z',
+			r >= '0' && r <= '9',
+			r == '-', r == '_':
+			b.WriteRune(r)
+		default:
+			b.WriteByte('-')
+		}
+	}
+	out := strings.Trim(b.String(), "-")
+	if out == "" {
+		return "default"
+	}
+	return out
 }
 
 func defaultSkillBody(skill model.SkillProfile) string {

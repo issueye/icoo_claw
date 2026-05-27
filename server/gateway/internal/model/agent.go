@@ -17,7 +17,6 @@ type AgentProfile struct {
 	NetworkAllowJSON  string `gorm:"column:network_allow;type:text"`
 	MCPServerIDsJSON  string `gorm:"column:mcp_server_ids;type:text"`
 	SkillIDsJSON      string `gorm:"column:skill_ids;type:text"`
-	GatewaySkillsJSON string `gorm:"column:gateway_skills;type:text"`
 	Enabled           bool
 	CreatedAt         time.Time
 	UpdatedAt         time.Time

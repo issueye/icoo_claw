@@ -75,9 +75,9 @@ func (r *memorySkillRepo) Delete(_ context.Context, id string) error {
 }
 
 func TestSkillServiceCreatePublishesActiveSkillRoot(t *testing.T) {
-	root := t.TempDir()
+	root := filepath.Join(t.TempDir(), ".skills")
 	repo := &memorySkillRepo{}
-	svc := NewSkillService(SkillGatewayConfig{BaseDir: root}, repo)
+	svc := NewSkillService(root, repo)
 
 	skill, err := svc.Create(context.Background(), dto.CreateSkillRequest{
 		ID:          "skill_1",
@@ -106,10 +106,117 @@ func TestSkillServiceCreatePublishesActiveSkillRoot(t *testing.T) {
 	if err != nil {
 		t.Fatalf("summary: %v", err)
 	}
-	if summary.Path != filepath.Join(root, "active") {
-		t.Fatalf("summary path = %q", summary.Path)
-	}
 	if len(summary.Skills) != 1 || summary.Skills[0].Name != "doc-writer" {
 		t.Fatalf("summary skills = %+v", summary.Skills)
+	}
+}
+
+func TestSkillServiceEnsureLayoutCreatesSkillsStructure(t *testing.T) {
+	root := filepath.Join(t.TempDir(), ".skills")
+	svc := NewSkillService(root, &memorySkillRepo{})
+
+	if err := svc.EnsureLayout(); err != nil {
+		t.Fatalf("ensure layout: %v", err)
+	}
+	for _, path := range []string{
+		root,
+		filepath.Join(root, "active"),
+		filepath.Join(root, "active", ".agents", "skills"),
+		filepath.Join(root, "versions"),
+		filepath.Join(root, "agents"),
+	} {
+		info, err := os.Stat(path)
+		if err != nil {
+			t.Fatalf("stat %s: %v", path, err)
+		}
+		if !info.IsDir() {
+			t.Fatalf("%s is not a directory", path)
+		}
+	}
+}
+
+func TestSkillServiceRejectsInvalidSkillName(t *testing.T) {
+	svc := NewSkillService(t.TempDir(), &memorySkillRepo{})
+
+	_, err := svc.Create(context.Background(), dto.CreateSkillRequest{
+		ID:          "skill_1",
+		Name:        "Doc Writer",
+		Description: "Write documents",
+		Path:        "docs/doc-writer",
+	})
+	if err == nil {
+		t.Fatal("expected invalid skill name error")
+	}
+}
+
+func TestSkillServicePublishForAgentFiltersBoundSkills(t *testing.T) {
+	root := filepath.Join(t.TempDir(), ".skills")
+	repo := &memorySkillRepo{}
+	svc := NewSkillService(root, repo)
+
+	for _, req := range []dto.CreateSkillRequest{
+		{ID: "skill_1", Name: "doc-writer", Description: "Write documents", Path: "docs/doc-writer"},
+		{ID: "skill_2", Name: "docker-helper", Description: "Docker help", Path: "tools/docker"},
+	} {
+		if _, err := svc.Create(context.Background(), req); err != nil {
+			t.Fatalf("create skill %s: %v", req.Name, err)
+		}
+	}
+
+	agentRoot, err := svc.PublishForAgent("agent_1", `["doc-writer"]`)
+	if err != nil {
+		t.Fatalf("publish for agent: %v", err)
+	}
+	if _, err := os.Stat(filepath.Join(agentRoot, ".agents", "skills", "doc-writer", "SKILL.md")); err != nil {
+		t.Fatalf("bound skill missing: %v", err)
+	}
+	if _, err := os.Stat(filepath.Join(agentRoot, ".agents", "skills", "docker-helper", "SKILL.md")); !os.IsNotExist(err) {
+		t.Fatalf("unbound skill should not be published, stat err = %v", err)
+	}
+}
+
+func TestSkillServiceCreatePublishesSupportFiles(t *testing.T) {
+	root := filepath.Join(t.TempDir(), ".skills")
+	svc := NewSkillService(root, &memorySkillRepo{})
+
+	if _, err := svc.Create(context.Background(), dto.CreateSkillRequest{
+		ID:          "skill_1",
+		Name:        "doc-writer",
+		Description: "Write documents",
+		Path:        "doc-writer",
+		Files: []dto.SkillFile{
+			{Path: "references/guide.md", Content: "guide"},
+			{Path: "scripts/run.ps1", Content: "Write-Output ok"},
+			{Path: "assets/sample.txt", Content: "asset"},
+		},
+	}); err != nil {
+		t.Fatalf("create skill: %v", err)
+	}
+
+	for _, rel := range []string{"references/guide.md", "scripts/run.ps1", "assets/sample.txt"} {
+		path := filepath.Join(root, "active", ".agents", "skills", "doc-writer", filepath.FromSlash(rel))
+		data, err := os.ReadFile(path)
+		if err != nil {
+			t.Fatalf("read support file %s: %v", rel, err)
+		}
+		if len(data) == 0 {
+			t.Fatalf("support file %s was empty", rel)
+		}
+	}
+}
+
+func TestSkillServiceRejectsEscapingSupportFilePath(t *testing.T) {
+	root := filepath.Join(t.TempDir(), ".skills")
+	svc := NewSkillService(root, &memorySkillRepo{})
+
+	_, err := svc.Create(context.Background(), dto.CreateSkillRequest{
+		ID:          "skill_1",
+		Name:        "doc-writer",
+		Description: "Write documents",
+		Path:        "doc-writer",
+		Files:       []dto.SkillFile{{Path: "../outside.txt", Content: "nope"}},
+	})
+	if err == nil {
+		t.Fatal("expected invalid support file path error")
 	}
 }

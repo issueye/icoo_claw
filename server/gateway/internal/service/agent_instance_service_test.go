@@ -3,6 +3,8 @@ package service
 import (
 	"context"
 	"errors"
+	"os"
+	"path/filepath"
 	"testing"
 	"time"
 
@@ -236,6 +238,68 @@ func TestAgentInstanceServiceStartUsesAgentCommandArgs(t *testing.T) {
 	}
 	if !stringSlicesEqual(started.CommandArgs, want) {
 		t.Fatalf("dto command args = %+v, want %+v", started.CommandArgs, want)
+	}
+}
+
+func TestAgentInstanceServiceStartPublishesBoundSkillRoot(t *testing.T) {
+	root := filepath.Join(t.TempDir(), ".skills")
+	skillRepo := &memorySkillRepo{}
+	skills := NewSkillService(root, skillRepo)
+	if _, err := skills.Create(context.Background(), dto.CreateSkillRequest{
+		ID:          "skill_1",
+		Name:        "doc-writer",
+		Description: "Write documents",
+		Path:        "docs/doc-writer",
+	}); err != nil {
+		t.Fatalf("create skill: %v", err)
+	}
+
+	repo := &memoryInstanceRepo{}
+	supervisor := &captureSupervisor{}
+	svc := NewAgentInstanceService(
+		config.Config{ClawPortStart: 8101, ClawPortEnd: 8101, MaxAgentInstances: 1},
+		instanceAgentRepo{agent: model.AgentProfile{
+			ID:           "agent_1",
+			Name:         "Default",
+			SkillIDsJSON: `["doc-writer"]`,
+		}},
+		nil,
+		repo,
+		supervisor,
+		skills,
+	)
+
+	started, err := svc.Start(context.Background(), dto.StartAgentInstanceRequest{AgentID: "agent_1"})
+	if err != nil {
+		t.Fatalf("start: %v", err)
+	}
+	wantRoot := filepath.Join(root, "agents", started.ID)
+	if supervisor.spec.DefaultProjectRoot != wantRoot {
+		t.Fatalf("default project root = %q, want %q", supervisor.spec.DefaultProjectRoot, wantRoot)
+	}
+	if _, err := os.Stat(filepath.Join(wantRoot, ".agents", "skills", "doc-writer", "SKILL.md")); err != nil {
+		t.Fatalf("published skill missing: %v", err)
+	}
+}
+
+func TestAgentInstanceServiceStartDefaultsToActiveSkillsRoot(t *testing.T) {
+	workDir := t.TempDir()
+	repo := &memoryInstanceRepo{}
+	supervisor := &captureSupervisor{}
+	svc := NewAgentInstanceService(
+		config.Config{ClawPortStart: 8101, ClawPortEnd: 8101, MaxAgentInstances: 1, GatewayWorkDir: workDir},
+		instanceAgentRepo{agent: model.AgentProfile{ID: "agent_1", Name: "Default"}},
+		nil,
+		repo,
+		supervisor,
+	)
+
+	if _, err := svc.Start(context.Background(), dto.StartAgentInstanceRequest{AgentID: "agent_1"}); err != nil {
+		t.Fatalf("start: %v", err)
+	}
+	wantRoot := filepath.Join(workDir, ".skills", "active")
+	if supervisor.spec.DefaultProjectRoot != wantRoot {
+		t.Fatalf("default project root = %q, want %q", supervisor.spec.DefaultProjectRoot, wantRoot)
 	}
 }
 

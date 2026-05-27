@@ -65,10 +65,13 @@ func NewContainer(cfgPath string) (*Container, error) {
 	sessionService := sessionservice.NewSessionService(sessionRepository)
 	providerService := service.NewProviderService(providerRepository)
 	agentService := service.NewAgentService(agentRepository)
-	skillService := service.NewSkillService(service.SkillGatewayConfig{BaseDir: cfg.GatewaySkillsDir}, skillRepository)
+	skillService := service.NewSkillService(cfg.GatewaySkillsRoot(), skillRepository)
+	if err := skillService.EnsureLayout(); err != nil {
+		return nil, fmt.Errorf("prepare gateway skills directory: %w", err)
+	}
 	acpRegistry := client.NewACPRegistry()
 	agentRunner := client.NewAgentRunner(client.NewClawClient(nil, cfg.InternalToken), acpRegistry)
-	instanceService := service.NewAgentInstanceService(cfg, agentRepository, providerRepository, instanceRepository, service.NewLocalProcessSupervisor(acpRegistry))
+	instanceService := service.NewAgentInstanceService(cfg, agentRepository, providerRepository, instanceRepository, service.NewLocalProcessSupervisor(acpRegistry), skillService)
 	taskService := service.NewScheduledTaskService(taskRepository, taskRunRepository, agentRepository, providerRepository, instanceRepository, instanceService, agentRunner, skillService)
 	routerPolicy := service.NewDefaultRouterPolicy(conversationRepository, instanceRepository, instanceService)
 	chatService := service.NewChatService(
@@ -169,7 +172,7 @@ func (c *Container) printStartupBanner() {
 		displayValue(c.Config.ClawBinaryPath, "auto"),
 		displayValue(c.Config.ClawWorkDir, "current"),
 		displayValue(c.Config.ClawConfigDir, "data/claw_configs"),
-		displayValue(c.Config.GatewaySkillsDir, "data/gateway_skills"),
+		displayValue(c.Config.GatewaySkillsRoot(), ".skills"),
 		c.Config.ClawPortStart,
 		c.Config.ClawPortEnd,
 		c.Config.MaxAgentInstances,

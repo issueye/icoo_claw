@@ -77,7 +77,12 @@ func (s *ScheduledTaskService) Create(ctx context.Context, req dto.CreateSchedul
 	if task.ID == "" {
 		task.ID = "task_" + randomID()
 	}
-	payloadJSON, err := encodePayload(req.Payload)
+	payload := req.Payload
+	if len(req.ForceSkills) > 0 {
+		payload = clonePayload(payload)
+		payload["force_skills"] = cleanStringSlice(req.ForceSkills)
+	}
+	payloadJSON, err := encodePayload(payload)
 	if err != nil {
 		return nil, err
 	}
@@ -143,6 +148,15 @@ func (s *ScheduledTaskService) Update(ctx context.Context, id string, req dto.Up
 	}
 	if req.Enabled != nil {
 		task.Enabled = *req.Enabled
+	}
+	if req.ForceSkills != nil {
+		payload := decodePayload(task.PayloadJSON)
+		payload["force_skills"] = cleanStringSlice(req.ForceSkills)
+		encoded, err := encodePayload(payload)
+		if err != nil {
+			return nil, err
+		}
+		task.PayloadJSON = encoded
 	}
 	task.UpdatedAt = time.Now().UTC()
 	if err := s.applySchedule(task, task.UpdatedAt); err != nil {
@@ -358,6 +372,7 @@ func toScheduledTaskDTO(task model.ScheduledTask) *dto.ScheduledTask {
 		ScheduleValue: task.ScheduleValue,
 		ActionType:    task.ActionType,
 		Payload:       decodePayload(task.PayloadJSON),
+		ForceSkills:   payloadForceSkills(decodePayload(task.PayloadJSON)),
 		Enabled:       task.Enabled,
 		Status:        task.Status,
 		LastRunAt:     task.LastRunAt,
@@ -467,6 +482,7 @@ func (s *ScheduledTaskService) executeAgentTask(ctx context.Context, task model.
 		Prompt:        prompt,
 		Agent:         agentPayload,
 		ToolWhitelist: parseStringSlice(agent.ToolWhitelistJSON),
+		ForceSkills:   payloadForceSkills(payload),
 		Metadata:      metadata,
 	})
 	if err != nil {
@@ -484,18 +500,6 @@ func (s *ScheduledTaskService) executeAgentTask(ctx context.Context, task model.
 
 func (s *ScheduledTaskService) agentProfilePayload(ctx context.Context, agent model.AgentProfile, provider *model.ProviderProfile, metadata map[string]any) (map[string]any, error) {
 	profile := agentProfileMap(agent, provider, metadata)
-	if s != nil && s.skills != nil {
-		summary, err := s.skills.SyncSummary(ctx)
-		if err != nil {
-			return nil, err
-		}
-		profile["gateway_skills"] = summary
-		if projectRoot := strings.TrimSpace(summary.Path); projectRoot != "" {
-			if _, exists := profile["project_root"]; !exists {
-				profile["project_root"] = projectRoot
-			}
-		}
-	}
 	return profile, nil
 }
 
@@ -608,6 +612,34 @@ func payloadMetadata(payload map[string]any) map[string]any {
 		return out
 	}
 	return nil
+}
+
+func clonePayload(payload map[string]any) map[string]any {
+	out := make(map[string]any, len(payload)+1)
+	for k, v := range payload {
+		out[k] = v
+	}
+	return out
+}
+
+func payloadForceSkills(payload map[string]any) []string {
+	if payload == nil {
+		return nil
+	}
+	switch raw := payload["force_skills"].(type) {
+	case []string:
+		return cleanStringSlice(raw)
+	case []any:
+		values := make([]string, 0, len(raw))
+		for _, item := range raw {
+			if text, ok := item.(string); ok {
+				values = append(values, text)
+			}
+		}
+		return cleanStringSlice(values)
+	default:
+		return nil
+	}
 }
 
 func taskSessionID(taskID string, now time.Time) string {

@@ -3,6 +3,7 @@ package service
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"icoo_claw/server/gateway/internal/config"
@@ -68,12 +69,21 @@ func TestWriteClawConfigReturnsAbsolutePath(t *testing.T) {
 	if _, err := os.Stat(path); err != nil {
 		t.Fatalf("stat config: %v", err)
 	}
+	payload, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatalf("read config: %v", err)
+	}
+	if strings.Contains(string(payload), "json =") {
+		t.Fatalf("gateway skills JSON should not be written: %s", payload)
+	}
 }
 
 func TestProcessSpecFromConfigDefaultsToHTTPTransport(t *testing.T) {
+	workDir := t.TempDir()
 	spec := processSpecFromConfig(config.Config{
-		ClawPortStart: 8101,
-		ClawPortEnd:   8102,
+		ClawPortStart:  8101,
+		ClawPortEnd:    8102,
+		GatewayWorkDir: workDir,
 	}, "inst_http", "agent_1", 8101)
 
 	if spec.Transport != "http" {
@@ -81,5 +91,9 @@ func TestProcessSpecFromConfigDefaultsToHTTPTransport(t *testing.T) {
 	}
 	if spec.BaseURL != "http://127.0.0.1:8101" {
 		t.Fatalf("baseURL = %q, want http instance URL", spec.BaseURL)
+	}
+	wantSkillsPath := filepath.Join(workDir, ".skills", "active")
+	if spec.DefaultProjectRoot != wantSkillsPath {
+		t.Fatalf("default project root = %q, want %q", spec.DefaultProjectRoot, wantSkillsPath)
 	}
 }

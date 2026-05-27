@@ -149,9 +149,10 @@ func (s *chatWSSession) startStream(ctx context.Context, req dto.ChatWSRequest) 
 	}
 	runCtx, cancel := context.WithCancel(ctx)
 	events, err := s.chat.StreamMessage(runCtx, req.ConversationID, dto.SendMessageRequest{
-		Prompt:    req.Prompt,
-		RequestID: req.RequestID,
-		Metadata:  req.Metadata,
+		Prompt:      req.Prompt,
+		RequestID:   req.RequestID,
+		ForceSkills: req.ForceSkills,
+		Metadata:    req.Metadata,
 	})
 	if err != nil {
 		s.stateMu.Unlock()

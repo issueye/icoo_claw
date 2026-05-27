@@ -101,6 +101,30 @@ func TestScheduledTaskServiceCreateInterval(t *testing.T) {
 	}
 }
 
+func TestScheduledTaskServiceCreateStoresForceSkills(t *testing.T) {
+	repo := &memoryScheduledTaskRepo{}
+	svc := NewScheduledTaskService(repo, nil, nil, nil, nil, nil, nil)
+
+	task, err := svc.Create(context.Background(), dto.CreateScheduledTaskRequest{
+		Name:          "Skill task",
+		ScheduleType:  "interval",
+		ScheduleValue: "5m",
+		ActionType:    "agent_prompt",
+		AgentID:       "agent_1",
+		Payload:       map[string]any{"prompt": "hello"},
+		ForceSkills:   []string{" doc-writer ", ""},
+	})
+	if err != nil {
+		t.Fatalf("create: %v", err)
+	}
+	if len(task.ForceSkills) != 1 || task.ForceSkills[0] != "doc-writer" {
+		t.Fatalf("force skills = %+v", task.ForceSkills)
+	}
+	if raw := task.Payload["force_skills"]; raw == nil {
+		t.Fatalf("payload force_skills missing: %+v", task.Payload)
+	}
+}
+
 func TestScheduledTaskServiceRunDueCompletesOnce(t *testing.T) {
 	now := time.Now().UTC()
 	repo := &memoryScheduledTaskRepo{tasks: []model.ScheduledTask{

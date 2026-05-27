@@ -133,6 +133,7 @@ func (s *ChatService) SendMessage(ctx context.Context, conversationID string, re
 		Prompt:        req.Prompt,
 		Agent:         agentPayload,
 		ToolWhitelist: parseStringSlice(agent.ToolWhitelistJSON),
+		ForceSkills:   cleanStringSlice(req.ForceSkills),
 		Metadata:      req.Metadata,
 	})
 	if err != nil {
@@ -183,6 +184,7 @@ func (s *ChatService) StreamMessage(ctx context.Context, conversationID string, 
 		Prompt:        req.Prompt,
 		Agent:         agentPayload,
 		ToolWhitelist: parseStringSlice(agent.ToolWhitelistJSON),
+		ForceSkills:   cleanStringSlice(req.ForceSkills),
 		Metadata:      req.Metadata,
 	})
 	if err != nil {
@@ -342,18 +344,6 @@ func toConversationDTO(conversation model.Conversation) *dto.Conversation {
 
 func (s *ChatService) agentProfilePayload(ctx context.Context, agent model.AgentProfile, provider *model.ProviderProfile, metadata map[string]any) (map[string]any, error) {
 	profile := agentProfileMap(agent, provider, metadata)
-	if s != nil && s.skills != nil {
-		summary, err := s.skills.SyncSummary(ctx)
-		if err != nil {
-			return nil, err
-		}
-		profile["gateway_skills"] = summary
-		if projectRoot := strings.TrimSpace(summary.Path); projectRoot != "" {
-			if _, exists := profile["project_root"]; !exists {
-				profile["project_root"] = projectRoot
-			}
-		}
-	}
 	return profile, nil
 }
 

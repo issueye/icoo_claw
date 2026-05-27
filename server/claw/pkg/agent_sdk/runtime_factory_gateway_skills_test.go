@@ -1,18 +1,11 @@
 package agent_sdk
 
-import "testing"
+import (
+	"strings"
+	"testing"
+)
 
-func TestGatewaySkillsFromJSON(t *testing.T) {
-	got := GatewaySkillsFromJSON(`{"gateway_skills":{"path":"E:/skills/active","skills":[{"name":"doc-writer","Description":"Write docs"}]}}`)
-	if got.Path != "E:/skills/active" {
-		t.Fatalf("path = %q", got.Path)
-	}
-	if len(got.Skills) != 1 || got.Skills[0].Name != "doc-writer" || got.Skills[0].Description != "Write docs" {
-		t.Fatalf("skills = %+v", got.Skills)
-	}
-}
-
-func TestParseAgentProfileUsesGatewaySkillsPathAsProjectRoot(t *testing.T) {
+func TestParseAgentProfileIgnoresGatewaySkillsRequestPayload(t *testing.T) {
 	profile := parseAgentProfile(map[string]any{
 		"gateway_skills": map[string]any{
 			"path": "E:/skills/active",
@@ -21,10 +14,36 @@ func TestParseAgentProfileUsesGatewaySkillsPathAsProjectRoot(t *testing.T) {
 			},
 		},
 	})
-	if profile.ProjectRoot != "E:/skills/active" {
-		t.Fatalf("project root = %q", profile.ProjectRoot)
+	if profile.ProjectRoot != "" {
+		t.Fatalf("project root = %q, want empty request profile root", profile.ProjectRoot)
 	}
-	if len(profile.GatewaySkills.Skills) != 1 || profile.GatewaySkills.Skills[0].Name != "doc-writer" {
-		t.Fatalf("gateway skills = %+v", profile.GatewaySkills)
+}
+
+func TestRuntimeFactoryDefaultProjectRootKeepsRequestProjectRoot(t *testing.T) {
+	factory := NewRuntimeFactory(nil, nil)
+	factory.SetDefaultProjectRoot("E:/skills/agent")
+
+	profile := parseAgentProfile(map[string]any{"project_root": "E:/user/project"})
+	if profile.ProjectRoot != "E:/user/project" {
+		t.Fatalf("parsed project root = %q", profile.ProjectRoot)
+	}
+	if strings.TrimSpace(profile.ProjectRoot) == "" && factory.defaultProjectRoot != "" {
+		profile.ProjectRoot = factory.defaultProjectRoot
+	}
+	if profile.ProjectRoot != "E:/user/project" {
+		t.Fatalf("runtime project root = %q, want request project root", profile.ProjectRoot)
+	}
+}
+
+func TestRuntimeFactoryDefaultProjectRootFillsEmptyProjectRoot(t *testing.T) {
+	factory := NewRuntimeFactory(nil, nil)
+	factory.SetDefaultProjectRoot("E:/skills/agent")
+
+	profile := parseAgentProfile(nil)
+	if strings.TrimSpace(profile.ProjectRoot) == "" && factory.defaultProjectRoot != "" {
+		profile.ProjectRoot = factory.defaultProjectRoot
+	}
+	if profile.ProjectRoot != "E:/skills/agent" {
+		t.Fatalf("runtime project root = %q, want gateway skills root", profile.ProjectRoot)
 	}
 }

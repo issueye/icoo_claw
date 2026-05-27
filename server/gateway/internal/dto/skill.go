@@ -24,6 +24,7 @@ type CreateSkillRequest struct {
 	Version     string         `json:"version"`
 	Source      string         `json:"source"`
 	Metadata    map[string]any `json:"metadata"`
+	Files       []SkillFile    `json:"files"`
 }
 
 type UpdateSkillRequest struct {
@@ -35,15 +36,20 @@ type UpdateSkillRequest struct {
 	Status      *string        `json:"status"`
 	Source      *string        `json:"source"`
 	Metadata    map[string]any `json:"metadata"`
+	Files       []SkillFile    `json:"files"`
+}
+
+type SkillFile struct {
+	Path    string `json:"path"`
+	Content string `json:"content"`
 }
 
 type SkillSummary struct {
-	Path   string             `json:"path"`
 	Skills []SkillSummaryItem `json:"skills"`
 }
 
 type SkillSummaryItem struct {
 	Name        string `json:"name"`
-	Description string `json:"Description"`
+	Description string `json:"description"`
 	Version     string `json:"version"`
 }
