@@ -17,6 +17,7 @@ const (
 	TypeGeneralPurpose = "general-purpose"
 	TypeExplore        = "explore"
 	TypePlan           = "plan"
+	TypeSkillExecutor  = "skill-executor"
 
 	ModelSonnet                    = "sonnet"
 	ModelHaiku                     = "haiku"
@@ -61,6 +62,14 @@ var builtinSubagentTypes = map[string]Definition{
 	TypePlan: {
 		Name:         TypePlan,
 		Description:  "Planning agent focused on outlining multi-step strategies with full tool access.",
+		DefaultModel: ModelSonnet,
+		BaseContext: Context{
+			Model: ModelSonnet,
+		},
+	},
+	TypeSkillExecutor: {
+		Name:         TypeSkillExecutor,
+		Description:  "Runtime agent for executing a single loaded skill and returning a concise result.",
 		DefaultModel: ModelSonnet,
 		BaseContext: Context{
 			Model: ModelSonnet,
@@ -244,6 +253,24 @@ func (m *Manager) List() []Definition {
 		return defs[i].Name < defs[j].Name
 	})
 	return defs
+}
+
+// Handler returns the registered handler for a subagent name.
+func (m *Manager) Handler(name string) Handler {
+	if m == nil {
+		return nil
+	}
+	key := strings.ToLower(strings.TrimSpace(name))
+	if key == "" {
+		return nil
+	}
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+	sub := m.subagents[key]
+	if sub == nil {
+		return nil
+	}
+	return sub.handler
 }
 
 // Dispatch selects and executes a subagent. When Target is empty, automatic

@@ -31,6 +31,9 @@ function isVisibleMessage(message) {
   if (message.role !== 'assistant') {
     return true
   }
+  if (message.draft) {
+    return true
+  }
   return Boolean(
     hasVisibleMarkdownContent(message.content) ||
     message.error ||

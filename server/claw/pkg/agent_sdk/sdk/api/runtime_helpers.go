@@ -1,6 +1,7 @@
 package api
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"os"
@@ -262,6 +263,7 @@ func buildSubagentsManager(opts Options) (*subagents.Manager, []error) {
 	})
 
 	merged := mergeSubagentRegistrations(opts.Subagents, projectRegs, &errs)
+	merged = ensureDefaultRuntimeSubagents(merged)
 	if len(merged) == 0 {
 		return nil, errs
 	}
@@ -273,6 +275,66 @@ func buildSubagentsManager(opts Options) (*subagents.Manager, []error) {
 		}
 	}
 	return mgr, errs
+}
+
+func ensureDefaultRuntimeSubagents(regs []subagents.SubagentRegistration) []subagents.SubagentRegistration {
+	existing := map[string]struct{}{}
+	for i, reg := range regs {
+		if name := canonicalToolName(reg.Definition.Name); name != "" {
+			existing[name] = struct{}{}
+			if name == subagents.TypeSkillExecutor {
+				if def, ok := subagents.BuiltinDefinition(subagents.TypeSkillExecutor); ok {
+					def.Matchers = runtimeOnlySubagentMatchers()
+					regs[i] = subagents.SubagentRegistration{
+						Definition: def,
+						Handler:    newRuntimeSubagentHandler(),
+					}
+				}
+			}
+		}
+	}
+	for _, name := range []string{subagents.TypeGeneralPurpose, subagents.TypeSkillExecutor} {
+		if _, ok := existing[name]; ok {
+			continue
+		}
+		def, ok := subagents.BuiltinDefinition(name)
+		if !ok {
+			continue
+		}
+		def.Matchers = runtimeOnlySubagentMatchers()
+		regs = append(regs, subagents.SubagentRegistration{
+			Definition: def,
+			Handler:    newRuntimeSubagentHandler(),
+		})
+	}
+	return regs
+}
+
+func runtimeOnlySubagentMatchers() []skills.Matcher {
+	return []skills.Matcher{skills.MatcherFunc(func(skills.ActivationContext) skills.MatchResult {
+		return skills.MatchResult{}
+	})}
+}
+
+type runtimeSubagentHandler struct {
+	rt *Runtime
+}
+
+func newRuntimeSubagentHandler() *runtimeSubagentHandler {
+	return &runtimeSubagentHandler{}
+}
+
+func (h *runtimeSubagentHandler) bind(rt *Runtime) {
+	if h != nil {
+		h.rt = rt
+	}
+}
+
+func (h *runtimeSubagentHandler) Handle(ctx context.Context, subCtx subagents.Context, req subagents.Request) (subagents.Result, error) {
+	if h == nil || h.rt == nil {
+		return subagents.Result{}, errors.New("subagent runtime is not initialised")
+	}
+	return h.rt.runSubagent(ctx, subCtx, req)
 }
 
 func mergeSubagentRegistrations(manual []SubagentRegistration, project []subagents.SubagentRegistration, errs *[]error) []subagents.SubagentRegistration {

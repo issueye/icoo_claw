@@ -40,6 +40,9 @@ watch(
   conversationId,
   async (value) => {
     if (value) {
+      if (chatStore.isStreaming(value)) {
+        return
+      }
       await conversationsStore.loadMessages(settingsStore.settings.gateway.baseUrl, value, { force: true })
     }
   },

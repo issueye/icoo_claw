@@ -1,6 +1,6 @@
 <script setup>
 import { computed, ref, watch } from 'vue'
-import { renderMarkdown } from '@/services/utils/markdown'
+import { hasVisibleMarkdownContent, renderMarkdown } from '@/services/utils/markdown'
 import { CheckCircle2, ChevronDown, ChevronRight, LoaderCircle, Terminal, XCircle } from 'lucide-vue-next'
 
 const props = defineProps({
@@ -16,6 +16,7 @@ const props = defineProps({
 
 const renderedContent = computed(() => renderMarkdown(props.message.content))
 const toolMetadata = computed(() => props.message.metadata || {})
+const hasRenderableContent = computed(() => hasVisibleMarkdownContent(props.message.content))
 const toolLabel = computed(() => {
   const meta = toolMetadata.value
   if (!meta.toolCallId && !meta.toolStatus && !meta.toolKind) {
@@ -37,6 +38,12 @@ const usageLabel = computed(() => {
 })
 
 const isToolMessage = computed(() => props.message.role === 'tool' || Boolean(toolMetadata.value.toolCallId))
+const showPendingAssistant = computed(() => (
+  props.message.role === 'assistant' &&
+  props.message.draft &&
+  !isToolMessage.value &&
+  !hasRenderableContent.value
+))
 const messageShellClass = computed(() => {
   if (props.message.role === 'user') return 'message-shell--user'
   if (isToolMessage.value) return 'message-shell--tool'
@@ -142,7 +149,14 @@ function formatTimestamp(value) {
           </span>
         </button>
         <div
-          v-if="shouldShowMessageBody"
+          v-if="showPendingAssistant"
+          class="flex items-center gap-2 text-sm leading-7 text-slate-100"
+        >
+          <LoaderCircle class="h-4 w-4 animate-spin text-[var(--qq-accent)]" />
+          <span>正在连接 Agent...</span>
+        </div>
+        <div
+          v-else-if="shouldShowMessageBody"
           class="markdown-body text-sm leading-7"
           :class="message.error ? 'text-rose-100' : 'text-slate-50'"
           v-html="renderedContent"

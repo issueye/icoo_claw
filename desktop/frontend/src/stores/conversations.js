@@ -87,6 +87,10 @@ export const useConversationsStore = defineStore('conversations', {
       this.loadingMessagesByConversationId[conversationId] = true
       try {
         const messages = await listConversationMessages(baseUrl, conversationId)
+        const currentMessages = this.messagesByConversationId[conversationId] || []
+        if (options.preserveLocal && shouldKeepLocalMessages(currentMessages, messages)) {
+          return currentMessages
+        }
         this.messagesByConversationId[conversationId] = messages
         return messages
       } finally {
@@ -422,4 +426,14 @@ function sortConversations(items) {
     const rightTime = Date.parse(right.lastMessageAt || right.updatedAt || right.createdAt || 0)
     return rightTime - leftTime
   })
+}
+
+function shouldKeepLocalMessages(currentMessages = [], loadedMessages = []) {
+  if (loadedMessages.length > 0) {
+    return false
+  }
+  return currentMessages.some((message) => (
+    String(message?.id || '').startsWith('local_') &&
+    (message.role === 'user' || message.error || message.draft)
+  ))
 }

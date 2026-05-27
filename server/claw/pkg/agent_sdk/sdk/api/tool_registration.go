@@ -11,12 +11,13 @@ import (
 	"icoo_claw/server/claw/pkg/agent_sdk/sdk/config"
 	"icoo_claw/server/claw/pkg/agent_sdk/sdk/model"
 	"icoo_claw/server/claw/pkg/agent_sdk/sdk/runtime/skills"
+	"icoo_claw/server/claw/pkg/agent_sdk/sdk/runtime/subagents"
 	"icoo_claw/server/claw/pkg/agent_sdk/sdk/sandbox"
 	"icoo_claw/server/claw/pkg/agent_sdk/sdk/tool"
 	toolbuiltin "icoo_claw/server/claw/pkg/agent_sdk/sdk/tool/builtin"
 )
 
-func registerTools(registry *tool.Registry, opts Options, settings *config.Settings, skReg *skills.Registry) error {
+func registerTools(registry *tool.Registry, opts Options, settings *config.Settings, skReg *skills.Registry, subMgr *subagents.Manager) error {
 	entry := effectiveEntryPoint(opts)
 	tools := opts.Tools
 
@@ -26,7 +27,7 @@ func registerTools(registry *tool.Registry, opts Options, settings *config.Setti
 			skReg = skills.NewRegistry()
 		}
 
-		factories := builtinToolFactories(opts.ProjectRoot, opts.Sandbox.NetworkAllow, sandboxDisabled, entry, settings, skReg)
+		factories := builtinToolFactories(opts.ProjectRoot, opts.Sandbox.NetworkAllow, sandboxDisabled, entry, settings, skReg, subMgr)
 		names := builtinOrder(entry)
 		selectedNames := filterBuiltinNames(opts.EnabledBuiltinTools, names)
 		for _, name := range selectedNames {
@@ -107,7 +108,7 @@ func withToolSearch(tools []tool.Tool) []tool.Tool {
 	return append(tools, toolbuiltin.NewToolSearchTool(tools))
 }
 
-func builtinToolFactories(root string, networkAllow []string, sandboxDisabled bool, entry EntryPoint, settings *config.Settings, skReg *skills.Registry) map[string]func() tool.Tool {
+func builtinToolFactories(root string, networkAllow []string, sandboxDisabled bool, entry EntryPoint, settings *config.Settings, skReg *skills.Registry, subMgr *subagents.Manager) map[string]func() tool.Tool {
 	factories := map[string]func() tool.Tool{}
 	var networkPolicy sandbox.NetworkPolicy
 	if !sandboxDisabled {
@@ -198,7 +199,7 @@ func builtinToolFactories(root string, networkAllow []string, sandboxDisabled bo
 	factories["web_search"] = webSearchCtor
 	factories["grep"] = grepCtor
 	factories["glob"] = globCtor
-	factories["skill"] = func() tool.Tool { return toolbuiltin.NewSkillTool(skReg, nil) }
+	factories["skill"] = func() tool.Tool { return toolbuiltin.NewSkillToolWithSubagent(skReg, nil, subMgr) }
 
 	return factories
 }

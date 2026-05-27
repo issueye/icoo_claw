@@ -370,7 +370,7 @@ func agentProfileMap(agent model.AgentProfile, provider *model.ProviderProfile, 
 		"base_url":       baseURL,
 		"api_key":        apiKey,
 		"system_prompt":  agent.SystemPrompt,
-		"max_iterations": agent.MaxIterations,
+		"max_iterations": maxAgentIterations(agent.MaxIterations),
 		"network_allow":  parseStringSlice(agent.NetworkAllowJSON),
 		"mcp_servers":    parseStringSlice(agent.MCPServerIDsJSON),
 	}
@@ -381,6 +381,13 @@ func agentProfileMap(agent model.AgentProfile, provider *model.ProviderProfile, 
 		profile["project_root"] = projectRoot
 	}
 	return profile
+}
+
+func maxAgentIterations(value int) int {
+	if value < 4 {
+		return 4
+	}
+	return value
 }
 
 func metadataString(metadata map[string]any, key string) string {

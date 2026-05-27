@@ -342,9 +342,13 @@ $agentBody = @{
   name = "Desktop Default Agent"
   model_provider = "openai"
   model_name = ""
-  max_iterations = 1
+  max_iterations = 6
   tool_whitelist = @()
   enabled = $true
+} | ConvertTo-Json -Depth 5
+
+$agentPatchBody = @{
+  max_iterations = 6
 } | ConvertTo-Json -Depth 5
 
 try {
@@ -355,12 +359,25 @@ try {
     -Body $agentBody `
     -TimeoutSec 5 | Out-Null
 } catch {
-  if ($_.Exception.Response.StatusCode.value__ -ne 502 -and $_.Exception.Response.StatusCode.value__ -ne 409) {
+  if ($_.Exception.Response.StatusCode.value__ -eq 409) {
+    Invoke-RestMethod `
+      -Uri "http://127.0.0.1:$gatewayPort/v1/agents/$agentId" `
+      -Method Patch `
+      -ContentType "application/json" `
+      -Body $agentPatchBody `
+      -TimeoutSec 5 | Out-Null
+  } elseif ($_.Exception.Response.StatusCode.value__ -ne 502) {
     try {
       $existing = Invoke-RestMethod -Uri "http://127.0.0.1:$gatewayPort/v1/agents/$agentId" -Method Get -TimeoutSec 5
       if (-not $existing.id) {
         throw
       }
+      Invoke-RestMethod `
+        -Uri "http://127.0.0.1:$gatewayPort/v1/agents/$agentId" `
+        -Method Patch `
+        -ContentType "application/json" `
+        -Body $agentPatchBody `
+        -TimeoutSec 5 | Out-Null
     } catch {
       throw
     }

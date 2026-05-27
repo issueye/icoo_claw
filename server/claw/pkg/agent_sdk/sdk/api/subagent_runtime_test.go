@@ -1,0 +1,74 @@
+package api
+
+import (
+	"context"
+	"testing"
+
+	"icoo_claw/server/claw/pkg/agent_sdk/sdk/model"
+	"icoo_claw/server/claw/pkg/agent_sdk/sdk/runtime/subagents"
+	"icoo_claw/server/claw/pkg/agent_sdk/sdk/tool"
+	toolbuiltin "icoo_claw/server/claw/pkg/agent_sdk/sdk/tool/builtin"
+)
+
+func TestSubagentToolAllowExcludesSkillForSkillExecutor(t *testing.T) {
+	registry := tool.NewRegistry()
+	for _, impl := range []tool.Tool{
+		toolbuiltin.NewBashToolWithRoot(t.TempDir()),
+		toolbuiltin.NewSkillTool(nil, nil),
+	} {
+		if err := registry.Register(impl); err != nil {
+			t.Fatalf("register %s: %v", impl.Name(), err)
+		}
+	}
+
+	rt := &Runtime{registry: registry}
+	allow := subagentToolAllow(rt, nil, subagents.TypeSkillExecutor)
+	if _, ok := allow["skill"]; ok {
+		t.Fatalf("skill-executor should not expose skill tool")
+	}
+	if _, ok := allow["bash"]; !ok {
+		t.Fatalf("skill-executor should keep non-skill tools")
+	}
+}
+
+func TestRuntimeSubagentRunsModelLoop(t *testing.T) {
+	rt := &Runtime{
+		opts: Options{
+			Model:         subagentLoopModel{t: t},
+			MaxIterations: 3,
+		},
+		registry: tool.NewRegistry(),
+	}
+
+	res, err := rt.runSubagent(context.Background(), subagents.Context{}, subagents.Request{
+		Target:      subagents.TypeSkillExecutor,
+		Instruction: "今天成都的天气",
+	})
+	if err != nil {
+		t.Fatalf("run subagent: %v", err)
+	}
+	if res.Output != "成都今天晴。" {
+		t.Fatalf("output = %q", res.Output)
+	}
+}
+
+type subagentLoopModel struct {
+	t *testing.T
+}
+
+func (m subagentLoopModel) Complete(context.Context, model.Request) (*model.Response, error) {
+	return nil, nil
+}
+
+func (m subagentLoopModel) CompleteStream(_ context.Context, req model.Request, cb model.StreamHandler) error {
+	if len(req.Messages) != 1 || req.Messages[0].Content != "今天成都的天气" {
+		m.t.Fatalf("messages = %#v", req.Messages)
+	}
+	return cb(model.StreamResult{
+		Final: true,
+		Response: &model.Response{
+			Message:    model.Message{Role: "assistant", Content: "成都今天晴。"},
+			StopReason: "end_turn",
+		},
+	})
+}

@@ -117,7 +117,7 @@ func New(ctx context.Context, opts Options) (*Runtime, error) {
 	opts.subMgr = subMgr
 
 	registry := tool.NewRegistry()
-	if err := registerTools(registry, opts, settings, opts.skReg); err != nil {
+	if err := registerTools(registry, opts, settings, opts.skReg, opts.subMgr); err != nil {
 		return nil, err
 	}
 	mcpServers := collectMCPServers(settings, opts.MCPServers)
@@ -163,6 +163,7 @@ func New(ctx context.Context, opts Options) (*Runtime, error) {
 		compactor: compactor,
 		deferred:  newDeferredToolState(registry),
 	}
+	rt.bindRuntimeSubagents()
 	rt.bindSubagentCallbacks()
 	return rt, nil
 }

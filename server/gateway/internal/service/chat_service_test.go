@@ -330,6 +330,21 @@ func TestChatServiceDefaultsToBuiltinToolsWhenWhitelistEmpty(t *testing.T) {
 	}
 }
 
+func TestChatServiceAppliesMinimumMaxIterations(t *testing.T) {
+	payload := agentProfileMap(model.AgentProfile{
+		ID:                "agent_1",
+		ModelProvider:     "openai",
+		MaxIterations:     1,
+		ToolWhitelistJSON: `[]`,
+		NetworkAllowJSON:  `[]`,
+		MCPServerIDsJSON:  `[]`,
+	}, nil, nil)
+
+	if got := payload["max_iterations"]; got != 4 {
+		t.Fatalf("max_iterations = %v, want minimum 4", got)
+	}
+}
+
 func TestChatServiceStartsInstanceWhenNoneReady(t *testing.T) {
 	conversations := &chatConversationRepo{conversation: &model.Conversation{
 		ID:        "conv_1",

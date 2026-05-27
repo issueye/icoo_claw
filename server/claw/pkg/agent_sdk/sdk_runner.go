@@ -81,10 +81,28 @@ func (r *SDKRunner) RunStream(ctx context.Context, req RunRequest) (<-chan Strea
 	go func() {
 		defer close(out)
 		defer func() { _ = rt.Close() }()
-		defer func() { _ = r.saveSnapshot(context.Background(), rt, req.SessionID) }()
+		snapshotSaved := false
+		defer func() {
+			if !snapshotSaved {
+				_ = r.saveSnapshot(context.Background(), rt, req.SessionID)
+			}
+		}()
 
 		for event := range events {
-			out <- mapRuntimeStreamEvent(event, req)
+			mapped := mapRuntimeStreamEvent(event, req)
+			if mapped.Type == StreamEventSessionCompleted {
+				if err := r.saveSnapshot(context.Background(), rt, req.SessionID); err != nil {
+					out <- StreamEvent{
+						Type:      StreamEventSessionError,
+						SessionID: req.SessionID,
+						RequestID: req.RequestID,
+						Error:     &StreamError{Code: "history_save_failed", Message: err.Error()},
+					}
+					return
+				}
+				snapshotSaved = true
+			}
+			out <- mapped
 		}
 	}()
 

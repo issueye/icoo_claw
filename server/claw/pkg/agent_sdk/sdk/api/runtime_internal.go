@@ -14,6 +14,7 @@ import (
 	"icoo_claw/server/claw/pkg/agent_sdk/sdk/model"
 	"icoo_claw/server/claw/pkg/agent_sdk/sdk/runtime/skills"
 	"icoo_claw/server/claw/pkg/agent_sdk/sdk/runtime/subagents"
+	toolbuiltin "icoo_claw/server/claw/pkg/agent_sdk/sdk/tool/builtin"
 )
 
 type preparedRun struct {
@@ -417,7 +418,11 @@ func (rt *Runtime) executeSkills(ctx context.Context, prompt string, activation 
 			continue
 		}
 		seen[name] = struct{}{}
-		res, err := skill.Execute(ctx, activation)
+		loaded, err := skill.Execute(ctx, activation)
+		if err != nil {
+			return execs, "", err
+		}
+		res, err := rt.executeSkillViaSubagent(ctx, loaded, activation, req)
 		execs = append(execs, SkillExecution{Definition: skill.Definition(), Result: res, Err: err})
 		if err != nil {
 			return execs, "", err
@@ -430,6 +435,34 @@ func (rt *Runtime) executeSkills(ctx context.Context, prompt string, activation 
 	prompt = prependPrompt(prompt, prefix)
 	prompt = applyPromptMetadata(prompt, activation.Metadata)
 	return execs, prompt, nil
+}
+
+func (rt *Runtime) executeSkillViaSubagent(ctx context.Context, loaded skills.Result, activation skills.ActivationContext, req *Request) (skills.Result, error) {
+	if rt == nil || rt.opts.subMgr == nil {
+		return skills.Result{}, errors.New("api: skill execution requires subagent manager")
+	}
+	subReq := toolbuiltin.SkillSubagentRequest(loaded, activation)
+	if strings.TrimSpace(subReq.Instruction) == "" {
+		return skills.Result{}, errors.New("api: skill instruction is empty")
+	}
+	if subReq.Metadata == nil {
+		subReq.Metadata = map[string]any{}
+	}
+	if req != nil && strings.TrimSpace(req.SessionID) != "" {
+		subReq.Metadata["session_id"] = strings.TrimSpace(req.SessionID)
+	}
+	subRes, err := rt.opts.subMgr.Dispatch(ctx, subReq)
+	if err != nil {
+		return loaded, err
+	}
+	summary := toolbuiltin.FormatSubagentOutput(subRes)
+	loaded.Output = summary
+	if loaded.Metadata == nil {
+		loaded.Metadata = map[string]any{}
+	}
+	loaded.Metadata["subagent"] = subRes.Subagent
+	loaded.Metadata["subagent_metadata"] = subRes.Metadata
+	return loaded, nil
 }
 
 func (rt *Runtime) executeCollaborators(ctx context.Context, prompt string, activation skills.ActivationContext, req *Request) (*subagents.TeamResult, string, error) {

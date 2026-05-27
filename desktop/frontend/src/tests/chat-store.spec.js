@@ -57,6 +57,15 @@ describe('chat store', () => {
     expect(chatStore.composerDraftFor('conv_b')).toBe('hello b')
   })
 
+  it('reports an error instead of silently ignoring duplicate sends', async () => {
+    const chatStore = useChatStore()
+
+    chatStore.setStream('conv_a', { requestId: 'req_a', socketState: 'open' })
+
+    await expect(chatStore.sendPrompt('hello again', 'conv_a')).rejects.toThrow('当前对话正在响应中，请稍后再发送')
+    expect(chatStore.error).toBe('当前对话正在响应中，请稍后再发送')
+  })
+
   it('routes websocket deltas to the matching conversation draft', async () => {
     const chatStore = useChatStore()
     const conversationsStore = useConversationsStore()
@@ -169,6 +178,31 @@ describe('chat store', () => {
       'tool',
       'after tool',
     ])
+  })
+
+  it('keeps local messages when a forced refresh sees an empty persisted history', async () => {
+    vi.resetModules()
+    vi.doMock('@/services/gateway/conversations', () => ({
+      createConversation: vi.fn(),
+      deleteConversation: vi.fn(),
+      listConversations: vi.fn(),
+      listConversationMessages: vi.fn().mockResolvedValue([]),
+    }))
+
+    const { useConversationsStore: useIsolatedConversationsStore } = await import('@/stores/conversations')
+    const conversationsStore = useIsolatedConversationsStore()
+    conversationsStore.items = [{ id: 'conv_a', title: 'A', status: 'running' }]
+    conversationsStore.appendLocalUserMessage('conv_a', 'hello')
+    conversationsStore.startAssistantDraft('conv_a')
+
+    const messages = await conversationsStore.loadMessages('http://127.0.0.1:8080', 'conv_a', {
+      force: true,
+      preserveLocal: true,
+    })
+
+    expect(messages).toHaveLength(2)
+    expect(messages[0].role).toBe('user')
+    expect(messages[0].content).toBe('hello')
   })
 
   it('normalizes persisted tool calls into visible tool messages', () => {

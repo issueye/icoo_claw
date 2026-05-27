@@ -76,6 +76,7 @@ export const useChatStore = defineStore('chat', {
 
       this.error = ''
       let targetConversationId = conversationId
+      let shouldNavigateToConversation = false
 
       if (!targetConversationId) {
         const conversation = await conversationsStore.createConversation(baseUrl, {
@@ -83,11 +84,12 @@ export const useChatStore = defineStore('chat', {
           title: buildConversationTitle(content),
         })
         targetConversationId = conversation.id
-        await router.push({ name: 'chat-conversation', params: { id: targetConversationId } })
+        shouldNavigateToConversation = true
       }
 
       if (this.isStreaming(targetConversationId)) {
-        return
+        this.error = '当前对话正在响应中，请稍后再发送'
+        throw new Error(this.error)
       }
 
       conversationsStore.appendLocalUserMessage(targetConversationId, content)
@@ -102,6 +104,9 @@ export const useChatStore = defineStore('chat', {
         sessionId: '',
       })
       try {
+        if (shouldNavigateToConversation) {
+          await router.push({ name: 'chat-conversation', params: { id: targetConversationId } })
+        }
         const socket = this.createSocket(baseUrl, targetConversationId)
         await socket.startChat({
           conversationId: targetConversationId,
@@ -197,7 +202,7 @@ export const useChatStore = defineStore('chat', {
             await conversationsStore.loadMessages(
               settingsStore.settings.gateway.baseUrl,
               conversationId,
-              { force: true },
+              { force: true, preserveLocal: true },
             )
           }
         },

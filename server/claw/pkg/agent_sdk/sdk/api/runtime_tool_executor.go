@@ -6,11 +6,13 @@ import (
 	"fmt"
 	"log"
 	"runtime"
+	"strings"
 	"time"
 
 	"icoo_claw/server/claw/pkg/agent_sdk/sdk/hooks"
 	"icoo_claw/server/claw/pkg/agent_sdk/sdk/message"
 	"icoo_claw/server/claw/pkg/agent_sdk/sdk/model"
+	"icoo_claw/server/claw/pkg/agent_sdk/sdk/runtime/skills"
 	"icoo_claw/server/claw/pkg/agent_sdk/sdk/runtime/subagents"
 	"icoo_claw/server/claw/pkg/agent_sdk/sdk/sandbox"
 	"icoo_claw/server/claw/pkg/agent_sdk/sdk/tool"
@@ -137,6 +139,9 @@ func (t *runtimeToolExecutor) execute(ctx context.Context, call model.ToolCall, 
 	if params != nil {
 		call.Arguments = params
 	}
+	if canonicalToolName(call.Name) == "skill" {
+		ctx = toolbuiltin.WithSkillActivationContext(ctx, skills.ActivationContext{Prompt: t.latestUserPrompt()})
+	}
 
 	callSpec := tool.Call{
 		Name:      call.Name,
@@ -172,6 +177,23 @@ func (t *runtimeToolExecutor) execute(ctx context.Context, call model.ToolCall, 
 	appendToolResult(content)
 	t.activateDeferredTools(call, result)
 	return result, err
+}
+
+func (t *runtimeToolExecutor) latestUserPrompt() string {
+	if t == nil || t.history == nil {
+		return ""
+	}
+	messages := t.history.All()
+	for i := len(messages) - 1; i >= 0; i-- {
+		msg := messages[i]
+		if strings.TrimSpace(msg.Role) != "user" {
+			continue
+		}
+		if text := strings.TrimSpace(msg.Content); text != "" {
+			return text
+		}
+	}
+	return ""
 }
 
 func (t *runtimeToolExecutor) appendCallResult(call model.ToolCall, result *tool.CallResult, err error) {
