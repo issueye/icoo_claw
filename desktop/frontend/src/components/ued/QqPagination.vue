@@ -40,7 +40,7 @@ function go(page) {
 <template>
   <div class="flex flex-wrap items-center gap-2">
     <button
-      class="inline-flex h-9 w-9 items-center justify-center rounded-[4px] border border-[color:var(--qq-border)] bg-[rgba(255,255,255,0.08)] text-[color:var(--qq-text-secondary)] transition hover:bg-[rgba(255,255,255,0.14)] hover:text-[color:var(--qq-text-primary)] disabled:opacity-45"
+      class="inline-flex h-9 w-9 items-center justify-center rounded-[4px] border border-[color:var(--qq-border)] bg-[var(--qq-fill-medium)] text-[color:var(--qq-text-secondary)] transition hover:bg-[var(--qq-fill-strong)] hover:text-[color:var(--qq-text-primary)] disabled:opacity-45"
       :disabled="modelValue <= 1"
       type="button"
       @click="go(modelValue - 1)"
@@ -55,7 +55,7 @@ function go(page) {
       :class="
         page === modelValue
           ? 'border-transparent bg-[linear-gradient(135deg,var(--qq-accent),var(--qq-accent-strong))] text-slate-950'
-          : 'border-[color:var(--qq-border)] bg-[rgba(255,255,255,0.08)] text-[color:var(--qq-text-secondary)] hover:bg-[rgba(255,255,255,0.14)] hover:text-[color:var(--qq-text-primary)]'
+          : 'border-[color:var(--qq-border)] bg-[var(--qq-fill-medium)] text-[color:var(--qq-text-secondary)] hover:bg-[var(--qq-fill-strong)] hover:text-[color:var(--qq-text-primary)]'
       "
       type="button"
       @click="go(page)"
@@ -64,7 +64,7 @@ function go(page) {
     </button>
 
     <button
-      class="inline-flex h-9 w-9 items-center justify-center rounded-[4px] border border-[color:var(--qq-border)] bg-[rgba(255,255,255,0.08)] text-[color:var(--qq-text-secondary)] transition hover:bg-[rgba(255,255,255,0.14)] hover:text-[color:var(--qq-text-primary)] disabled:opacity-45"
+      class="inline-flex h-9 w-9 items-center justify-center rounded-[4px] border border-[color:var(--qq-border)] bg-[var(--qq-fill-medium)] text-[color:var(--qq-text-secondary)] transition hover:bg-[var(--qq-fill-strong)] hover:text-[color:var(--qq-text-primary)] disabled:opacity-45"
       :disabled="modelValue >= totalPages"
       type="button"
       @click="go(modelValue + 1)"

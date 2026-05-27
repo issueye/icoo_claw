@@ -44,7 +44,7 @@ function toggleTheme() {
         :class="
           isActive(item)
             ? 'bg-[rgba(0,242,254,0.10)] text-[color:var(--qq-accent)] shadow-[inset_0_0_12px_rgba(0,242,254,0.04)]'
-            : 'text-[color:var(--qq-text-tertiary)] hover:bg-[rgba(255,255,255,0.05)] hover:text-[color:var(--qq-text-secondary)]'
+            : 'text-[color:var(--qq-text-tertiary)] hover:bg-[var(--qq-fill-soft)] hover:text-[color:var(--qq-text-secondary)]'
         "
       >
         <!-- 活跃指示条 -->
@@ -59,7 +59,7 @@ function toggleTheme() {
 
     <!-- 一键切换主题悬浮按钮 (太阳/月亮微交互) -->
     <button
-      class="group flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-white/10 bg-white/5 text-[color:var(--qq-text-secondary)] transition hover:scale-105 hover:border-[color:var(--qq-accent)] hover:bg-[rgba(0,242,254,0.08)] hover:text-[color:var(--qq-accent)] active:scale-95"
+      class="group flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-white/10 bg-[var(--qq-fill-soft)] text-[color:var(--qq-text-secondary)] transition hover:scale-105 hover:border-[color:var(--qq-accent)] hover:bg-[rgba(0,242,254,0.08)] hover:text-[color:var(--qq-accent)] active:scale-95"
       type="button"
       @click="toggleTheme"
     >

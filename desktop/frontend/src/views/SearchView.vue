@@ -96,7 +96,7 @@ async function refresh() {
           </template>
         </QqInput>
         <button
-          class="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-[4px] border border-white/10 bg-[rgba(255,255,255,0.08)] text-[color:var(--qq-text-secondary)] transition hover:border-white/20 hover:bg-[rgba(255,255,255,0.14)] hover:text-white disabled:cursor-not-allowed disabled:opacity-45"
+          class="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-[4px] border border-white/10 bg-[var(--qq-fill-medium)] text-[color:var(--qq-text-secondary)] transition hover:border-white/20 hover:bg-[var(--qq-fill-strong)] hover:text-[color:var(--qq-text-primary)] disabled:cursor-not-allowed disabled:opacity-45"
           type="button"
           title="清空搜索"
           :disabled="!searchStore.query"

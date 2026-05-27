@@ -96,15 +96,15 @@ function providerLabel(providerId) {
 
 function statusClass(status) {
   if (status === 'ready') {
-    return 'bg-emerald-300/15 text-emerald-100'
+    return 'bg-[var(--qq-status-success-bg)] text-[var(--qq-status-success-text)]'
   }
   if (status === 'failed') {
-    return 'bg-rose-300/15 text-rose-100'
+    return 'bg-[var(--qq-status-error-bg)] text-[var(--qq-status-error-text)]'
   }
   if (status === 'draining') {
-    return 'bg-amber-300/15 text-amber-100'
+    return 'bg-[var(--qq-status-warning-bg)] text-[var(--qq-status-warning-text)]'
   }
-  return 'bg-white/10 text-[color:var(--qq-text-secondary)]'
+  return 'bg-[var(--qq-fill-medium)] text-[color:var(--qq-text-secondary)]'
 }
 
 function canRemoveInstance(instance) {
@@ -318,15 +318,15 @@ onMounted(() => {
           </div>
         </div>
         <div class="mt-5 grid gap-3 md:grid-cols-3">
-          <div class="rounded-[6px] border border-white/10 bg-white/3 px-4 py-3">
+          <div class="rounded-[6px] border border-white/10 bg-[var(--qq-fill-subtle)] px-4 py-3">
             <p class="text-xs uppercase tracking-[0.16em] text-[color:var(--qq-text-tertiary)]">Agents</p>
             <p class="mt-2 text-2xl font-semibold text-[color:var(--qq-text-primary)]">{{ agentsStore.items.length }}</p>
           </div>
-          <div class="rounded-[6px] border border-white/10 bg-white/3 px-4 py-3">
+          <div class="rounded-[6px] border border-white/10 bg-[var(--qq-fill-subtle)] px-4 py-3">
             <p class="text-xs uppercase tracking-[0.16em] text-[color:var(--qq-text-tertiary)]">Active</p>
             <p class="mt-2 text-2xl font-semibold text-[color:var(--qq-text-primary)]">{{ activeInstances.length }}</p>
           </div>
-          <div class="rounded-[6px] border border-white/10 bg-white/3 px-4 py-3">
+          <div class="rounded-[6px] border border-white/10 bg-[var(--qq-fill-subtle)] px-4 py-3">
             <p class="text-xs uppercase tracking-[0.16em] text-[color:var(--qq-text-tertiary)]">Ready</p>
             <p class="mt-2 text-2xl font-semibold text-[color:var(--qq-text-primary)]">{{ readyInstances.length }}</p>
           </div>
@@ -342,7 +342,7 @@ onMounted(() => {
           <div class="grid gap-3">
             <div
               v-if="!agentsStore.items.length"
-              class="rounded-[6px] border border-dashed border-white/15 bg-white/2 px-4 py-6 text-sm text-[color:var(--qq-text-secondary)]"
+              class="rounded-[6px] border border-dashed border-white/15 bg-[var(--qq-fill-subtle)] px-4 py-6 text-sm text-[color:var(--qq-text-secondary)]"
             >
               当前没有 Agent。先新建一个 Agent，并绑定已配置 API Key 的供应商。
             </div>
@@ -350,7 +350,7 @@ onMounted(() => {
             <div
               v-for="agent in agentsStore.items"
               :key="agent.id"
-              class="rounded-[6px] border border-white/10 bg-white/3 px-4 py-4"
+              class="rounded-[6px] border border-white/10 bg-[var(--qq-fill-subtle)] px-4 py-4"
             >
               <div class="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
                 <div class="min-w-0">
@@ -360,13 +360,13 @@ onMounted(() => {
                     <span class="qq-badge rounded-[4px] px-2 py-0.5 text-[11px]">{{ agent.transport || 'http' }}</span>
                     <span
                       class="rounded-[4px] px-2 py-0.5 text-[11px]"
-                      :class="agent.enabled ? 'bg-emerald-300/15 text-emerald-100' : 'bg-white/10 text-[color:var(--qq-text-tertiary)]'"
+                      :class="agent.enabled ? 'bg-[var(--qq-status-success-bg)] text-[var(--qq-status-success-text)]' : 'bg-[var(--qq-fill-medium)] text-[color:var(--qq-text-tertiary)]'"
                     >
                       {{ agent.enabled ? '启用' : '停用' }}
                     </span>
                     <span
                       v-if="settingsStore.settings.gateway.defaultAgentId === agent.id"
-                      class="rounded-[4px] bg-[rgba(72,255,209,0.15)] px-2 py-0.5 text-[11px] text-[color:var(--qq-accent)]"
+                      class="rounded-[4px] bg-[var(--qq-status-success-bg)] px-2 py-0.5 text-[11px] text-[color:var(--qq-accent)]"
                     >
                       默认
                     </span>
@@ -420,7 +420,7 @@ onMounted(() => {
           <div class="grid gap-3">
             <div
               v-if="!agentInstancesStore.items.length"
-              class="rounded-[6px] border border-dashed border-white/15 bg-white/2 px-4 py-6 text-sm text-[color:var(--qq-text-secondary)]"
+              class="rounded-[6px] border border-dashed border-white/15 bg-[var(--qq-fill-subtle)] px-4 py-6 text-sm text-[color:var(--qq-text-secondary)]"
             >
               当前没有运行中的 Agent 实例。点击 Agent 列表里的启动按钮手动启动。
             </div>
@@ -428,7 +428,7 @@ onMounted(() => {
             <div
               v-for="instance in agentInstancesStore.items"
               :key="instance.id"
-              class="rounded-[6px] border border-white/10 bg-white/3 px-4 py-4"
+              class="rounded-[6px] border border-white/10 bg-[var(--qq-fill-subtle)] px-4 py-4"
             >
               <div class="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
                 <div class="min-w-0">
@@ -583,7 +583,7 @@ onMounted(() => {
       title="实例信息"
     >
       <div v-if="selectedInstance" class="grid gap-3 text-sm">
-        <div class="rounded-[6px] border border-white/10 bg-white/3 px-3 py-3">
+        <div class="rounded-[6px] border border-white/10 bg-[var(--qq-fill-subtle)] px-3 py-3">
           <p class="text-xs uppercase tracking-[0.16em] text-[color:var(--qq-text-tertiary)]">Instance</p>
           <p class="mt-2 break-all text-[color:var(--qq-text-primary)]">{{ selectedInstance.id }}</p>
           <p class="mt-1 break-all text-[color:var(--qq-text-secondary)]">{{ selectedInstance.baseUrl }}</p>
@@ -596,16 +596,16 @@ onMounted(() => {
           </p>
         </div>
         <div class="grid gap-3 md:grid-cols-2">
-          <div class="rounded-[6px] border border-white/10 bg-white/3 px-3 py-3">
+          <div class="rounded-[6px] border border-white/10 bg-[var(--qq-fill-subtle)] px-3 py-3">
             <p class="text-xs uppercase tracking-[0.16em] text-[color:var(--qq-text-tertiary)]">Agent</p>
             <p class="mt-2 break-all text-[color:var(--qq-text-primary)]">{{ agentName(selectedInstance.agentId) }}</p>
           </div>
-          <div class="rounded-[6px] border border-white/10 bg-white/3 px-3 py-3">
+          <div class="rounded-[6px] border border-white/10 bg-[var(--qq-fill-subtle)] px-3 py-3">
             <p class="text-xs uppercase tracking-[0.16em] text-[color:var(--qq-text-tertiary)]">Provider</p>
             <p class="mt-2 break-all text-[color:var(--qq-text-primary)]">{{ providerLabel(selectedInstance.providerId) }}</p>
           </div>
         </div>
-        <div class="rounded-[6px] border border-white/10 bg-white/3 px-3 py-3">
+        <div class="rounded-[6px] border border-white/10 bg-[var(--qq-fill-subtle)] px-3 py-3">
           <p class="text-xs uppercase tracking-[0.16em] text-[color:var(--qq-text-tertiary)]">Model</p>
           <p class="mt-2 break-all text-[color:var(--qq-text-primary)]">
             {{ selectedInstance.modelProvider || 'openai' }} · {{ selectedInstance.modelName || '未设置模型' }}
@@ -626,7 +626,7 @@ onMounted(() => {
       description="删除后该 Agent 配置会从网关移除，已保存的会话不会被删除。"
       title="删除 Agent"
     >
-      <div class="rounded-[6px] border border-white/10 bg-white/3 px-3 py-3 text-sm leading-6 text-[color:var(--qq-text-secondary)]">
+      <div class="rounded-[6px] border border-white/10 bg-[var(--qq-fill-subtle)] px-3 py-3 text-sm leading-6 text-[color:var(--qq-text-secondary)]">
         <p class="font-medium text-[color:var(--qq-text-primary)]">{{ deleteDialog.agent?.name || '未选择 Agent' }}</p>
         <p class="mt-1 break-all">ID {{ deleteDialog.agent?.id || '-' }}</p>
       </div>
@@ -647,7 +647,7 @@ onMounted(() => {
     >
       <div
         v-if="removeInstanceDialog.instance"
-        class="rounded-[6px] border border-white/10 bg-white/3 px-3 py-3 text-sm leading-6 text-[color:var(--qq-text-secondary)]"
+        class="rounded-[6px] border border-white/10 bg-[var(--qq-fill-subtle)] px-3 py-3 text-sm leading-6 text-[color:var(--qq-text-secondary)]"
       >
         <p class="font-medium text-[color:var(--qq-text-primary)]">
           {{ removeInstanceDialog.instance.name || agentName(removeInstanceDialog.instance.agentId) }}

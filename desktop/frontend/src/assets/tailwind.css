@@ -5,8 +5,18 @@
 :root {
   color-scheme: dark;
   font-family: "Segoe UI Variable", "Segoe UI", system-ui, sans-serif;
+  font-synthesis: none;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
   background: #090c13;
   color: #e2e8f0;
+}
+
+:root[data-theme="light"] {
+  color-scheme: light;
+  background: #f8fafc;
+  color: #0f172a;
 }
 
 html,
@@ -17,6 +27,12 @@ body,
   background:
     linear-gradient(180deg, rgba(110, 231, 183, 0.04), transparent 28%),
     #090c13;
+}
+
+html[data-theme="light"],
+html[data-theme="light"] body,
+html[data-theme="light"] #app {
+  background: #f8fafc;
 }
 
 body {

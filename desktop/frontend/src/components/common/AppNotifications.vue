@@ -41,7 +41,7 @@ function dismiss(id) {
               <p class="mt-1 break-words text-sm leading-6 text-current/90">{{ item.message }}</p>
             </div>
             <button
-              class="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-current/70 transition hover:bg-white/5 hover:text-current"
+              class="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-current/70 transition hover:bg-[var(--qq-fill-soft)] hover:text-current"
               type="button"
               title="关闭提醒"
               @click="dismiss(item.id)"

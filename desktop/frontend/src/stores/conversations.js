@@ -437,10 +437,10 @@ function toolMessageContent(metadata = {}) {
     lines.push(`状态：${metadata.toolStatus}`)
   }
   if (metadata.rawInput !== null && metadata.rawInput !== undefined && metadata.rawInput !== '') {
-    lines.push(`输入：\`${formatToolPayload(metadata.rawInput)}\``)
+    lines.push(`输入：\`\`\`\n${formatToolPayload(metadata.rawInput)}\n\`\`\``)
   }
   if (metadata.rawOutput !== null && metadata.rawOutput !== undefined && metadata.rawOutput !== '') {
-    lines.push(`输出：\`${formatToolPayload(metadata.rawOutput)}\``)
+    lines.push(`输出：\`\`\`\n${formatToolPayload(metadata.rawOutput)}\n\`\`\``)
   }
   return lines.join('\n\n')
 }

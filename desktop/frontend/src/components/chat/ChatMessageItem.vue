@@ -109,7 +109,7 @@ function formatTimestamp(value) {
         <span v-if="message.draft" class="text-xs text-[color:var(--qq-text-tertiary)]">streaming</span>
         <span
           v-if="toolLabel && !isToolMessage"
-          class="inline-flex items-center gap-1 rounded-[4px] bg-[rgba(255,255,255,0.08)] px-2 py-0.5 text-[11px] text-[color:var(--qq-text-secondary)]"
+          class="inline-flex items-center gap-1 rounded-[4px] bg-[var(--qq-fill-medium)] px-2 py-0.5 text-[11px] text-[color:var(--qq-text-secondary)]"
         >
           <LoaderCircle class="h-3 w-3 animate-spin" />
           {{ toolLabel }}
@@ -144,7 +144,12 @@ function formatTimestamp(value) {
           <span class="min-w-0 flex-1 truncate font-medium text-[color:var(--qq-text-primary)]">
             {{ toolMetadata.toolTitle || toolMetadata.toolKind || '工具调用' }}
           </span>
-          <span v-if="toolMetadata.toolStatus" class="shrink-0">· {{ toolMetadata.toolStatus }}</span>
+          <span
+            v-if="toolMetadata.toolStatus"
+            class="tool-message-status shrink-0"
+          >
+            · {{ toolMetadata.toolStatus }}
+          </span>
           <span class="tool-message-toggle__label inline-flex shrink-0 items-center gap-1">
             <component :is="toolExpanded ? ChevronDown : ChevronRight" class="h-3.5 w-3.5" />
             {{ toolToggleLabel }}
@@ -165,7 +170,7 @@ function formatTimestamp(value) {
         />
         <div
           v-if="shouldShowMessageBody && (isToolMessage || usageLabel)"
-          class="mt-2 border-t border-white/10 pt-2 text-xs text-[color:var(--qq-text-tertiary)]"
+          class="tool-message-meta mt-2 border-t border-white/10 pt-2 text-xs text-[color:var(--qq-text-tertiary)]"
         >
           <span v-if="isToolMessage" class="mr-3">tool {{ toolMetadata.toolKind || 'other' }} · {{ toolMetadata.toolStatus || 'pending' }}</span>
           <span v-if="usageLabel">usage {{ usageLabel }}</span>
@@ -261,7 +266,11 @@ function formatTimestamp(value) {
 .markdown-body :deep(blockquote),
 .markdown-body :deep(pre),
 .markdown-body :deep(.markdown-table-scroll) {
-  margin: 0.7rem 0;
+  margin: 0 0;
+}
+
+.markdown-body :deep(p) {
+  padding: 0 0.2rem;
 }
 
 .markdown-body :deep(p:first-child),
@@ -388,6 +397,10 @@ function formatTimestamp(value) {
   background: rgba(255, 255, 255, 0.04);
 }
 
+:global([data-theme="light"] .markdown-body) :deep(tbody tr:hover) {
+  background: rgba(15, 23, 42, 0.04);
+}
+
 .markdown-body :deep(table code) {
   white-space: nowrap;
 }
@@ -397,8 +410,10 @@ function formatTimestamp(value) {
   border-radius: 4px;
   background: rgba(4, 20, 18, 0.42);
   padding: 0.1rem 0.32rem;
-  color: rgb(210 255 245);
+  color: var(--qq-accent);
   font-size: 0.9em;
+  word-break: break-all;
+  white-space: pre-wrap;
 }
 
 .markdown-body :deep(pre) {
@@ -414,6 +429,8 @@ function formatTimestamp(value) {
   background: transparent;
   padding: 0;
   color: inherit;
+  white-space: pre-wrap;
+  word-break: break-all;
 }
 
 .markdown-body :deep(blockquote) {
@@ -422,86 +439,111 @@ function formatTimestamp(value) {
   color: var(--qq-text-secondary);
 }
 
-:global([data-theme="light"]) .message-bubble--user {
+:global([data-theme="light"] .message-bubble--user) {
   background: rgba(8, 125, 167, 0.08);
   border-color: rgba(8, 125, 167, 0.22);
   box-shadow: 0 2px 10px rgba(15, 23, 42, 0.08);
 }
 
-:global([data-theme="light"]) .message-bubble--assistant {
-  box-shadow: 0 10px 26px rgba(15, 23, 42, 0.10);
+:global([data-theme="light"] .message-bubble--assistant) {
+  box-shadow: 0 3px 10px rgba(15, 23, 42, 0.08);
 }
 
-:global([data-theme="light"]) .message-bubble--tool {
-  box-shadow: 0 14px 28px rgba(15, 23, 42, 0.12);
+:global([data-theme="light"] .message-bubble--tool) {
+  box-shadow: 0 3px 10px rgba(15, 23, 42, 0.08);
 }
 
-:global([data-theme="light"]) .role-badge--user {
+:global([data-theme="light"] .role-badge--user) {
   background: rgba(8, 125, 167, 0.09);
   border-color: rgba(8, 125, 167, 0.22);
   color: #075985;
 }
 
-:global([data-theme="light"]) .role-badge--assistant {
+:global([data-theme="light"] .role-badge--assistant) {
   background: rgba(8, 125, 167, 0.08);
   border-color: rgba(8, 125, 167, 0.18);
   color: var(--qq-accent-strong);
 }
 
-:global([data-theme="light"]) .tool-icon--completed {
+:global([data-theme="light"] .tool-icon--completed) {
   color: #047857;
 }
 
-:global([data-theme="light"]) .tool-icon--failed {
+:global([data-theme="light"] .tool-icon--failed) {
   color: #be123c;
 }
 
-:global([data-theme="light"]) .tool-message-toggle:hover {
+:global([data-theme="light"] .tool-message-toggle:hover) {
   background: rgba(15, 23, 42, 0.05);
   color: var(--qq-text-primary);
 }
 
-:global([data-theme="light"]) .tool-message-toggle__label {
+:global([data-theme="light"] .tool-message-toggle) {
+  color: var(--qq-text-secondary);
+}
+
+:global([data-theme="light"] .tool-message-status) {
+  color: #0f4f6a;
+}
+
+:global([data-theme="light"] .tool-message-toggle__label) {
   border-color: rgba(15, 23, 42, 0.14);
+  background: rgba(15, 23, 42, 0.04);
   color: var(--qq-accent-strong);
 }
 
-:global([data-theme="light"]) .markdown-body :deep(h1),
-:global([data-theme="light"]) .markdown-body :deep(h2),
-:global([data-theme="light"]) .markdown-body :deep(h3),
-:global([data-theme="light"]) .markdown-body :deep(h4),
-:global([data-theme="light"]) .markdown-body :deep(strong) {
+:global([data-theme="light"] .tool-message-meta) {
+  border-top-color: rgba(15, 23, 42, 0.10);
+  color: var(--qq-text-secondary);
+}
+
+:global([data-theme="light"] .markdown-body) {
   color: var(--qq-text-primary);
 }
 
-:global([data-theme="light"]) .markdown-body :deep(td) {
+:global([data-theme="light"] .markdown-body) :deep(blockquote) {
+  color: var(--qq-text-secondary);
+}
+
+:global([data-theme="light"] .markdown-body) :deep(h1),
+:global([data-theme="light"] .markdown-body) :deep(h2),
+:global([data-theme="light"] .markdown-body) :deep(h3),
+:global([data-theme="light"] .markdown-body) :deep(h4),
+:global([data-theme="light"] .markdown-body) :deep(strong) {
   color: var(--qq-text-primary);
 }
 
-:global([data-theme="light"]) .markdown-body :deep(th) {
+:global([data-theme="light"] .markdown-body) :deep(td) {
+  color: var(--qq-text-primary);
+}
+
+:global([data-theme="light"] .markdown-body) :deep(th) {
   color: var(--qq-accent-strong);
 }
 
-:global([data-theme="light"]) .markdown-body :deep(.markdown-table-scroll) {
+:global([data-theme="light"] .markdown-body) :deep(.markdown-table-scroll) {
   border-color: rgba(15, 23, 42, 0.14);
   background:
     linear-gradient(90deg, rgba(8, 125, 167, 0.055), transparent 35%),
     rgba(255, 255, 255, 0.72);
 }
 
-:global([data-theme="light"]) .markdown-body :deep(th),
-:global([data-theme="light"]) .markdown-body :deep(td) {
+:global([data-theme="light"] .markdown-body) :deep(th),
+:global([data-theme="light"] .markdown-body) :deep(td) {
   border-color: rgba(15, 23, 42, 0.10);
 }
 
-:global([data-theme="light"]) .markdown-body :deep(code) {
+:global([data-theme="light"] .markdown-body) :deep(code) {
   border-color: rgba(15, 23, 42, 0.14);
-  background: rgba(15, 23, 42, 0.055);
-  color: #075985;
+  background: rgba(15, 23, 42, 0.08);
+  color: var(--qq-accent-strong);
+  word-break: break-all;
+  white-space: pre-wrap;
 }
 
-:global([data-theme="light"]) .markdown-body :deep(pre) {
+:global([data-theme="light"] .markdown-body) :deep(pre) {
   border-color: rgba(15, 23, 42, 0.14);
-  background: rgba(15, 23, 42, 0.055);
+  background: rgba(15, 23, 42, 0.07);
+  color: var(--qq-text-primary);
 }
 </style>

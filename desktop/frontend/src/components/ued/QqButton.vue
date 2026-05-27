@@ -24,9 +24,9 @@ const variantClassMap = {
   primary:
     'border-transparent bg-[linear-gradient(135deg,var(--qq-accent),var(--qq-accent-strong))] text-slate-950 hover:brightness-105',
   secondary:
-    'border-[color:var(--qq-border)] bg-[rgba(255,255,255,0.12)] text-[color:var(--qq-text-primary)] hover:bg-[rgba(255,255,255,0.18)]',
+    'border-[color:var(--qq-border)] bg-[var(--qq-fill-strong)] text-[color:var(--qq-text-primary)] hover:bg-[var(--qq-fill-strong)]',
   ghost:
-    'border-transparent bg-transparent text-[color:var(--qq-text-secondary)] hover:bg-[rgba(255,255,255,0.08)] hover:text-[color:var(--qq-text-primary)]',
+    'border-transparent bg-transparent text-[color:var(--qq-text-secondary)] hover:bg-[var(--qq-fill-medium)] hover:text-[color:var(--qq-text-primary)]',
   danger:
     'border-transparent bg-[linear-gradient(135deg,#ff8fb8,#ff7584)] text-slate-950 hover:brightness-105',
 }

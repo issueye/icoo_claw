@@ -38,7 +38,7 @@ const emit = defineEmits(['update:modelValue'])
         :class="
           modelValue === option.value
             ? 'border-transparent bg-[var(--qq-accent)] text-slate-950'
-            : 'border-[color:var(--qq-border-strong)] bg-[rgba(255,255,255,0.08)]'
+            : 'border-[color:var(--qq-border-strong)] bg-[var(--qq-fill-medium)]'
         "
       >
         <span class="h-2 w-2 rounded-full bg-current" />

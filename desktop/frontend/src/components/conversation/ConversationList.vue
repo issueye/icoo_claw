@@ -52,7 +52,7 @@ function isRunning(conversation, runningConversationIds) {
     <!-- 收起状态 -->
     <div v-if="collapsed" class="flex min-h-0 flex-1 flex-col items-center gap-3 px-2 py-4">
       <button
-        class="inline-flex h-8 w-8 items-center justify-center rounded-[4px] border border-white/10 bg-[rgba(255,255,255,0.06)] text-[color:var(--qq-text-secondary)] transition hover:border-white/20 hover:bg-[rgba(255,255,255,0.12)] hover:text-white"
+        class="inline-flex h-8 w-8 items-center justify-center rounded-[4px] border border-white/10 bg-[var(--qq-fill-soft)] text-[color:var(--qq-text-secondary)] transition hover:border-white/20 hover:bg-[var(--qq-fill-strong)] hover:text-[color:var(--qq-text-primary)]"
         type="button"
         title="展开会话列表"
         @click="$emit('toggle-collapse')"
@@ -68,7 +68,7 @@ function isRunning(conversation, runningConversationIds) {
         <MessageSquarePlus class="h-4 w-4" />
       </button>
       <button
-        class="inline-flex h-8 w-8 items-center justify-center rounded-[4px] border border-white/10 bg-[rgba(255,255,255,0.06)] text-[color:var(--qq-text-secondary)] transition hover:border-white/20 hover:bg-[rgba(255,255,255,0.12)] hover:text-white"
+        class="inline-flex h-8 w-8 items-center justify-center rounded-[4px] border border-white/10 bg-[var(--qq-fill-soft)] text-[color:var(--qq-text-secondary)] transition hover:border-white/20 hover:bg-[var(--qq-fill-strong)] hover:text-[color:var(--qq-text-primary)]"
         type="button"
         title="刷新会话"
         @click="$emit('refresh')"
@@ -76,7 +76,7 @@ function isRunning(conversation, runningConversationIds) {
         <RefreshCw class="h-4 w-4" />
       </button>
       <div class="mt-2 flex flex-col items-center gap-2 text-[11px] text-[color:var(--qq-text-tertiary)]">
-        <span class="rounded-[4px] border border-white/10 bg-[rgba(255,255,255,0.06)] px-2 py-1 text-[color:var(--qq-text-secondary)]">
+        <span class="rounded-[4px] border border-white/10 bg-[var(--qq-fill-soft)] px-2 py-1 text-[color:var(--qq-text-secondary)]">
           {{ conversations.length }}
         </span>
         <span
@@ -94,13 +94,13 @@ function isRunning(conversation, runningConversationIds) {
       <div class="flex items-center justify-between border-b border-white/10 px-3.5 py-3">
         <div class="flex items-center gap-2">
           <p class="text-xs font-semibold text-[color:var(--qq-text-secondary)] tracking-[0.06em]">会话历史</p>
-          <span class="rounded-[4px] border border-white/8 bg-white/4 px-1.5 py-0.5 text-[10px] text-[color:var(--qq-text-tertiary)]">
+          <span class="rounded-[4px] border border-white/8 bg-[var(--qq-fill-soft)] px-1.5 py-0.5 text-[10px] text-[color:var(--qq-text-tertiary)]">
             {{ conversations.length }}
           </span>
         </div>
         <div class="flex items-center gap-1.5">
           <button
-            class="inline-flex h-7 w-7 items-center justify-center rounded-[4px] text-[color:var(--qq-text-tertiary)] transition hover:bg-[rgba(255,255,255,0.08)] hover:text-[color:var(--qq-text-secondary)]"
+            class="inline-flex h-7 w-7 items-center justify-center rounded-[4px] text-[color:var(--qq-text-tertiary)] transition hover:bg-[var(--qq-fill-medium)] hover:text-[color:var(--qq-text-secondary)]"
             type="button"
             title="收起会话列表"
             @click="$emit('toggle-collapse')"
@@ -108,7 +108,7 @@ function isRunning(conversation, runningConversationIds) {
             <PanelLeftClose class="h-3.5 w-3.5" />
           </button>
           <button
-            class="inline-flex h-7 w-7 items-center justify-center rounded-[4px] text-[color:var(--qq-text-tertiary)] transition hover:bg-[rgba(255,255,255,0.08)] hover:text-[color:var(--qq-text-secondary)]"
+            class="inline-flex h-7 w-7 items-center justify-center rounded-[4px] text-[color:var(--qq-text-tertiary)] transition hover:bg-[var(--qq-fill-medium)] hover:text-[color:var(--qq-text-secondary)]"
             type="button"
             title="刷新"
             @click="$emit('refresh')"
@@ -126,7 +126,7 @@ function isRunning(conversation, runningConversationIds) {
         </div>
       </div>
 
-      <div class="border-b border-white/8 px-3.5 py-1.5 text-[10px] text-[color:var(--qq-text-tertiary)] bg-white/1.5">
+      <div class="border-b border-white/8 px-3.5 py-1.5 text-[10px] text-[color:var(--qq-text-tertiary)] bg-[var(--qq-fill-subtle)]">
         {{ loading ? '正在读取会话...' : streaming ? `${runningConversationIds.length} 个会话运行中` : '按最后活动时间排序' }}
       </div>
 
@@ -136,11 +136,11 @@ function isRunning(conversation, runningConversationIds) {
           v-for="conversation in conversations"
           :key="conversation.id"
           :data-testid="`conversation-item-${conversation.id}`"
-          class="group relative block rounded-[6px] border px-3.5 py-3 transition-all duration-150 overflow-hidden"
+          class="group conversation-card relative block rounded-[6px] border px-3.5 py-3 transition-all duration-150 overflow-hidden"
           :class="
             conversation.id === activeId
-              ? 'bg-[rgba(255,255,255,0.08)] border-white/15 shadow-[0_4px_16px_rgba(0,0,0,0.3)]'
-              : 'border-transparent hover:bg-[rgba(255,255,255,0.03)] hover:border-white/5'
+              ? 'conversation-card--active bg-[var(--qq-fill-medium)] border-white/15'
+              : 'border-transparent hover:bg-[var(--qq-fill-subtle)] hover:border-white/5'
           "
         >
           <!-- 侧边荧光指示条 (仅选中态展示) -->
@@ -191,7 +191,7 @@ function isRunning(conversation, runningConversationIds) {
         </div>
 
         <!-- 极富设计感的空状态引导 -->
-        <div v-if="!loading && conversations.length === 0" class="mx-2 my-8 rounded-[8px] border border-dashed border-white/10 p-6 text-center bg-white/1">
+        <div v-if="!loading && conversations.length === 0" class="mx-2 my-8 rounded-[8px] border border-dashed border-white/10 p-6 text-center bg-[var(--qq-fill-subtle)]">
           <MessageSquarePlus class="mx-auto h-8 w-8 text-[color:var(--qq-text-tertiary)] opacity-50" />
           <p class="mt-3 text-sm font-medium text-[color:var(--qq-text-secondary)]">暂无历史会话</p>
           <p class="mt-2 text-xs leading-5 text-[color:var(--qq-text-tertiary)]">发送第一条消息后，会话记录将自动保存在这里。</p>
@@ -207,3 +207,15 @@ function isRunning(conversation, runningConversationIds) {
     </template>
   </aside>
 </template>
+
+<style scoped>
+.conversation-card--active {
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
+}
+
+:global([data-theme="light"] .conversation-card--active) {
+  background: rgba(8, 125, 167, 0.06);
+  border-color: rgba(8, 125, 167, 0.18);
+  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.08);
+}
+</style>

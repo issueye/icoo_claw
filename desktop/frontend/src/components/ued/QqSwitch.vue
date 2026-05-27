@@ -30,7 +30,7 @@ function toggle() {
 
 <template>
   <button
-    class="group flex w-full items-center justify-between gap-3 rounded-[6px] border border-[color:var(--qq-border)] bg-white/3 px-3 py-2.5 text-left transition hover:border-[color:var(--qq-border-strong)] hover:bg-white/6 disabled:cursor-not-allowed disabled:opacity-55"
+    class="group flex w-full items-center justify-between gap-3 rounded-[6px] border border-[color:var(--qq-border)] bg-[var(--qq-fill-subtle)] px-3 py-2.5 text-left transition hover:border-[color:var(--qq-border-strong)] hover:bg-[var(--qq-fill-medium)] disabled:cursor-not-allowed disabled:opacity-55"
     :aria-checked="modelValue"
     :disabled="disabled"
     role="switch"
@@ -50,7 +50,7 @@ function toggle() {
       :class="
         modelValue
           ? 'border-transparent bg-[linear-gradient(135deg,var(--qq-accent),var(--qq-accent-strong))]'
-          : 'border-[color:var(--qq-border)] bg-[rgba(255,255,255,0.10)]'
+          : 'border-[color:var(--qq-border)] bg-[var(--qq-fill-medium)]'
       "
     >
       <span

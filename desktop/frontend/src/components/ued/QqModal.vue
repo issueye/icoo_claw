@@ -41,7 +41,7 @@ function confirm() {
             </p>
           </div>
           <button
-            class="inline-flex h-9 w-9 items-center justify-center rounded-[4px] border border-[color:var(--qq-border)] bg-[rgba(255,255,255,0.08)] text-[color:var(--qq-text-secondary)] transition hover:bg-[rgba(255,255,255,0.14)] hover:text-[color:var(--qq-text-primary)]"
+            class="inline-flex h-9 w-9 items-center justify-center rounded-[4px] border border-[color:var(--qq-border)] bg-[var(--qq-fill-medium)] text-[color:var(--qq-text-secondary)] transition hover:bg-[var(--qq-fill-strong)] hover:text-[color:var(--qq-text-primary)]"
             type="button"
             @click="close"
           >

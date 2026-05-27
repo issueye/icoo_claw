@@ -29,7 +29,7 @@ function statusTone(value) {
   if (value === 'online') return '#38e1b8'
   if (value === 'busy') return '#ffd968'
   if (value === 'offline') return '#ff9db9'
-  return 'rgba(255,255,255,0.56)'
+  return 'var(--qq-text-tertiary)'
 }
 </script>
 

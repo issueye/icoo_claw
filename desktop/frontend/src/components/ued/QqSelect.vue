@@ -264,8 +264,8 @@ onBeforeUnmount(() => {
             option.value === modelValue
               ? 'bg-[rgba(0,242,254,0.15)] text-[color:var(--qq-text-primary)]'
               : index === activeIndex
-                ? 'bg-[rgba(255,255,255,0.12)] text-[color:var(--qq-text-primary)]'
-                : 'text-[color:var(--qq-text-secondary)] hover:bg-[rgba(255,255,255,0.10)] hover:text-[color:var(--qq-text-primary)]',
+                ? 'bg-[var(--qq-fill-strong)] text-[color:var(--qq-text-primary)]'
+                : 'text-[color:var(--qq-text-secondary)] hover:bg-[var(--qq-fill-medium)] hover:text-[color:var(--qq-text-primary)]',
           ]"
           role="option"
           type="button"

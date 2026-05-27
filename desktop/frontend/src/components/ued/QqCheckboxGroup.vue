@@ -37,7 +37,7 @@ function toggle(value) {
         :class="
           modelValue.includes(option.value)
             ? 'border-transparent bg-[var(--qq-accent-pink)] text-slate-950'
-            : 'border-[color:var(--qq-border-strong)] bg-[rgba(255,255,255,0.08)] text-transparent'
+            : 'border-[color:var(--qq-border-strong)] bg-[var(--qq-fill-medium)] text-transparent'
         "
       >
         ✓

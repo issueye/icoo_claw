@@ -59,7 +59,7 @@ function handleKeydown(event) {
           <button
             v-if="busy"
             type="button"
-            class="inline-flex items-center gap-1.5 rounded-[6px] border border-white/10 bg-white/6 px-3 py-1.5 text-xs text-[color:var(--qq-text-secondary)] transition hover:border-white/20 hover:bg-white/10 hover:text-white"
+            class="inline-flex items-center gap-1.5 rounded-[6px] border border-white/10 bg-[var(--qq-fill-medium)] px-3 py-1.5 text-xs text-[color:var(--qq-text-secondary)] transition hover:border-white/20 hover:bg-[var(--qq-fill-medium)] hover:text-[color:var(--qq-text-primary)]"
             @click="emit('cancel')"
           >
             <Square class="h-3 w-3" />
@@ -72,7 +72,7 @@ function handleKeydown(event) {
             class="inline-flex items-center gap-1.5 rounded-[6px] px-3.5 py-1.5 text-xs font-semibold transition"
             :class="canSubmit
               ? 'bg-[linear-gradient(135deg,var(--qq-accent),var(--qq-accent-strong))] text-slate-950 shadow-[0_0_12px_rgba(0,242,254,0.25)] hover:brightness-110 hover:shadow-[0_0_18px_rgba(0,242,254,0.35)]'
-              : 'bg-white/6 text-[color:var(--qq-text-tertiary)] cursor-not-allowed opacity-50'
+              : 'bg-[var(--qq-fill-medium)] text-[color:var(--qq-text-tertiary)] cursor-not-allowed opacity-50'
             "
             @click="emit('send')"
           >

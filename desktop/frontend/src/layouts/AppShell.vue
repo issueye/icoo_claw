@@ -41,12 +41,12 @@ const conversationDeleteDialog = reactive({
 const navItems = [
   { name: 'chat-home', label: 'AI 会话', icon: MessageSquareText, to: '/chat' },
   { name: 'search', label: '全局搜索', icon: Search, to: '/search' },
-  { name: 'agents', label: '智能体管理', icon: Bot, to: '/agents' },
-  { name: 'providers', label: '服务商配置', icon: KeyRound, to: '/providers' },
+  { name: 'agents', label: '智能体', icon: Bot, to: '/agents' },
+  { name: 'providers', label: '服务商', icon: KeyRound, to: '/providers' },
   { name: 'scheduled-tasks', label: '任务调度', icon: CalendarClock, to: '/scheduled-tasks' },
-  { name: 'skills', label: '技能工作室', icon: Wrench, to: '/skills' },
+  { name: 'skills', label: '技能', icon: Wrench, to: '/skills' },
   { name: 'plugins', label: '扩展插件', icon: PlugZap, to: '/plugins' },
-  { name: 'settings', label: '本地设置', icon: Settings2, to: '/settings' },
+  { name: 'settings', label: '设置', icon: Settings2, to: '/settings' },
 ]
 
 const activeConversationId = computed(() => String(route.params.id || ''))
@@ -241,11 +241,11 @@ watch(
 <template>
   <div class="qq-theme qq-mesh relative flex h-screen flex-col text-[color:var(--qq-text-primary)]">
     <header
-      class="qq-panel-strong relative z-10 flex h-12 shrink-0 items-center justify-between border-b border-white/10 pl-4"
+      class="qq-panel-strong relative z-10 flex h-12 shrink-0 items-center justify-between border-b border-white/10 border-t-0 pl-4"
       style="--wails-draggable: drag"
     >
       <div class="flex min-w-0 items-center gap-3">
-        <div class="flex h-7 w-7 shrink-0 items-center justify-center rounded-[4px] border border-white/10 bg-[rgba(255,255,255,0.10)] text-xs font-semibold text-[color:var(--qq-accent)]">
+        <div class="flex h-7 w-7 shrink-0 items-center justify-center rounded-[4px] border border-white/10 bg-[var(--qq-fill-medium)] text-xs font-semibold text-[color:var(--qq-accent)]">
           IC
         </div>
         <div class="min-w-0">
@@ -266,7 +266,7 @@ watch(
           网关管理
         </QqButton>
         <button
-          class="inline-flex h-9 w-9 items-center justify-center rounded-[4px] border border-white/10 bg-[rgba(255,255,255,0.08)] text-[color:var(--qq-text-secondary)] transition hover:border-white/20 hover:bg-[rgba(255,255,255,0.14)] hover:text-white"
+          class="inline-flex h-9 w-9 items-center justify-center rounded-[4px] border border-white/10 bg-[var(--qq-fill-medium)] text-[color:var(--qq-text-secondary)] transition hover:border-white/20 hover:bg-[var(--qq-fill-strong)] hover:text-[color:var(--qq-text-primary)]"
           type="button"
           title="刷新网关状态"
           @click="refresh"
@@ -275,7 +275,7 @@ watch(
         </button>
         <div class="ml-1 flex h-full border-l border-white/10">
           <button
-            class="inline-flex h-full w-11 items-center justify-center text-[color:var(--qq-text-secondary)] transition hover:bg-white/10 hover:text-white"
+            class="inline-flex h-full w-11 items-center justify-center text-[color:var(--qq-text-secondary)] transition hover:bg-[var(--qq-fill-medium)] hover:text-[color:var(--qq-text-primary)]"
             type="button"
             title="最小化"
             @click="minimiseWindow"
@@ -283,7 +283,7 @@ watch(
             <Minus class="h-4 w-4" />
           </button>
           <button
-            class="inline-flex h-full w-11 items-center justify-center text-[color:var(--qq-text-secondary)] transition hover:bg-white/10 hover:text-white"
+            class="inline-flex h-full w-11 items-center justify-center text-[color:var(--qq-text-secondary)] transition hover:bg-[var(--qq-fill-medium)] hover:text-[color:var(--qq-text-primary)]"
             type="button"
             title="最大化"
             @click="toggleMaximiseWindow"
@@ -322,7 +322,7 @@ watch(
       />
 
 
-      <main class="relative min-h-0 min-w-0 flex-1 overflow-hidden bg-transparent">
+      <main class="qq-main-surface relative min-h-0 min-w-0 flex-1 overflow-hidden">
         <RouterView />
       </main>
     </div>
@@ -352,7 +352,7 @@ watch(
     >
       <div class="grid gap-4">
         <div
-          class="rounded-[6px] border border-white/10 bg-white/5 px-3 py-3 text-sm leading-6 text-[color:var(--qq-text-secondary)]"
+          class="rounded-[6px] border border-white/10 bg-[var(--qq-fill-soft)] px-3 py-3 text-sm leading-6 text-[color:var(--qq-text-secondary)]"
         >
           <div class="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
             <div>
@@ -374,11 +374,11 @@ watch(
         </QqFormField>
 
         <div class="grid gap-3 md:grid-cols-2">
-          <div class="rounded-[6px] border border-white/10 bg-white/3 px-3 py-3 text-sm">
+          <div class="rounded-[6px] border border-white/10 bg-[var(--qq-fill-subtle)] px-3 py-3 text-sm">
             <p class="text-xs uppercase tracking-[0.16em] text-[color:var(--qq-text-tertiary)]">Health</p>
             <p class="mt-2 break-all text-[color:var(--qq-text-primary)]">{{ gatewayHealthLabel }}</p>
           </div>
-          <div class="rounded-[6px] border border-white/10 bg-white/3 px-3 py-3 text-sm">
+          <div class="rounded-[6px] border border-white/10 bg-[var(--qq-fill-subtle)] px-3 py-3 text-sm">
             <p class="text-xs uppercase tracking-[0.16em] text-[color:var(--qq-text-tertiary)]">Resources</p>
             <p class="mt-2 text-[color:var(--qq-text-primary)]">Agent {{ agentsStore.items.length }} · 会话 {{ conversationsStore.items.length }}</p>
           </div>
@@ -401,7 +401,7 @@ watch(
       description="删除后会话记录会从网关移除。"
       title="删除会话"
     >
-      <div class="rounded-[6px] border border-white/10 bg-white/3 px-3 py-3 text-sm leading-6 text-[color:var(--qq-text-secondary)]">
+      <div class="rounded-[6px] border border-white/10 bg-[var(--qq-fill-subtle)] px-3 py-3 text-sm leading-6 text-[color:var(--qq-text-secondary)]">
         <p class="font-medium text-[color:var(--qq-text-primary)]">
           {{ conversationsStore.byId(conversationDeleteDialog.conversationId)?.title || 'Untitled Conversation' }}
         </p>

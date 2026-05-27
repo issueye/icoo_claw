@@ -191,28 +191,28 @@ function formatDate(value) {
 
 function statusClass(status, enabled) {
   if (!enabled || status === 'paused') {
-    return 'bg-white/10 text-[color:var(--qq-text-tertiary)]'
+    return 'bg-[var(--qq-fill-medium)] text-[color:var(--qq-text-tertiary)]'
   }
   if (status === 'completed') {
-    return 'bg-sky-300/15 text-sky-100'
+    return 'bg-[var(--qq-status-info-bg)] text-[var(--qq-status-info-text)]'
   }
   if (status === 'error') {
-    return 'bg-rose-300/15 text-rose-100'
+    return 'bg-[var(--qq-status-error-bg)] text-[var(--qq-status-error-text)]'
   }
-  return 'bg-emerald-300/15 text-emerald-100'
+  return 'bg-[var(--qq-status-success-bg)] text-[var(--qq-status-success-text)]'
 }
 
 function runStatusClass(status) {
   if (status === 'error') {
-    return 'bg-rose-300/15 text-rose-100'
+    return 'bg-[var(--qq-status-error-bg)] text-[var(--qq-status-error-text)]'
   }
   if (status === 'completed') {
-    return 'bg-sky-300/15 text-sky-100'
+    return 'bg-[var(--qq-status-info-bg)] text-[var(--qq-status-info-text)]'
   }
   if (status === 'active') {
-    return 'bg-emerald-300/15 text-emerald-100'
+    return 'bg-[var(--qq-status-success-bg)] text-[var(--qq-status-success-text)]'
   }
-  return 'bg-white/10 text-[color:var(--qq-text-tertiary)]'
+  return 'bg-[var(--qq-fill-medium)] text-[color:var(--qq-text-tertiary)]'
 }
 
 onMounted(() => {
@@ -245,15 +245,15 @@ onMounted(() => {
         </div>
 
         <div class="mt-5 grid gap-3 md:grid-cols-3">
-          <div class="rounded-[6px] border border-white/10 bg-white/3 px-4 py-3">
+          <div class="rounded-[6px] border border-white/10 bg-[var(--qq-fill-subtle)] px-4 py-3">
             <p class="text-xs uppercase tracking-[0.16em] text-[color:var(--qq-text-tertiary)]">Tasks</p>
             <p class="mt-2 text-2xl font-semibold text-[color:var(--qq-text-primary)]">{{ scheduledTasksStore.items.length }}</p>
           </div>
-          <div class="rounded-[6px] border border-white/10 bg-white/3 px-4 py-3">
+          <div class="rounded-[6px] border border-white/10 bg-[var(--qq-fill-subtle)] px-4 py-3">
             <p class="text-xs uppercase tracking-[0.16em] text-[color:var(--qq-text-tertiary)]">Active</p>
             <p class="mt-2 text-2xl font-semibold text-[color:var(--qq-text-primary)]">{{ scheduledTasksStore.activeCount }}</p>
           </div>
-          <div class="rounded-[6px] border border-white/10 bg-white/3 px-4 py-3">
+          <div class="rounded-[6px] border border-white/10 bg-[var(--qq-fill-subtle)] px-4 py-3">
             <p class="text-xs uppercase tracking-[0.16em] text-[color:var(--qq-text-tertiary)]">Paused</p>
             <p class="mt-2 text-2xl font-semibold text-[color:var(--qq-text-primary)]">{{ scheduledTasksStore.pausedCount }}</p>
           </div>
@@ -268,7 +268,7 @@ onMounted(() => {
         <div class="grid gap-3">
           <div
             v-if="!scheduledTasksStore.items.length"
-            class="rounded-[6px] border border-dashed border-white/15 bg-white/2 px-4 py-6 text-sm text-[color:var(--qq-text-secondary)]"
+            class="rounded-[6px] border border-dashed border-white/15 bg-[var(--qq-fill-subtle)] px-4 py-6 text-sm text-[color:var(--qq-text-secondary)]"
           >
             当前网关还没有定时任务。创建任务后，网关会计算下一次运行时间。
           </div>
@@ -276,7 +276,7 @@ onMounted(() => {
           <div
             v-for="task in scheduledTasksStore.items"
             :key="task.id"
-            class="rounded-[6px] border border-white/10 bg-white/3 px-4 py-4"
+            class="rounded-[6px] border border-white/10 bg-[var(--qq-fill-subtle)] px-4 py-4"
           >
             <div class="flex flex-col gap-3 xl:flex-row xl:items-start xl:justify-between">
               <div class="min-w-0">
@@ -387,20 +387,20 @@ onMounted(() => {
       title="执行情况"
     >
       <div v-if="runsDialog.task" class="grid gap-4">
-        <div class="rounded-[6px] border border-white/10 bg-white/3 px-3 py-3 text-sm leading-6 text-[color:var(--qq-text-secondary)]">
+        <div class="rounded-[6px] border border-white/10 bg-[var(--qq-fill-subtle)] px-3 py-3 text-sm leading-6 text-[color:var(--qq-text-secondary)]">
           <p class="font-medium text-[color:var(--qq-text-primary)]">{{ runsDialog.task.name }}</p>
           <p class="mt-1 break-all">ID {{ runsDialog.task.id }}</p>
           <p class="mt-1">Agent {{ runsDialog.task.agentId ? (agentsStore.items.find((agent) => agent.id === runsDialog.task.agentId)?.name || runsDialog.task.agentId) : '-' }}</p>
           <p class="mt-1">执行次数 {{ runsDialog.task.runCount }} · 上次 {{ formatDate(runsDialog.task.lastRunAt) }}</p>
         </div>
 
-        <div v-if="scheduledTasksStore.runsLoading" class="rounded-[6px] border border-white/10 bg-white/3 px-4 py-6 text-sm text-[color:var(--qq-text-secondary)]">
+        <div v-if="scheduledTasksStore.runsLoading" class="rounded-[6px] border border-white/10 bg-[var(--qq-fill-subtle)] px-4 py-6 text-sm text-[color:var(--qq-text-secondary)]">
           正在读取执行情况...
         </div>
 
         <div
           v-else-if="!selectedTaskRuns.length"
-          class="rounded-[6px] border border-dashed border-white/15 bg-white/2 px-4 py-6 text-sm text-[color:var(--qq-text-secondary)]"
+          class="rounded-[6px] border border-dashed border-white/15 bg-[var(--qq-fill-subtle)] px-4 py-6 text-sm text-[color:var(--qq-text-secondary)]"
         >
           还没有执行记录。等待任务到期并被网关扫描后，这里会出现最近执行情况。
         </div>
@@ -409,7 +409,7 @@ onMounted(() => {
           <div
             v-for="run in selectedTaskRuns"
             :key="run.id"
-            class="rounded-[6px] border border-white/10 bg-white/3 px-3 py-3 text-sm"
+            class="rounded-[6px] border border-white/10 bg-[var(--qq-fill-subtle)] px-3 py-3 text-sm"
           >
             <div class="flex flex-wrap items-center justify-between gap-2">
               <span class="rounded-[4px] px-2 py-0.5 text-[11px]" :class="runStatusClass(run.status)">
@@ -438,7 +438,7 @@ onMounted(() => {
       description="删除后该任务计划和执行记录会从网关移除。"
       title="删除定时任务"
     >
-      <div class="rounded-[6px] border border-white/10 bg-white/3 px-3 py-3 text-sm leading-6 text-[color:var(--qq-text-secondary)]">
+      <div class="rounded-[6px] border border-white/10 bg-[var(--qq-fill-subtle)] px-3 py-3 text-sm leading-6 text-[color:var(--qq-text-secondary)]">
         <p class="font-medium text-[color:var(--qq-text-primary)]">{{ deleteDialog.task?.name || '未选择任务' }}</p>
         <p class="mt-1 break-all">ID {{ deleteDialog.task?.id || '-' }}</p>
       </div>

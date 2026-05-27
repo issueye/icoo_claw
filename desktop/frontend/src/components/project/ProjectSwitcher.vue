@@ -47,7 +47,7 @@ async function selectProject(projectId) {
 <template>
   <div
     v-if="compact"
-    class="group relative flex w-full flex-col items-center gap-1 rounded-[4px] px-2 py-2.5 text-[11px] text-[color:var(--qq-text-tertiary)] transition hover:bg-[rgba(255,255,255,0.06)] hover:text-[color:var(--qq-text-primary)]"
+    class="group relative flex w-full flex-col items-center gap-1 rounded-[4px] px-2 py-2.5 text-[11px] text-[color:var(--qq-text-tertiary)] transition hover:bg-[var(--qq-fill-soft)] hover:text-[color:var(--qq-text-primary)]"
     :title="`当前项目：${currentLabel}`"
   >
     <FolderKanban class="h-4 w-4" />
@@ -60,7 +60,7 @@ async function selectProject(projectId) {
     />
   </div>
 
-  <div v-else class="w-full rounded-[6px] border border-white/10 bg-[rgba(255,255,255,0.06)] p-2">
+  <div v-else class="w-full rounded-[6px] border border-white/10 bg-[var(--qq-fill-soft)] p-2">
     <div class="mb-2 flex items-center gap-2 px-1 text-[10px] uppercase leading-4 tracking-[0.14em] text-[color:var(--qq-text-tertiary)]">
       <FolderKanban class="h-3.5 w-3.5" />
       Project
