@@ -39,14 +39,14 @@ const conversationDeleteDialog = reactive({
 })
 
 const navItems = [
-  { name: 'chat-home', label: 'Chat', icon: MessageSquareText, to: '/chat' },
-  { name: 'search', label: 'Search', icon: Search, to: '/search' },
-  { name: 'agents', label: 'Agents', icon: Bot, to: '/agents' },
-  { name: 'providers', label: 'Providers', icon: KeyRound, to: '/providers' },
-  { name: 'scheduled-tasks', label: 'Tasks', icon: CalendarClock, to: '/scheduled-tasks' },
-  { name: 'skills', label: 'Skills', icon: Wrench, to: '/skills' },
-  { name: 'plugins', label: 'Plugins', icon: PlugZap, to: '/plugins' },
-  { name: 'settings', label: 'Settings', icon: Settings2, to: '/settings' },
+  { name: 'chat-home', label: 'AI 会话', icon: MessageSquareText, to: '/chat' },
+  { name: 'search', label: '全局搜索', icon: Search, to: '/search' },
+  { name: 'agents', label: '智能体管理', icon: Bot, to: '/agents' },
+  { name: 'providers', label: '服务商配置', icon: KeyRound, to: '/providers' },
+  { name: 'scheduled-tasks', label: '任务调度', icon: CalendarClock, to: '/scheduled-tasks' },
+  { name: 'skills', label: '技能工作室', icon: Wrench, to: '/skills' },
+  { name: 'plugins', label: '扩展插件', icon: PlugZap, to: '/plugins' },
+  { name: 'settings', label: '本地设置', icon: Settings2, to: '/settings' },
 ]
 
 const activeConversationId = computed(() => String(route.params.id || ''))

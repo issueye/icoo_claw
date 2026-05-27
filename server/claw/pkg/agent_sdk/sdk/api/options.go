@@ -203,9 +203,6 @@ type Request struct {
 	Tags               map[string]string
 	Channels           []string
 	Metadata           map[string]any
-	TeamMembers        []subagents.TeamMember
-	TeamMaxAgents      int
-	TeamMaxConcurrency int
 	TargetSubagent     string
 	ToolWhitelist      []string
 	ForceSkills        []string
@@ -216,7 +213,6 @@ type Response struct {
 	RequestID       string `json:"request_id,omitempty"` // UUID for distributed tracing
 	Result          *Result
 	SkillResults    []SkillExecution
-	Team            *subagents.TeamResult
 	Subagent        *subagents.Result
 	HookEvents      []hooks.Event
 	ProjectConfig   *config.Settings
@@ -451,9 +447,6 @@ func (r Request) normalized(defaultMode ModeContext, fallbackSession string) Req
 	if len(req.ContentBlocks) > 0 {
 		req.ContentBlocks = append([]model.ContentBlock(nil), req.ContentBlocks...)
 	}
-	if len(req.TeamMembers) > 0 {
-		req.TeamMembers = cloneTeamMembers(req.TeamMembers)
-	}
 	if len(req.Channels) > 0 {
 		req.Channels = cloneStrings(req.Channels)
 	}
@@ -496,25 +489,7 @@ func cloneStrings(in []string) []string {
 	return slices.Compact(out)
 }
 
-func cloneTeamMembers(in []subagents.TeamMember) []subagents.TeamMember {
-	if len(in) == 0 {
-		return nil
-	}
-	out := make([]subagents.TeamMember, len(in))
-	for i, member := range in {
-		out[i] = subagents.TeamMember{
-			Name:        strings.TrimSpace(member.Name),
-			Instruction: strings.TrimSpace(member.Instruction),
-		}
-		if len(member.Metadata) > 0 {
-			out[i].Metadata = maps.Clone(member.Metadata)
-		}
-		if len(member.ToolWhitelist) > 0 {
-			out[i].ToolWhitelist = cloneStrings(member.ToolWhitelist)
-		}
-	}
-	return out
-}
+
 
 // WithModelPool configures a pool of models indexed by tier.
 func WithModelPool(pool map[ModelTier]model.Model) func(*Options) {
