@@ -31,7 +31,7 @@ function confirm() {
 <template>
   <Teleport to="body">
     <div v-if="modelValue" class="fixed inset-0 z-50 flex items-center justify-center p-5">
-      <button class="absolute inset-0 bg-[rgba(7,18,15,0.58)] backdrop-blur-[10px]" type="button" @click="close" />
+      <button class="absolute inset-0 bg-[rgba(2,3,8,0.72)] backdrop-blur-[10px]" type="button" @click="close" />
       <div class="qq-panel-strong relative z-10 w-full max-w-xl rounded-[6px] px-5 py-5">
         <div class="flex items-start justify-between gap-4">
           <div>

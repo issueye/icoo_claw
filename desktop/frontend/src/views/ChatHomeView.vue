@@ -76,13 +76,10 @@ async function submit() {
     />
 
     <div class="flex min-h-0 flex-1 flex-col">
-      <div class="border-b border-white/10 bg-[rgba(18,58,51,0.18)] px-4 py-3">
-        <div class="flex flex-wrap items-end justify-between gap-3">
-          <div class="min-w-0">
-            <p class="text-xs uppercase tracking-[0.2em] text-[color:var(--qq-text-tertiary)]">Agent</p>
-            <p class="mt-1 text-sm text-[color:var(--qq-text-secondary)]">选择本次对话使用的 Agent</p>
-          </div>
-          <div class="w-full max-w-sm">
+      <div class="border-b border-white/8 qq-conv-header-bg px-4 py-2 backdrop-blur-xl">
+        <div class="flex flex-wrap items-center justify-between gap-2">
+          <p class="text-[11px] text-[color:var(--qq-text-tertiary)]">选择 Agent 开始对话</p>
+          <div class="w-full max-w-xs">
             <QqSelect v-model="selectedAgentId" :disabled="agentsStore.items.length === 0" :options="agentOptions" />
           </div>
         </div>

@@ -18,7 +18,7 @@ defineProps({
 </script>
 
 <template>
-  <section class="flex min-h-[260px] items-center justify-center border border-white/10 bg-[rgba(11,36,31,0.24)] px-6 py-10" style="border-radius: 6px;">
+  <section class="flex min-h-[260px] items-center justify-center border border-white/10 bg-white/3 px-6 py-10" style="border-radius: 6px;">
     <div class="max-w-md text-center">
       <div class="mx-auto flex h-10 w-10 items-center justify-center rounded-[4px] border border-white/10 bg-[rgba(255,255,255,0.08)] text-[color:var(--qq-accent)]">
         <Loader2 v-if="state === 'loading'" class="h-5 w-5 animate-spin" />

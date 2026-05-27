@@ -91,41 +91,43 @@ function isRunning(conversation, runningConversationIds) {
 
     <!-- 展开状态 -->
     <template v-else>
-      <div class="flex items-center justify-between border-b border-white/10 px-4 py-3.5">
-        <div>
-          <p class="text-xs uppercase tracking-[0.18em] text-[color:var(--qq-text-tertiary)] leading-4">Conversations</p>
-          <h2 class="mt-1 text-sm font-semibold text-slate-50">会话历史</h2>
-        </div>
+      <div class="flex items-center justify-between border-b border-white/10 px-3.5 py-3">
         <div class="flex items-center gap-2">
+          <p class="text-xs font-semibold text-[color:var(--qq-text-secondary)] tracking-[0.06em]">会话历史</p>
+          <span class="rounded-[4px] border border-white/8 bg-white/4 px-1.5 py-0.5 text-[10px] text-[color:var(--qq-text-tertiary)]">
+            {{ conversations.length }}
+          </span>
+        </div>
+        <div class="flex items-center gap-1.5">
           <button
-            class="inline-flex h-8 w-8 items-center justify-center rounded-[4px] border border-white/10 bg-[rgba(255,255,255,0.06)] text-[color:var(--qq-text-secondary)] transition hover:border-white/20 hover:bg-[rgba(255,255,255,0.12)] hover:text-white"
+            class="inline-flex h-7 w-7 items-center justify-center rounded-[4px] text-[color:var(--qq-text-tertiary)] transition hover:bg-[rgba(255,255,255,0.08)] hover:text-[color:var(--qq-text-secondary)]"
             type="button"
             title="收起会话列表"
             @click="$emit('toggle-collapse')"
           >
-            <PanelLeftClose class="h-4 w-4" />
+            <PanelLeftClose class="h-3.5 w-3.5" />
           </button>
           <button
-            class="inline-flex h-8 w-8 items-center justify-center rounded-[4px] border border-white/10 bg-[rgba(255,255,255,0.06)] text-[color:var(--qq-text-secondary)] transition hover:border-white/20 hover:bg-[rgba(255,255,255,0.12)] hover:text-white"
+            class="inline-flex h-7 w-7 items-center justify-center rounded-[4px] text-[color:var(--qq-text-tertiary)] transition hover:bg-[rgba(255,255,255,0.08)] hover:text-[color:var(--qq-text-secondary)]"
             type="button"
             title="刷新"
             @click="$emit('refresh')"
           >
-            <RefreshCw class="h-4 w-4" />
+            <RefreshCw class="h-3.5 w-3.5" />
           </button>
           <button
-            class="inline-flex h-8 w-8 items-center justify-center rounded-[4px] bg-[linear-gradient(135deg,var(--qq-accent),var(--qq-accent-strong))] text-slate-950 transition hover:brightness-105"
+            class="inline-flex h-7 w-7 items-center justify-center rounded-[5px] bg-[linear-gradient(135deg,var(--qq-accent),var(--qq-accent-strong))] text-slate-950 transition hover:brightness-105 hover:shadow-[0_0_10px_rgba(0,242,254,0.3)]"
             type="button"
             title="新建会话"
             @click="$emit('new-chat')"
           >
-            <MessageSquarePlus class="h-4 w-4" />
+            <MessageSquarePlus class="h-3.5 w-3.5" />
           </button>
         </div>
       </div>
 
-      <div class="border-b border-white/10 px-4 py-2 text-xs text-[color:var(--qq-text-tertiary)] bg-white/2">
-        {{ loading ? '正在读取网关会话...' : streaming ? `${runningConversationIds.length} 个会话正在运行` : '按最后活动时间排序' }}
+      <div class="border-b border-white/8 px-3.5 py-1.5 text-[10px] text-[color:var(--qq-text-tertiary)] bg-white/1.5">
+        {{ loading ? '正在读取会话...' : streaming ? `${runningConversationIds.length} 个会话运行中` : '按最后活动时间排序' }}
       </div>
 
       <!-- 会话卡片列表 -->

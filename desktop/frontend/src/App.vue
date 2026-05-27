@@ -16,6 +16,8 @@ const notificationsStore = useNotificationsStore()
 
 onMounted(() => {
   appStore.bootstrap()
+  const savedTheme = localStorage.getItem('qq-theme') || 'dark'
+  document.documentElement.setAttribute('data-theme', savedTheme)
 })
 
 watch(

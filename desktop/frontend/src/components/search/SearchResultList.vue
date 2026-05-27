@@ -47,12 +47,12 @@ function highlightedParts(text) {
 </script>
 
 <template>
-  <div class="scrollbar-thin min-h-0 overflow-y-auto border border-white/10 bg-[rgba(11,36,31,0.20)]" style="border-radius: 6px;">
+  <div class="scrollbar-thin min-h-0 overflow-y-auto border border-white/10 bg-white/3" style="border-radius: 6px;">
     <RouterLink
       v-for="result in results"
       :key="result.id"
       :to="`/chat/${result.conversationId}`"
-      class="block border-b border-white/8 px-4 py-4 transition last:border-b-0 hover:bg-[rgba(255,255,255,0.06)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[rgba(72,255,209,0.28)]"
+      class="block border-b border-white/8 px-4 py-4 transition last:border-b-0 hover:bg-[rgba(255,255,255,0.06)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[rgba(0,242,254,0.28)]"
       :data-testid="`search-result-${result.id}`"
     >
       <article class="flex gap-3">

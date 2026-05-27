@@ -304,7 +304,7 @@ onMounted(() => {
         <p class="text-xs uppercase tracking-[0.24em] text-[color:var(--qq-text-tertiary)]">Agents</p>
         <div class="mt-3 flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
           <div>
-            <h2 class="text-3xl font-semibold text-slate-50">Agent 管理</h2>
+            <h2 class="text-3xl font-semibold text-[color:var(--qq-text-primary)]">Agent 管理</h2>
           </div>
           <div class="flex flex-wrap gap-3">
             <QqButton variant="secondary" :disabled="agentInstancesStore.loading || agentsStore.loading" @click="refreshAll">
@@ -318,15 +318,15 @@ onMounted(() => {
           </div>
         </div>
         <div class="mt-5 grid gap-3 md:grid-cols-3">
-          <div class="rounded-[6px] border border-white/10 bg-[rgba(9,32,28,0.18)] px-4 py-3">
+          <div class="rounded-[6px] border border-white/10 bg-white/3 px-4 py-3">
             <p class="text-xs uppercase tracking-[0.16em] text-[color:var(--qq-text-tertiary)]">Agents</p>
             <p class="mt-2 text-2xl font-semibold text-[color:var(--qq-text-primary)]">{{ agentsStore.items.length }}</p>
           </div>
-          <div class="rounded-[6px] border border-white/10 bg-[rgba(9,32,28,0.18)] px-4 py-3">
+          <div class="rounded-[6px] border border-white/10 bg-white/3 px-4 py-3">
             <p class="text-xs uppercase tracking-[0.16em] text-[color:var(--qq-text-tertiary)]">Active</p>
             <p class="mt-2 text-2xl font-semibold text-[color:var(--qq-text-primary)]">{{ activeInstances.length }}</p>
           </div>
-          <div class="rounded-[6px] border border-white/10 bg-[rgba(9,32,28,0.18)] px-4 py-3">
+          <div class="rounded-[6px] border border-white/10 bg-white/3 px-4 py-3">
             <p class="text-xs uppercase tracking-[0.16em] text-[color:var(--qq-text-tertiary)]">Ready</p>
             <p class="mt-2 text-2xl font-semibold text-[color:var(--qq-text-primary)]">{{ readyInstances.length }}</p>
           </div>
@@ -342,7 +342,7 @@ onMounted(() => {
           <div class="grid gap-3">
             <div
               v-if="!agentsStore.items.length"
-              class="rounded-[6px] border border-dashed border-white/15 bg-[rgba(9,32,28,0.16)] px-4 py-6 text-sm text-[color:var(--qq-text-secondary)]"
+              class="rounded-[6px] border border-dashed border-white/15 bg-white/2 px-4 py-6 text-sm text-[color:var(--qq-text-secondary)]"
             >
               当前没有 Agent。先新建一个 Agent，并绑定已配置 API Key 的供应商。
             </div>
@@ -350,7 +350,7 @@ onMounted(() => {
             <div
               v-for="agent in agentsStore.items"
               :key="agent.id"
-              class="rounded-[6px] border border-white/10 bg-[rgba(9,32,28,0.18)] px-4 py-4"
+              class="rounded-[6px] border border-white/10 bg-white/3 px-4 py-4"
             >
               <div class="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
                 <div class="min-w-0">
@@ -420,7 +420,7 @@ onMounted(() => {
           <div class="grid gap-3">
             <div
               v-if="!agentInstancesStore.items.length"
-              class="rounded-[6px] border border-dashed border-white/15 bg-[rgba(9,32,28,0.16)] px-4 py-6 text-sm text-[color:var(--qq-text-secondary)]"
+              class="rounded-[6px] border border-dashed border-white/15 bg-white/2 px-4 py-6 text-sm text-[color:var(--qq-text-secondary)]"
             >
               当前没有运行中的 Agent 实例。点击 Agent 列表里的启动按钮手动启动。
             </div>
@@ -428,7 +428,7 @@ onMounted(() => {
             <div
               v-for="instance in agentInstancesStore.items"
               :key="instance.id"
-              class="rounded-[6px] border border-white/10 bg-[rgba(9,32,28,0.18)] px-4 py-4"
+              class="rounded-[6px] border border-white/10 bg-white/3 px-4 py-4"
             >
               <div class="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
                 <div class="min-w-0">
@@ -583,7 +583,7 @@ onMounted(() => {
       title="实例信息"
     >
       <div v-if="selectedInstance" class="grid gap-3 text-sm">
-        <div class="rounded-[6px] border border-white/10 bg-[rgba(9,32,28,0.18)] px-3 py-3">
+        <div class="rounded-[6px] border border-white/10 bg-white/3 px-3 py-3">
           <p class="text-xs uppercase tracking-[0.16em] text-[color:var(--qq-text-tertiary)]">Instance</p>
           <p class="mt-2 break-all text-[color:var(--qq-text-primary)]">{{ selectedInstance.id }}</p>
           <p class="mt-1 break-all text-[color:var(--qq-text-secondary)]">{{ selectedInstance.baseUrl }}</p>
@@ -596,16 +596,16 @@ onMounted(() => {
           </p>
         </div>
         <div class="grid gap-3 md:grid-cols-2">
-          <div class="rounded-[6px] border border-white/10 bg-[rgba(9,32,28,0.18)] px-3 py-3">
+          <div class="rounded-[6px] border border-white/10 bg-white/3 px-3 py-3">
             <p class="text-xs uppercase tracking-[0.16em] text-[color:var(--qq-text-tertiary)]">Agent</p>
             <p class="mt-2 break-all text-[color:var(--qq-text-primary)]">{{ agentName(selectedInstance.agentId) }}</p>
           </div>
-          <div class="rounded-[6px] border border-white/10 bg-[rgba(9,32,28,0.18)] px-3 py-3">
+          <div class="rounded-[6px] border border-white/10 bg-white/3 px-3 py-3">
             <p class="text-xs uppercase tracking-[0.16em] text-[color:var(--qq-text-tertiary)]">Provider</p>
             <p class="mt-2 break-all text-[color:var(--qq-text-primary)]">{{ providerLabel(selectedInstance.providerId) }}</p>
           </div>
         </div>
-        <div class="rounded-[6px] border border-white/10 bg-[rgba(9,32,28,0.18)] px-3 py-3">
+        <div class="rounded-[6px] border border-white/10 bg-white/3 px-3 py-3">
           <p class="text-xs uppercase tracking-[0.16em] text-[color:var(--qq-text-tertiary)]">Model</p>
           <p class="mt-2 break-all text-[color:var(--qq-text-primary)]">
             {{ selectedInstance.modelProvider || 'openai' }} · {{ selectedInstance.modelName || '未设置模型' }}
@@ -626,7 +626,7 @@ onMounted(() => {
       description="删除后该 Agent 配置会从网关移除，已保存的会话不会被删除。"
       title="删除 Agent"
     >
-      <div class="rounded-[6px] border border-white/10 bg-[rgba(9,32,28,0.18)] px-3 py-3 text-sm leading-6 text-[color:var(--qq-text-secondary)]">
+      <div class="rounded-[6px] border border-white/10 bg-white/3 px-3 py-3 text-sm leading-6 text-[color:var(--qq-text-secondary)]">
         <p class="font-medium text-[color:var(--qq-text-primary)]">{{ deleteDialog.agent?.name || '未选择 Agent' }}</p>
         <p class="mt-1 break-all">ID {{ deleteDialog.agent?.id || '-' }}</p>
       </div>
@@ -647,7 +647,7 @@ onMounted(() => {
     >
       <div
         v-if="removeInstanceDialog.instance"
-        class="rounded-[6px] border border-white/10 bg-[rgba(9,32,28,0.18)] px-3 py-3 text-sm leading-6 text-[color:var(--qq-text-secondary)]"
+        class="rounded-[6px] border border-white/10 bg-white/3 px-3 py-3 text-sm leading-6 text-[color:var(--qq-text-secondary)]"
       >
         <p class="font-medium text-[color:var(--qq-text-primary)]">
           {{ removeInstanceDialog.instance.name || agentName(removeInstanceDialog.instance.agentId) }}

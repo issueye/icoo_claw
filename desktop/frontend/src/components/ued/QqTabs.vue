@@ -21,7 +21,7 @@ const emit = defineEmits(['update:modelValue'])
       class="rounded-[4px] px-3 py-2 text-sm font-medium transition"
       :class="
         modelValue === tab.value
-          ? 'bg-[rgba(255,255,255,0.18)] text-[color:var(--qq-text-primary)] shadow-[0_10px_24px_rgba(8,30,25,0.12)]'
+          ? 'bg-[rgba(255,255,255,0.18)] text-[color:var(--qq-text-primary)] shadow-[0_10px_24px_rgba(0,0,0,0.3)]'
           : 'text-[color:var(--qq-text-secondary)] hover:bg-[rgba(255,255,255,0.08)] hover:text-[color:var(--qq-text-primary)]'
       "
       type="button"

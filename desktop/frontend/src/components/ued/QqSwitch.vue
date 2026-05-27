@@ -30,7 +30,7 @@ function toggle() {
 
 <template>
   <button
-    class="group flex w-full items-center justify-between gap-3 rounded-[6px] border border-[color:var(--qq-border)] bg-[rgba(16,52,45,0.24)] px-3 py-2.5 text-left transition hover:border-[color:var(--qq-border-strong)] hover:bg-[rgba(20,65,56,0.36)] disabled:cursor-not-allowed disabled:opacity-55"
+    class="group flex w-full items-center justify-between gap-3 rounded-[6px] border border-[color:var(--qq-border)] bg-white/3 px-3 py-2.5 text-left transition hover:border-[color:var(--qq-border-strong)] hover:bg-white/6 disabled:cursor-not-allowed disabled:opacity-55"
     :aria-checked="modelValue"
     :disabled="disabled"
     role="switch"

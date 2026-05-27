@@ -90,7 +90,7 @@ function formatTimestamp(value) {
 
 <template>
   <article
-    class="flex px-4 py-3"
+    class="flex px-4 py-2.5 qq-msg-fadein"
     :class="message.role === 'user' ? 'justify-end' : 'justify-start'"
     :data-testid="`chat-message-${message.role}`"
   >
@@ -101,7 +101,7 @@ function formatTimestamp(value) {
           :class="
             message.role === 'user'
               ? 'bg-[rgba(255,255,255,0.14)] text-white'
-              : 'bg-[rgba(54,220,200,0.16)] text-[var(--qq-accent)]'
+              : 'bg-[rgba(0,242,254,0.15)] text-[var(--qq-accent)]'
           "
         >
           {{ roleLabel(message.role) }}
@@ -122,12 +122,14 @@ function formatTimestamp(value) {
       </header>
 
       <div
-        class="border border-white/10 px-3 py-2.5"
+        class="border px-3 py-2.5"
         :class="[
-          message.role === 'user' ? 'bg-[rgba(255,255,255,0.12)]' : 'bg-[rgba(18,58,51,0.36)]',
-          isToolMessage ? 'border-[rgba(54,220,200,0.24)] bg-[rgba(8,34,31,0.48)]' : '',
+          message.role === 'user'
+            ? 'bg-[rgba(255,255,255,0.11)] border-white/12 shadow-[0_2px_8px_rgba(0,0,0,0.3)]'
+            : 'qq-msg-ai-bg border-white/8 shadow-[0_2px_12px_rgba(0,0,0,0.25)]',
+          isToolMessage ? 'qq-msg-tool-bg' : '',
         ]"
-        style="border-radius: 6px;"
+        style="border-radius: 8px;"
       >
         <button
           v-if="isToolMessage"
@@ -139,7 +141,7 @@ function formatTimestamp(value) {
         >
           <component :is="toolIcon" class="h-3.5 w-3.5 shrink-0" :class="toolIconClass" />
           <Terminal class="h-3.5 w-3.5 shrink-0 text-[color:var(--qq-text-tertiary)]" />
-          <span class="min-w-0 flex-1 truncate font-medium text-slate-100">
+          <span class="min-w-0 flex-1 truncate font-medium text-[color:var(--qq-text-primary)]">
             {{ toolMetadata.toolTitle || toolMetadata.toolKind || '工具调用' }}
           </span>
           <span v-if="toolMetadata.toolStatus" class="shrink-0">· {{ toolMetadata.toolStatus }}</span>
@@ -150,7 +152,7 @@ function formatTimestamp(value) {
         </button>
         <div
           v-if="showPendingAssistant"
-          class="flex items-center gap-2 text-sm leading-7 text-slate-100"
+          class="flex items-center gap-2 text-sm leading-7 text-[color:var(--qq-text-primary)]"
         >
           <LoaderCircle class="h-4 w-4 animate-spin text-[var(--qq-accent)]" />
           <span>正在连接 Agent...</span>
@@ -158,7 +160,7 @@ function formatTimestamp(value) {
         <div
           v-else-if="shouldShowMessageBody"
           class="markdown-body text-sm leading-7"
-          :class="message.error ? 'text-rose-100' : 'text-slate-50'"
+          :class="message.error ? 'text-rose-100' : 'text-[color:var(--qq-text-primary)]'"
           v-html="renderedContent"
         />
         <div

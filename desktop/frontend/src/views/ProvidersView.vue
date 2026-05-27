@@ -144,7 +144,7 @@ onMounted(() => {
         <p class="text-xs uppercase tracking-[0.24em] text-[color:var(--qq-text-tertiary)]">Providers</p>
         <div class="mt-3 flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
           <div>
-            <h2 class="text-3xl font-semibold text-slate-50">供应商管理</h2>
+            <h2 class="text-3xl font-semibold text-[color:var(--qq-text-primary)]">供应商管理</h2>
           </div>
           <div class="flex flex-wrap gap-3">
             <QqButton variant="secondary" :disabled="providersStore.loading" @click="refreshProviders">
@@ -159,15 +159,15 @@ onMounted(() => {
         </div>
 
         <div class="mt-5 grid gap-3 md:grid-cols-3">
-          <div class="rounded-[6px] border border-white/10 bg-[rgba(9,32,28,0.18)] px-4 py-3">
+          <div class="rounded-[6px] border border-white/10 bg-white/3 px-4 py-3">
             <p class="text-xs uppercase tracking-[0.16em] text-[color:var(--qq-text-tertiary)]">Providers</p>
             <p class="mt-2 text-2xl font-semibold text-[color:var(--qq-text-primary)]">{{ providersStore.items.length }}</p>
           </div>
-          <div class="rounded-[6px] border border-white/10 bg-[rgba(9,32,28,0.18)] px-4 py-3">
+          <div class="rounded-[6px] border border-white/10 bg-white/3 px-4 py-3">
             <p class="text-xs uppercase tracking-[0.16em] text-[color:var(--qq-text-tertiary)]">Active</p>
             <p class="mt-2 text-2xl font-semibold text-[color:var(--qq-text-primary)]">{{ activeProviders.length }}</p>
           </div>
-          <div class="rounded-[6px] border border-white/10 bg-[rgba(9,32,28,0.18)] px-4 py-3">
+          <div class="rounded-[6px] border border-white/10 bg-white/3 px-4 py-3">
             <p class="text-xs uppercase tracking-[0.16em] text-[color:var(--qq-text-tertiary)]">API Keys</p>
             <p class="mt-2 text-2xl font-semibold text-[color:var(--qq-text-primary)]">{{ configuredKeys.length }}</p>
           </div>
@@ -182,7 +182,7 @@ onMounted(() => {
         <div class="grid gap-3">
           <div
             v-if="!providersStore.items.length"
-            class="rounded-[6px] border border-dashed border-white/15 bg-[rgba(9,32,28,0.16)] px-4 py-6 text-sm text-[color:var(--qq-text-secondary)]"
+            class="rounded-[6px] border border-dashed border-white/15 bg-white/2 px-4 py-6 text-sm text-[color:var(--qq-text-secondary)]"
           >
             当前网关还没有供应商。创建一个供应商后，Agent 就可以复用它的密钥和接口地址。
           </div>
@@ -190,7 +190,7 @@ onMounted(() => {
           <div
             v-for="provider in providersStore.items"
             :key="provider.id"
-            class="rounded-[6px] border border-white/10 bg-[rgba(9,32,28,0.18)] px-4 py-4"
+            class="rounded-[6px] border border-white/10 bg-white/3 px-4 py-4"
           >
             <div class="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
               <div class="min-w-0">
@@ -284,7 +284,7 @@ onMounted(() => {
       description="删除后，绑定该供应商的 Agent 将无法继续使用这份 API Key 和 Base URL 配置。"
       title="删除供应商"
     >
-      <div class="rounded-[6px] border border-white/10 bg-[rgba(9,32,28,0.18)] px-3 py-3 text-sm leading-6 text-[color:var(--qq-text-secondary)]">
+      <div class="rounded-[6px] border border-white/10 bg-white/3 px-3 py-3 text-sm leading-6 text-[color:var(--qq-text-secondary)]">
         <p class="font-medium text-[color:var(--qq-text-primary)]">{{ deleteDialog.provider?.name || '未选择供应商' }}</p>
         <p class="mt-1 break-all">ID {{ deleteDialog.provider?.id || '-' }}</p>
         <p class="mt-1 break-all">{{ deleteDialog.provider?.baseUrl || '默认接口地址' }}</p>

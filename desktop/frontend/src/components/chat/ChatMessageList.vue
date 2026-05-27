@@ -44,7 +44,7 @@ function isVisibleMessage(message) {
 </script>
 
 <template>
-  <div ref="viewport" class="scrollbar-thin h-full overflow-y-auto">
+  <div ref="viewport" class="scrollbar-thin h-full overflow-y-auto py-3">
     <ChatMessageItem
       v-for="message in visibleMessages"
       :key="message.id"

@@ -121,7 +121,7 @@ onMounted(() => {
         <p class="text-xs uppercase tracking-[0.24em] text-[color:var(--qq-text-tertiary)]">Skills</p>
         <div class="mt-3 flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
           <div>
-            <h2 class="text-3xl font-semibold text-slate-50">技能包管理</h2>
+            <h2 class="text-3xl font-semibold text-[color:var(--qq-text-primary)]">技能包管理</h2>
           </div>
           <div class="flex flex-wrap gap-3">
             <QqButton variant="secondary" :disabled="skillsStore.loading" @click="refreshSkills">
@@ -136,15 +136,15 @@ onMounted(() => {
         </div>
 
         <div class="mt-5 grid gap-3 md:grid-cols-3">
-          <div class="rounded-[6px] border border-white/10 bg-[rgba(9,32,28,0.18)] px-4 py-3">
+          <div class="rounded-[6px] border border-white/10 bg-white/3 px-4 py-3">
             <p class="text-xs uppercase tracking-[0.16em] text-[color:var(--qq-text-tertiary)]">Total</p>
             <p class="mt-2 text-2xl font-semibold text-[color:var(--qq-text-primary)]">{{ skillsStore.items.length }}</p>
           </div>
-          <div class="rounded-[6px] border border-white/10 bg-[rgba(9,32,28,0.18)] px-4 py-3">
+          <div class="rounded-[6px] border border-white/10 bg-white/3 px-4 py-3">
             <p class="text-xs uppercase tracking-[0.16em] text-[color:var(--qq-text-tertiary)]">Active</p>
             <p class="mt-2 text-2xl font-semibold text-[color:var(--qq-text-primary)]">{{ skillsStore.activeSkills.length }}</p>
           </div>
-          <div class="rounded-[6px] border border-white/10 bg-[rgba(9,32,28,0.18)] px-4 py-3">
+          <div class="rounded-[6px] border border-white/10 bg-white/3 px-4 py-3">
             <p class="text-xs uppercase tracking-[0.16em] text-[color:var(--qq-text-tertiary)]">Inactive</p>
             <p class="mt-2 text-2xl font-semibold text-[color:var(--qq-text-primary)]">{{ inactiveSkills.length }}</p>
           </div>
@@ -163,7 +163,7 @@ onMounted(() => {
         <div class="mt-5 grid gap-3">
           <div
             v-if="!skillsStore.items.length"
-            class="rounded-[6px] border border-dashed border-white/15 bg-[rgba(9,32,28,0.16)] px-4 py-6 text-sm text-[color:var(--qq-text-secondary)]"
+            class="rounded-[6px] border border-dashed border-white/15 bg-white/2 px-4 py-6 text-sm text-[color:var(--qq-text-secondary)]"
           >
             当前网关还没有安装技能。导入 zip 技能包后，Agent 可以在配置里绑定对应 skill id。
           </div>
@@ -171,7 +171,7 @@ onMounted(() => {
           <div
             v-for="skill in skillsStore.items"
             :key="skill.id"
-            class="rounded-[6px] border border-white/10 bg-[rgba(9,32,28,0.18)] px-4 py-4"
+            class="rounded-[6px] border border-white/10 bg-white/3 px-4 py-4"
           >
             <div class="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
               <div class="min-w-0">
@@ -216,8 +216,8 @@ onMounted(() => {
       <div v-if="importDialog.error" class="rounded-[6px] border border-rose-300/20 bg-rose-300/10 px-3 py-3 text-sm leading-6 text-rose-100">
         {{ importDialog.error }}
       </div>
-      <div v-else-if="importDialog.skill" class="grid gap-3">
-        <div class="rounded-[6px] border border-white/10 bg-[rgba(9,32,28,0.18)] px-3 py-3">
+      <div v-if="importDialog.skill" class="grid gap-3">
+        <div class="rounded-[6px] border border-white/10 bg-white/3 px-3 py-3">
           <div class="flex flex-wrap items-center gap-2">
             <Archive class="h-4 w-4 text-[color:var(--qq-accent)]" />
             <p class="text-sm font-semibold text-[color:var(--qq-text-primary)]">{{ importDialog.skill.name }}</p>
@@ -227,17 +227,17 @@ onMounted(() => {
           <p class="mt-2 break-all text-xs text-[color:var(--qq-text-tertiary)]">Path {{ importDialog.skill.path }}</p>
         </div>
         <div class="grid gap-3 md:grid-cols-2">
-          <div class="rounded-[6px] border border-white/10 bg-[rgba(9,32,28,0.18)] px-3 py-3">
+          <div class="rounded-[6px] border border-white/10 bg-white/3 px-3 py-3">
             <p class="text-xs uppercase tracking-[0.16em] text-[color:var(--qq-text-tertiary)]">Support files</p>
             <p class="mt-2 text-xl font-semibold text-[color:var(--qq-text-primary)]">{{ supportFileCount }}</p>
           </div>
-          <div class="rounded-[6px] border border-white/10 bg-[rgba(9,32,28,0.18)] px-3 py-3">
+          <div class="rounded-[6px] border border-white/10 bg-white/3 px-3 py-3">
             <p class="text-xs uppercase tracking-[0.16em] text-[color:var(--qq-text-tertiary)]">Mode</p>
             <p class="mt-2 text-sm text-[color:var(--qq-text-primary)]">同名技能将更新</p>
           </div>
         </div>
       </div>
-      <div v-else class="rounded-[6px] border border-white/10 bg-[rgba(9,32,28,0.18)] px-3 py-3 text-sm text-[color:var(--qq-text-secondary)]">
+      <div v-else class="rounded-[6px] border border-white/10 bg-white/3 px-3 py-3 text-sm text-[color:var(--qq-text-secondary)]">
         正在读取技能包...
       </div>
 
@@ -258,7 +258,7 @@ onMounted(() => {
       description="删除后，该技能会从网关管理目录和 active 技能目录移除。"
       title="删除技能"
     >
-      <div class="rounded-[6px] border border-white/10 bg-[rgba(9,32,28,0.18)] px-3 py-3 text-sm leading-6 text-[color:var(--qq-text-secondary)]">
+      <div class="rounded-[6px] border border-white/10 bg-white/3 px-3 py-3 text-sm leading-6 text-[color:var(--qq-text-secondary)]">
         <p class="font-medium text-[color:var(--qq-text-primary)]">{{ deleteDialog.skill?.name || '未选择技能' }}</p>
         <p class="mt-1">{{ deleteDialog.skill?.description || '-' }}</p>
       </div>

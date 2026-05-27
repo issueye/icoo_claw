@@ -239,7 +239,7 @@ watch(
 </script>
 
 <template>
-  <div class="qq-theme qq-mesh relative flex h-screen flex-col text-slate-100">
+  <div class="qq-theme qq-mesh relative flex h-screen flex-col text-[color:var(--qq-text-primary)]">
     <header
       class="qq-panel-strong relative z-10 flex h-12 shrink-0 items-center justify-between border-b border-white/10 pl-4"
       style="--wails-draggable: drag"
@@ -251,7 +251,7 @@ watch(
         <div class="min-w-0">
           <p class="text-[10px] uppercase leading-4 tracking-[0.18em] text-[color:var(--qq-text-tertiary)]">Icoo Claw Desktop</p>
           <div class="flex min-w-0 items-center gap-2">
-            <h1 class="truncate text-sm font-semibold text-slate-50">{{ currentSectionLabel }}</h1>
+            <h1 class="truncate text-sm font-semibold text-[color:var(--qq-text-primary)]">{{ currentSectionLabel }}</h1>
             <span class="qq-badge hidden rounded-[4px] px-2 py-0.5 text-[11px] md:inline-flex">
               {{ shellStatusLabel }}
             </span>
@@ -321,25 +321,26 @@ watch(
         @toggle-collapse="conversationListCollapsed = !conversationListCollapsed"
       />
 
+
       <main class="relative min-h-0 min-w-0 flex-1 overflow-hidden bg-transparent">
         <RouterView />
       </main>
     </div>
 
-    <footer class="qq-panel-strong relative z-10 flex h-8 shrink-0 items-center justify-between gap-3 border-t border-white/10 px-3 text-[11px] text-[color:var(--qq-text-tertiary)]">
-      <div class="flex min-w-0 items-center gap-3">
-        <span class="inline-flex items-center gap-1.5 text-[color:var(--qq-text-secondary)]">
-          <span class="h-1.5 w-1.5 rounded-full" :class="statusToneClass" />
-          {{ shellStatusLabel }}
+    <footer class="qq-panel-strong relative z-10 flex h-7 shrink-0 items-center justify-between gap-3 border-t border-white/8 px-3 text-[10px] text-[color:var(--qq-text-tertiary)]">
+      <div class="flex min-w-0 items-center gap-2.5">
+        <span class="inline-flex items-center gap-1.5">
+          <span class="h-1.5 w-1.5 rounded-full shrink-0" :class="statusToneClass" />
+          <span>{{ shellStatusLabel }}</span>
         </span>
-        <span class="hidden truncate md:inline">{{ gatewayBaseUrlLabel }}</span>
-        <span class="hidden lg:inline">项目 {{ currentProjectLabel }}</span>
+        <span class="hidden truncate opacity-70 md:inline">{{ gatewayBaseUrlLabel }}</span>
+        <span class="hidden lg:inline opacity-70">{{ currentProjectLabel }}</span>
       </div>
-      <div class="flex shrink-0 items-center gap-3">
-        <span class="hidden md:inline">Agent {{ agentsStore.items.length }} · {{ defaultAgentLabel }}</span>
-        <span class="hidden sm:inline">会话 {{ conversationsStore.items.length }}</span>
-        <span v-if="chatStore.anyStreaming" class="hidden sm:inline">运行中 {{ chatStore.runningConversationIds.length }}</span>
-        <span>刷新 {{ lastRefreshedLabel }}</span>
+      <div class="flex shrink-0 items-center gap-2.5">
+        <span class="hidden md:inline opacity-80">{{ defaultAgentLabel }}</span>
+        <span class="hidden sm:inline opacity-70">{{ conversationsStore.items.length }} 会话</span>
+        <span v-if="chatStore.anyStreaming" class="text-[color:var(--qq-accent)] animate-pulse">{{ chatStore.runningConversationIds.length }} 运行中</span>
+        <span class="opacity-60">{{ lastRefreshedLabel }}</span>
       </div>
     </footer>
 
@@ -351,7 +352,7 @@ watch(
     >
       <div class="grid gap-4">
         <div
-          class="rounded-[6px] border border-white/10 bg-[rgba(9,32,28,0.22)] px-3 py-3 text-sm leading-6 text-[color:var(--qq-text-secondary)]"
+          class="rounded-[6px] border border-white/10 bg-white/5 px-3 py-3 text-sm leading-6 text-[color:var(--qq-text-secondary)]"
         >
           <div class="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
             <div>
@@ -373,11 +374,11 @@ watch(
         </QqFormField>
 
         <div class="grid gap-3 md:grid-cols-2">
-          <div class="rounded-[6px] border border-white/10 bg-[rgba(9,32,28,0.18)] px-3 py-3 text-sm">
+          <div class="rounded-[6px] border border-white/10 bg-white/3 px-3 py-3 text-sm">
             <p class="text-xs uppercase tracking-[0.16em] text-[color:var(--qq-text-tertiary)]">Health</p>
             <p class="mt-2 break-all text-[color:var(--qq-text-primary)]">{{ gatewayHealthLabel }}</p>
           </div>
-          <div class="rounded-[6px] border border-white/10 bg-[rgba(9,32,28,0.18)] px-3 py-3 text-sm">
+          <div class="rounded-[6px] border border-white/10 bg-white/3 px-3 py-3 text-sm">
             <p class="text-xs uppercase tracking-[0.16em] text-[color:var(--qq-text-tertiary)]">Resources</p>
             <p class="mt-2 text-[color:var(--qq-text-primary)]">Agent {{ agentsStore.items.length }} · 会话 {{ conversationsStore.items.length }}</p>
           </div>
@@ -400,7 +401,7 @@ watch(
       description="删除后会话记录会从网关移除。"
       title="删除会话"
     >
-      <div class="rounded-[6px] border border-white/10 bg-[rgba(9,32,28,0.18)] px-3 py-3 text-sm leading-6 text-[color:var(--qq-text-secondary)]">
+      <div class="rounded-[6px] border border-white/10 bg-white/3 px-3 py-3 text-sm leading-6 text-[color:var(--qq-text-secondary)]">
         <p class="font-medium text-[color:var(--qq-text-primary)]">
           {{ conversationsStore.byId(conversationDeleteDialog.conversationId)?.title || 'Untitled Conversation' }}
         </p>

@@ -248,7 +248,7 @@ onBeforeUnmount(() => {
       <div
         v-if="open"
         ref="menuRef"
-        class="fixed z-[80] overflow-y-auto rounded-[6px] border border-[color:var(--qq-border-strong)] bg-[rgba(20,70,60,0.96)] p-1 shadow-[0_18px_42px_rgba(5,22,18,0.34)] backdrop-blur-xl"
+        class="fixed z-[80] overflow-y-auto rounded-[6px] border border-[color:var(--qq-border-strong)] bg-[rgba(10,16,30,0.96)] p-1 shadow-[0_18px_42px_rgba(0,0,0,0.65)] backdrop-blur-xl"
         :style="menuStyle"
         :id="`${selectId}-listbox`"
         role="listbox"
@@ -262,7 +262,7 @@ onBeforeUnmount(() => {
           :class="[
             option.disabled ? 'cursor-not-allowed opacity-45' : 'cursor-pointer',
             option.value === modelValue
-              ? 'bg-[rgba(54,220,200,0.18)] text-[color:var(--qq-text-primary)]'
+              ? 'bg-[rgba(0,242,254,0.15)] text-[color:var(--qq-text-primary)]'
               : index === activeIndex
                 ? 'bg-[rgba(255,255,255,0.12)] text-[color:var(--qq-text-primary)]'
                 : 'text-[color:var(--qq-text-secondary)] hover:bg-[rgba(255,255,255,0.10)] hover:text-[color:var(--qq-text-primary)]',

@@ -1,6 +1,6 @@
 <script setup>
 import { computed } from 'vue'
-import { SendHorizonal, Square } from 'lucide-vue-next'
+import { Send, Square } from 'lucide-vue-next'
 import QqButton from '@/components/ued/QqButton.vue'
 
 const props = defineProps({
@@ -8,11 +8,11 @@ const props = defineProps({
     type: String,
     default: '',
   },
-  busy: {
+  disabled: {
     type: Boolean,
     default: false,
   },
-  disabled: {
+  busy: {
     type: Boolean,
     default: false,
   },
@@ -36,42 +36,49 @@ function handleKeydown(event) {
 </script>
 
 <template>
-  <div class="border-t border-white/10 bg-[rgba(18,58,51,0.28)] px-4 py-3 backdrop-blur-xl">
-    <div class="qq-panel rounded-[6px] p-3">
+  <div class="border-t border-white/8 qq-chat-composer-bg px-3 py-2.5 backdrop-blur-xl">
+    <div class="qq-panel rounded-[8px] overflow-hidden">
       <textarea
         :value="modelValue"
         data-testid="chat-composer-input"
-        class="qq-field-control min-h-[84px] w-full resize-none px-3 py-2.5 text-sm leading-6 text-slate-100 outline-none placeholder:text-[color:var(--qq-text-tertiary)]"
+        class="qq-field-control min-h-[72px] w-full resize-none border-0 bg-transparent px-3.5 pt-3 pb-1.5 text-sm leading-6 text-[color:var(--qq-text-primary)] outline-none placeholder:text-[color:var(--qq-text-tertiary)]"
         placeholder="输入你的问题，回车发送，Shift + Enter 换行"
         @input="emit('update:modelValue', $event.target.value)"
         @keydown="handleKeydown"
       />
-      <div class="mt-3 flex items-center justify-between gap-3 border-t border-white/10 pt-3">
-        <p class="min-w-0 text-xs text-[color:var(--qq-text-tertiary)]">
+      <div class="flex items-center justify-between gap-3 border-t border-white/6 px-3 py-2">
+        <p class="min-w-0 text-[11px] text-[color:var(--qq-text-tertiary)]">
           <span v-if="projectContext" class="block truncate">
-            当前项目：{{ projectContext.name }} · {{ projectContext.rootDir }}
+            {{ projectContext.name }} · {{ projectContext.rootDir }}
           </span>
-          <span v-else>
-            {{ busy ? '正在通过 WebSocket 接收增量响应' : '聊天标题将使用首条用户输入在本地生成' }}
+          <span v-else class="opacity-70">
+            {{ busy ? '正在接收流式响应...' : '回车发送 · Shift+Enter 换行' }}
           </span>
         </p>
-        <div class="flex items-center gap-2">
-          <QqButton
+        <div class="flex shrink-0 items-center gap-2">
+          <button
             v-if="busy"
-            variant="ghost"
+            type="button"
+            class="inline-flex items-center gap-1.5 rounded-[6px] border border-white/10 bg-white/6 px-3 py-1.5 text-xs text-[color:var(--qq-text-secondary)] transition hover:border-white/20 hover:bg-white/10 hover:text-white"
             @click="emit('cancel')"
           >
-            <Square class="h-4 w-4 fill-current" />
+            <Square class="h-3 w-3" />
             停止
-          </QqButton>
-          <QqButton
+          </button>
+          <button
             :disabled="!canSubmit"
-            data-testid="chat-composer-send"
+            data-testid="chat-composer-submit"
+            type="button"
+            class="inline-flex items-center gap-1.5 rounded-[6px] px-3.5 py-1.5 text-xs font-semibold transition"
+            :class="canSubmit
+              ? 'bg-[linear-gradient(135deg,var(--qq-accent),var(--qq-accent-strong))] text-slate-950 shadow-[0_0_12px_rgba(0,242,254,0.25)] hover:brightness-110 hover:shadow-[0_0_18px_rgba(0,242,254,0.35)]'
+              : 'bg-white/6 text-[color:var(--qq-text-tertiary)] cursor-not-allowed opacity-50'
+            "
             @click="emit('send')"
           >
-            <SendHorizonal class="h-4 w-4" />
+            <Send class="h-3 w-3" />
             发送
-          </QqButton>
+          </button>
         </div>
       </div>
     </div>
