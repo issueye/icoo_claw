@@ -15,7 +15,7 @@
           </svg>
         </div>
 
-        <h2 class="text-base font-semibold text-slate-100">开始新对话</h2>
+        <h2 class="text-base font-semibold text-[color:var(--qq-text-primary)]">开始新对话</h2>
         <p class="mt-2.5 text-sm leading-6 text-[color:var(--qq-text-tertiary)]">
           选择一个 Agent，在下方输入框输入你的问题，<br/>即可开始流式对话。
         </p>

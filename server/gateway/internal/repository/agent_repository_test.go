@@ -27,7 +27,7 @@ func TestGormAgentRepositoryCRUD(t *testing.T) {
 		ModelProvider:     "openai",
 		ToolWhitelistJSON: "[]",
 		MCPServerIDsJSON:  "[]",
-		SkillIDsJSON:      "[]",
+		SkillNamesJSON:    "[]",
 		Enabled:           true,
 	}
 	if err := repo.Create(ctx, agent); err != nil {

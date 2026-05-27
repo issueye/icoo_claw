@@ -149,7 +149,7 @@ func TestSkillServiceRejectsInvalidSkillName(t *testing.T) {
 	}
 }
 
-func TestSkillServicePublishForAgentFiltersBoundSkills(t *testing.T) {
+func TestSkillServicePublishForInstanceFiltersBoundSkills(t *testing.T) {
 	root := filepath.Join(t.TempDir(), ".skills")
 	repo := &memorySkillRepo{}
 	svc := NewSkillService(root, repo)
@@ -163,14 +163,14 @@ func TestSkillServicePublishForAgentFiltersBoundSkills(t *testing.T) {
 		}
 	}
 
-	agentRoot, err := svc.PublishForAgent("agent_1", `["doc-writer"]`)
+	instanceRoot, err := svc.PublishForInstance("inst_1", `["doc-writer"]`)
 	if err != nil {
-		t.Fatalf("publish for agent: %v", err)
+		t.Fatalf("publish for instance: %v", err)
 	}
-	if _, err := os.Stat(filepath.Join(agentRoot, ".agents", "skills", "doc-writer", "SKILL.md")); err != nil {
+	if _, err := os.Stat(filepath.Join(instanceRoot, ".agents", "skills", "doc-writer", "SKILL.md")); err != nil {
 		t.Fatalf("bound skill missing: %v", err)
 	}
-	if _, err := os.Stat(filepath.Join(agentRoot, ".agents", "skills", "docker-helper", "SKILL.md")); !os.IsNotExist(err) {
+	if _, err := os.Stat(filepath.Join(instanceRoot, ".agents", "skills", "docker-helper", "SKILL.md")); !os.IsNotExist(err) {
 		t.Fatalf("unbound skill should not be published, stat err = %v", err)
 	}
 }

@@ -92,8 +92,7 @@ func TestProcessSpecFromConfigDefaultsToHTTPTransport(t *testing.T) {
 	if spec.BaseURL != "http://127.0.0.1:8101" {
 		t.Fatalf("baseURL = %q, want http instance URL", spec.BaseURL)
 	}
-	wantSkillsPath := filepath.Join(workDir, ".skills", "active")
-	if spec.DefaultProjectRoot != wantSkillsPath {
-		t.Fatalf("default project root = %q, want %q", spec.DefaultProjectRoot, wantSkillsPath)
+	if spec.DefaultProjectRoot != "" {
+		t.Fatalf("default project root = %q, want empty (set by skill service)", spec.DefaultProjectRoot)
 	}
 }

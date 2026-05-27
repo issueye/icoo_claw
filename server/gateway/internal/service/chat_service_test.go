@@ -24,7 +24,7 @@ func (r chatAgentRepo) Get(context.Context, string) (*model.AgentProfile, error)
 		ToolWhitelistJSON: `["read"]`,
 		NetworkAllowJSON:  `["example.com"]`,
 		MCPServerIDsJSON:  `[]`,
-		SkillIDsJSON:      `[]`,
+		SkillNamesJSON:      `[]`,
 		Enabled:           true,
 	}, nil
 }
@@ -305,7 +305,7 @@ func TestChatServiceDefaultsToBuiltinToolsWhenWhitelistEmpty(t *testing.T) {
 		ToolWhitelistJSON: `[]`,
 		NetworkAllowJSON:  `[]`,
 		MCPServerIDsJSON:  `[]`,
-		SkillIDsJSON:      `[]`,
+		SkillNamesJSON:      `[]`,
 		Enabled:           true,
 	}}
 	svc := NewChatService(conversations, agents, nil, router, &chatSessionBackend{}, claw)

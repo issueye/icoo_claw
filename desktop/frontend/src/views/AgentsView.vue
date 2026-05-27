@@ -74,7 +74,7 @@ function emptyForm() {
     toolWhitelist: '',
     networkAllow: '',
     mcpServerIds: '',
-    skillIds: '',
+    skillNames: '',
     enabled: true,
   }
 }
@@ -136,7 +136,7 @@ function openEditEditor(agent) {
     toolWhitelist: listToText(agent.toolWhitelist),
     networkAllow: listToText(agent.networkAllow),
     mcpServerIds: listToText(agent.mcpServerIds),
-    skillIds: listToText(agent.skillIds),
+    skillNames: listToText(agent.skillNames),
     enabled: Boolean(agent.enabled),
   })
   editorOpen.value = true
@@ -557,8 +557,8 @@ onMounted(() => {
           <QqFormField label="MCP Server IDs" helper="每行一个 ID。">
             <QqTextarea v-model="form.mcpServerIds" :rows="3" placeholder="filesystem" />
           </QqFormField>
-          <QqFormField label="Skill IDs" helper="每行一个 ID。">
-            <QqTextarea v-model="form.skillIds" :rows="3" placeholder="openai-docs" />
+          <QqFormField label="Skill Names" helper="每行一个名称。">
+            <QqTextarea v-model="form.skillNames" :rows="3" placeholder="openai-docs" />
           </QqFormField>
         </div>
 

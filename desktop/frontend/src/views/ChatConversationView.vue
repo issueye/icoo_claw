@@ -72,7 +72,7 @@ async function submit() {
 
     <header class="border-b border-white/8 qq-conv-header-bg px-5 py-2.5 backdrop-blur-xl flex items-center gap-3 min-w-0">
       <div class="min-w-0 flex-1">
-        <h2 class="truncate text-sm font-semibold text-slate-100 leading-tight" data-testid="conversation-header-title">
+        <h2 class="truncate text-sm font-semibold text-[color:var(--qq-text-primary)] leading-tight" data-testid="conversation-header-title">
           {{ conversation?.title || 'Untitled Conversation' }}
         </h2>
         <p v-if="conversation?.agentId" class="mt-0.5 text-[11px] text-[color:var(--qq-text-tertiary)] truncate">

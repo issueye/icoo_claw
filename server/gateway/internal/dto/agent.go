@@ -16,7 +16,7 @@ type AgentProfile struct {
 	ToolWhitelist []string  `json:"tool_whitelist"`
 	NetworkAllow  []string  `json:"network_allow"`
 	MCPServerIDs  []string  `json:"mcp_server_ids"`
-	SkillIDs      []string  `json:"skill_ids"`
+	SkillNames      []string  `json:"skill_names"`
 	Enabled       bool      `json:"enabled"`
 	CreatedAt     time.Time `json:"created_at"`
 	UpdatedAt     time.Time `json:"updated_at"`
@@ -36,7 +36,7 @@ type CreateAgentRequest struct {
 	ToolWhitelist []string `json:"tool_whitelist"`
 	NetworkAllow  []string `json:"network_allow"`
 	MCPServerIDs  []string `json:"mcp_server_ids"`
-	SkillIDs      []string `json:"skill_ids"`
+	SkillNames    []string `json:"skill_names"`
 	Enabled       *bool    `json:"enabled"`
 }
 
@@ -53,6 +53,6 @@ type UpdateAgentRequest struct {
 	ToolWhitelist []string `json:"tool_whitelist"`
 	NetworkAllow  []string `json:"network_allow"`
 	MCPServerIDs  []string `json:"mcp_server_ids"`
-	SkillIDs      []string `json:"skill_ids"`
+	SkillNames    []string `json:"skill_names"`
 	Enabled       *bool    `json:"enabled"`
 }

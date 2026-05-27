@@ -153,7 +153,7 @@ function isRunning(conversation, runningConversationIds) {
             <RouterLink :to="`/chat/${conversation.id}`" :data-testid="`conversation-open-${conversation.id}`" class="min-w-0 flex-1">
               <h3
                 class="line-clamp-2 text-sm font-medium leading-5 transition-colors duration-150"
-                :class="conversation.id === activeId ? 'text-slate-50' : 'text-slate-300 group-hover:text-slate-100'"
+                :class="conversation.id === activeId ? 'text-[color:var(--qq-text-primary)]' : 'text-[color:var(--qq-text-secondary)] group-hover:text-[color:var(--qq-text-primary)]'"
               >
                 {{ conversation.title || '无标题会话' }}
               </h3>

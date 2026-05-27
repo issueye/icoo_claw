@@ -40,7 +40,7 @@ func (s *AgentService) Create(ctx context.Context, req dto.CreateAgentRequest) (
 		ToolWhitelistJSON: mustJSON(req.ToolWhitelist),
 		NetworkAllowJSON:  mustJSON(req.NetworkAllow),
 		MCPServerIDsJSON:  mustJSON(req.MCPServerIDs),
-		SkillIDsJSON:      mustJSON(req.SkillIDs),
+		SkillNamesJSON:    mustJSON(req.SkillNames),
 		Enabled:           enabled,
 	}
 	if agent.ID == "" {
@@ -113,8 +113,8 @@ func (s *AgentService) Update(ctx context.Context, id string, req dto.UpdateAgen
 	if req.MCPServerIDs != nil {
 		agent.MCPServerIDsJSON = mustJSON(req.MCPServerIDs)
 	}
-	if req.SkillIDs != nil {
-		agent.SkillIDsJSON = mustJSON(req.SkillIDs)
+	if req.SkillNames != nil {
+		agent.SkillNamesJSON = mustJSON(req.SkillNames)
 	}
 	if req.Enabled != nil {
 		agent.Enabled = *req.Enabled
@@ -144,7 +144,7 @@ func toAgentDTO(agent model.AgentProfile) *dto.AgentProfile {
 		ToolWhitelist: parseStringSlice(agent.ToolWhitelistJSON),
 		NetworkAllow:  parseStringSlice(agent.NetworkAllowJSON),
 		MCPServerIDs:  parseStringSlice(agent.MCPServerIDsJSON),
-		SkillIDs:      parseStringSlice(agent.SkillIDsJSON),
+		SkillNames:    parseStringSlice(agent.SkillNamesJSON),
 		Enabled:       agent.Enabled,
 		CreatedAt:     agent.CreatedAt,
 		UpdatedAt:     agent.UpdatedAt,

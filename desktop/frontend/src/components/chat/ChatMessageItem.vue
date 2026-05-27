@@ -57,8 +57,8 @@ const toolIcon = computed(() => {
   return LoaderCircle
 })
 const toolIconClass = computed(() => {
-  if (toolStatus.value === 'completed') return 'text-emerald-100'
-  if (toolStatus.value === 'failed' || toolStatus.value === 'cancelled') return 'text-rose-100'
+  if (toolStatus.value === 'completed') return 'tool-icon--completed'
+  if (toolStatus.value === 'failed' || toolStatus.value === 'cancelled') return 'tool-icon--failed'
   return 'animate-spin text-[var(--qq-accent)]'
 })
 const isFinalToolStatus = computed(() => ['completed', 'failed', 'cancelled'].includes(toolStatus.value))
@@ -97,11 +97,11 @@ function formatTimestamp(value) {
     <div class="message-shell" :class="messageShellClass">
       <header class="mb-2 flex items-center gap-2" :class="message.role === 'user' ? 'justify-end' : 'justify-start'">
         <span
-          class="inline-flex rounded-[4px] px-2 py-0.5 text-[11px] uppercase tracking-[0.12em]"
+          class="role-badge inline-flex rounded-[4px] px-2 py-0.5 text-[11px] uppercase tracking-[0.12em]"
           :class="
             message.role === 'user'
-              ? 'bg-[rgba(255,255,255,0.14)] text-white'
-              : 'bg-[rgba(0,242,254,0.15)] text-[var(--qq-accent)]'
+              ? 'role-badge--user'
+              : 'role-badge--assistant'
           "
         >
           {{ roleLabel(message.role) }}
@@ -122,12 +122,12 @@ function formatTimestamp(value) {
       </header>
 
       <div
-        class="border px-3 py-2.5"
+        class="message-bubble border px-3 py-2.5"
         :class="[
           message.role === 'user'
-            ? 'bg-[rgba(255,255,255,0.11)] border-white/12 shadow-[0_2px_8px_rgba(0,0,0,0.3)]'
-            : 'qq-msg-ai-bg border-white/8 shadow-[0_2px_12px_rgba(0,0,0,0.25)]',
-          isToolMessage ? 'qq-msg-tool-bg' : '',
+            ? 'message-bubble--user'
+            : 'message-bubble--assistant qq-msg-ai-bg',
+          isToolMessage ? 'message-bubble--tool qq-msg-tool-bg' : '',
         ]"
         style="border-radius: 8px;"
       >
@@ -190,6 +190,46 @@ function formatTimestamp(value) {
 
 .message-shell--tool {
   max-width: min(980px, 86%);
+}
+
+.role-badge {
+  border: 1px solid var(--qq-border);
+  font-weight: 700;
+}
+
+.role-badge--user {
+  background: rgba(226, 232, 240, 0.12);
+  color: var(--qq-text-primary);
+}
+
+.role-badge--assistant {
+  background: rgba(34, 211, 238, 0.12);
+  color: var(--qq-accent);
+}
+
+.message-bubble {
+  border-color: var(--qq-border);
+}
+
+.message-bubble--user {
+  background: rgba(226, 232, 240, 0.10);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.30);
+}
+
+.message-bubble--assistant {
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.25);
+}
+
+.message-bubble--tool {
+  box-shadow: 0 14px 32px rgba(0, 0, 0, 0.22);
+}
+
+.tool-icon--completed {
+  color: #86efac;
+}
+
+.tool-icon--failed {
+  color: #fca5a5;
 }
 
 .tool-message-toggle {
@@ -380,5 +420,88 @@ function formatTimestamp(value) {
   border-left: 3px solid var(--qq-accent);
   padding-left: 0.8rem;
   color: var(--qq-text-secondary);
+}
+
+:global([data-theme="light"]) .message-bubble--user {
+  background: rgba(8, 125, 167, 0.08);
+  border-color: rgba(8, 125, 167, 0.22);
+  box-shadow: 0 2px 10px rgba(15, 23, 42, 0.08);
+}
+
+:global([data-theme="light"]) .message-bubble--assistant {
+  box-shadow: 0 10px 26px rgba(15, 23, 42, 0.10);
+}
+
+:global([data-theme="light"]) .message-bubble--tool {
+  box-shadow: 0 14px 28px rgba(15, 23, 42, 0.12);
+}
+
+:global([data-theme="light"]) .role-badge--user {
+  background: rgba(8, 125, 167, 0.09);
+  border-color: rgba(8, 125, 167, 0.22);
+  color: #075985;
+}
+
+:global([data-theme="light"]) .role-badge--assistant {
+  background: rgba(8, 125, 167, 0.08);
+  border-color: rgba(8, 125, 167, 0.18);
+  color: var(--qq-accent-strong);
+}
+
+:global([data-theme="light"]) .tool-icon--completed {
+  color: #047857;
+}
+
+:global([data-theme="light"]) .tool-icon--failed {
+  color: #be123c;
+}
+
+:global([data-theme="light"]) .tool-message-toggle:hover {
+  background: rgba(15, 23, 42, 0.05);
+  color: var(--qq-text-primary);
+}
+
+:global([data-theme="light"]) .tool-message-toggle__label {
+  border-color: rgba(15, 23, 42, 0.14);
+  color: var(--qq-accent-strong);
+}
+
+:global([data-theme="light"]) .markdown-body :deep(h1),
+:global([data-theme="light"]) .markdown-body :deep(h2),
+:global([data-theme="light"]) .markdown-body :deep(h3),
+:global([data-theme="light"]) .markdown-body :deep(h4),
+:global([data-theme="light"]) .markdown-body :deep(strong) {
+  color: var(--qq-text-primary);
+}
+
+:global([data-theme="light"]) .markdown-body :deep(td) {
+  color: var(--qq-text-primary);
+}
+
+:global([data-theme="light"]) .markdown-body :deep(th) {
+  color: var(--qq-accent-strong);
+}
+
+:global([data-theme="light"]) .markdown-body :deep(.markdown-table-scroll) {
+  border-color: rgba(15, 23, 42, 0.14);
+  background:
+    linear-gradient(90deg, rgba(8, 125, 167, 0.055), transparent 35%),
+    rgba(255, 255, 255, 0.72);
+}
+
+:global([data-theme="light"]) .markdown-body :deep(th),
+:global([data-theme="light"]) .markdown-body :deep(td) {
+  border-color: rgba(15, 23, 42, 0.10);
+}
+
+:global([data-theme="light"]) .markdown-body :deep(code) {
+  border-color: rgba(15, 23, 42, 0.14);
+  background: rgba(15, 23, 42, 0.055);
+  color: #075985;
+}
+
+:global([data-theme="light"]) .markdown-body :deep(pre) {
+  border-color: rgba(15, 23, 42, 0.14);
+  background: rgba(15, 23, 42, 0.055);
 }
 </style>

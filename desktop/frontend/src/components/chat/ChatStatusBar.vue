@@ -48,7 +48,7 @@ function socketLabel(status) {
       />
       <span>{{ gatewayLabel(gatewayStatus) }}</span>
     </span>
-    <span class="text-white/15">·</span>
+    <span class="text-[color:var(--qq-border-strong)]">·</span>
     <!-- Socket 状态 -->
     <span class="inline-flex items-center gap-1.5">
       <span
@@ -60,14 +60,14 @@ function socketLabel(status) {
       />
       <span>{{ socketLabel(socketStatus) }}</span>
     </span>
-    <span class="text-white/15">·</span>
+    <span class="text-[color:var(--qq-border-strong)]">·</span>
     <!-- Agent -->
     <span class="inline-flex items-center gap-1">
       <span>Agent</span>
       <span class="font-medium text-[color:var(--qq-accent)] opacity-90">{{ agentName }}</span>
     </span>
     <template v-if="projectContext">
-      <span class="text-white/15">·</span>
+      <span class="text-[color:var(--qq-border-strong)]">·</span>
       <span class="max-w-[200px] truncate">{{ projectContext.name }}</span>
     </template>
   </div>

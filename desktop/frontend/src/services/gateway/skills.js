@@ -35,6 +35,7 @@ function skillPayload(input, options = {}) {
     content: input.content || '',
     version: input.version || '',
     source: input.source || '',
+    allowed_tools: normalizeList(input.allowedTools),
     metadata: input.metadata || {},
     files: normalizeFiles(input.files),
   }
@@ -42,6 +43,16 @@ function skillPayload(input, options = {}) {
     body.id = input.id || ''
   }
   return body
+}
+
+function normalizeList(value) {
+  if (Array.isArray(value)) {
+    return value.map((item) => String(item || '').trim()).filter(Boolean)
+  }
+  return String(value || '')
+    .split(/[\n,]/)
+    .map((item) => item.trim())
+    .filter(Boolean)
 }
 
 function normalizeFiles(files) {
@@ -62,9 +73,11 @@ function normalizeSkill(skill) {
     name: skill.name,
     description: skill.description,
     path: skill.path,
+    content: skill.content || '',
     version: skill.version,
     status: skill.status,
     source: skill.source || '',
+    allowedTools: skill.allowed_tools || [],
     metadata: skill.metadata || {},
     createdAt: skill.created_at,
     updatedAt: skill.updated_at,

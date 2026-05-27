@@ -49,17 +49,18 @@ func (s *SkillService) EnsureLayout() error {
 func (s *SkillService) Create(ctx context.Context, req dto.CreateSkillRequest) (*dto.SkillProfile, error) {
 	now := time.Now().UTC()
 	skill := model.SkillProfile{
-		ID:           strings.TrimSpace(req.ID),
-		Name:         strings.TrimSpace(req.Name),
-		Description:  strings.TrimSpace(req.Description),
-		Path:         strings.TrimSpace(req.Path),
-		Content:      strings.TrimSpace(req.Content),
-		Version:      defaultString(req.Version, "v1"),
-		Status:       "active",
-		Source:       strings.TrimSpace(req.Source),
-		MetadataJSON: mustAnyJSON(req.Metadata),
-		CreatedAt:    now,
-		UpdatedAt:    now,
+		ID:               strings.TrimSpace(req.ID),
+		Name:             strings.TrimSpace(req.Name),
+		Description:      strings.TrimSpace(req.Description),
+		Path:             strings.TrimSpace(req.Path),
+		Content:          strings.TrimSpace(req.Content),
+		Version:          defaultString(req.Version, "v1"),
+		Status:           "active",
+		Source:           strings.TrimSpace(req.Source),
+		AllowedToolsJSON: mustStringSliceJSON(req.AllowedTools),
+		MetadataJSON:     mustAnyJSON(req.Metadata),
+		CreatedAt:        now,
+		UpdatedAt:        now,
 	}
 	if skill.ID == "" {
 		skill.ID = "skill_" + randomID()
@@ -122,6 +123,9 @@ func (s *SkillService) Update(ctx context.Context, id string, req dto.UpdateSkil
 	if req.Source != nil {
 		skill.Source = strings.TrimSpace(*req.Source)
 	}
+	if req.AllowedTools != nil {
+		skill.AllowedToolsJSON = mustStringSliceJSON(*req.AllowedTools)
+	}
 	if req.Metadata != nil {
 		skill.MetadataJSON = mustAnyJSON(req.Metadata)
 	}
@@ -181,32 +185,44 @@ func (s *SkillService) SyncSummary(ctx context.Context) (*dto.SkillSummary, erro
 	}, nil
 }
 
-func (s *SkillService) PublishForAgent(agentID, skillIDsJSON string) (string, error) {
+// PublishForInstance publishes the named skills for a specific agent instance.
+// When skillNamesJSON is empty or contains no names, an empty skill directory is
+// created so the instance starts with zero skills (instead of inheriting all active skills).
+func (s *SkillService) PublishForInstance(instanceID, skillNamesJSON string) (string, error) {
 	if strings.TrimSpace(s.baseDir) == "" {
 		return "", nil
 	}
-	names := cleanStringSlice(parseStringSlice(skillIDsJSON))
-	if len(names) == 0 {
-		return s.ActiveSkillPath(), nil
-	}
+	names := cleanStringSlice(parseStringSlice(skillNamesJSON))
 	for _, name := range names {
 		if !isValidSkillName(name) {
 			return "", invalidSkillNameError(name)
 		}
 	}
 
-	root := s.agentSkillPath(agentID)
+	root := s.instanceSkillPath(instanceID)
 	if err := os.RemoveAll(root); err != nil {
 		return "", err
 	}
+	skillsDir := filepath.Join(root, ".agents", "skills")
+	if err := os.MkdirAll(skillsDir, 0o755); err != nil {
+		return "", fmt.Errorf("create instance skill dir for %s: %w", instanceID, err)
+	}
 	for _, name := range names {
 		source := filepath.Join(s.activeSkillsRoot(), name)
-		target := filepath.Join(root, ".agents", "skills", name)
+		target := filepath.Join(skillsDir, name)
 		if err := copyDir(source, target); err != nil {
-			return "", fmt.Errorf("publish skill %s for agent %s: %w", name, agentID, err)
+			return "", fmt.Errorf("publish skill %s for instance %s: %w", name, instanceID, err)
 		}
 	}
 	return root, nil
+}
+
+// CleanupInstance removes the skill directory created for an agent instance.
+func (s *SkillService) CleanupInstance(instanceID string) error {
+	if strings.TrimSpace(s.baseDir) == "" {
+		return nil
+	}
+	return os.RemoveAll(s.instanceSkillPath(instanceID))
 }
 
 func (s *SkillService) publishSkillFiles(skill model.SkillProfile, files []dto.SkillFile) error {
@@ -245,9 +261,31 @@ func writeSkillFile(root string, skill model.SkillProfile) error {
 	if err := os.MkdirAll(root, 0o755); err != nil {
 		return err
 	}
-	content := fmt.Sprintf("---\nname: %s\ndescription: %s\nmetadata:\n  version: %s\n  gateway_path: %s\n---\n%s\n",
-		escapeYAMLScalar(skill.Name), escapeYAMLScalar(skill.Description), escapeYAMLScalar(skill.Version), escapeYAMLScalar(skill.Path), defaultSkillBody(skill))
-	return os.WriteFile(filepath.Join(root, "SKILL.md"), []byte(content), 0o600)
+	var sb strings.Builder
+	sb.WriteString("---\n")
+	sb.WriteString("name: ")
+	sb.WriteString(escapeYAMLScalar(skill.Name))
+	sb.WriteString("\ndescription: ")
+	sb.WriteString(escapeYAMLScalar(skill.Description))
+	sb.WriteByte('\n')
+	tools := parseStringSliceRaw(skill.AllowedToolsJSON)
+	if len(tools) > 0 {
+		sb.WriteString("allowed-tools:\n")
+		for _, t := range tools {
+			sb.WriteString("  - ")
+			sb.WriteString(escapeYAMLScalar(t))
+			sb.WriteByte('\n')
+		}
+	}
+	sb.WriteString("metadata:\n")
+	sb.WriteString("  version: ")
+	sb.WriteString(escapeYAMLScalar(skill.Version))
+	sb.WriteString("\n  gateway_path: ")
+	sb.WriteString(escapeYAMLScalar(skill.Path))
+	sb.WriteString("\n---\n")
+	sb.WriteString(defaultSkillBody(skill))
+	sb.WriteByte('\n')
+	return os.WriteFile(filepath.Join(root, "SKILL.md"), []byte(sb.String()), 0o600)
 }
 
 func writeSupportFile(root string, file dto.SkillFile) error {
@@ -292,9 +330,9 @@ func (s *SkillService) activeSkillsRoot() string {
 	return filepath.Join(s.ActiveSkillPath(), ".agents", "skills")
 }
 
-func (s *SkillService) agentSkillPath(agentID string) string {
-	agentID = sanitizePathComponent(agentID)
-	return filepath.Clean(filepath.Join(s.baseDir, "agents", agentID))
+func (s *SkillService) instanceSkillPath(instanceID string) string {
+	instanceID = sanitizePathComponent(instanceID)
+	return filepath.Clean(filepath.Join(s.baseDir, "agents", instanceID))
 }
 
 func copyFile(source, target string) error {
@@ -382,17 +420,42 @@ func defaultSkillBody(skill model.SkillProfile) string {
 
 func toSkillDTO(skill model.SkillProfile) *dto.SkillProfile {
 	return &dto.SkillProfile{
-		ID:          skill.ID,
-		Name:        skill.Name,
-		Description: skill.Description,
-		Path:        skill.Path,
-		Version:     skill.Version,
-		Status:      skill.Status,
-		Source:      skill.Source,
-		Metadata:    parseAnyJSON(skill.MetadataJSON),
-		CreatedAt:   skill.CreatedAt,
-		UpdatedAt:   skill.UpdatedAt,
+		ID:           skill.ID,
+		Name:         skill.Name,
+		Description:  skill.Description,
+		Path:         skill.Path,
+		Content:      skill.Content,
+		Version:      skill.Version,
+		Status:       skill.Status,
+		Source:       skill.Source,
+		AllowedTools: parseStringSliceRaw(skill.AllowedToolsJSON),
+		Metadata:     parseAnyJSON(skill.MetadataJSON),
+		CreatedAt:    skill.CreatedAt,
+		UpdatedAt:    skill.UpdatedAt,
 	}
+}
+
+func mustStringSliceJSON(values []string) string {
+	if len(values) == 0 {
+		return "[]"
+	}
+	payload, _ := json.Marshal(values)
+	return string(payload)
+}
+
+func parseStringSliceRaw(raw string) []string {
+	raw = strings.TrimSpace(raw)
+	if raw == "" || raw == "[]" || raw == "null" {
+		return nil
+	}
+	var out []string
+	if err := json.Unmarshal([]byte(raw), &out); err != nil {
+		return nil
+	}
+	if len(out) == 0 {
+		return nil
+	}
+	return out
 }
 
 func mustAnyJSON(values any) string {

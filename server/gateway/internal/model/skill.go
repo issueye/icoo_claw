@@ -10,8 +10,9 @@ type SkillProfile struct {
 	Content      string `gorm:"type:text"`
 	Version      string `gorm:"size:64;not null;index"`
 	Status       string `gorm:"size:32;not null;index"`
-	Source       string `gorm:"size:64"`
-	MetadataJSON string `gorm:"column:metadata;type:text"`
+	Source           string `gorm:"size:64"`
+	AllowedToolsJSON string `gorm:"column:allowed_tools;type:text"`
+	MetadataJSON     string `gorm:"column:metadata;type:text"`
 	CreatedAt    time.Time
 	UpdatedAt    time.Time
 }

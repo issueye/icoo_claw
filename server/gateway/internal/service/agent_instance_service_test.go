@@ -264,7 +264,7 @@ func TestAgentInstanceServiceStartPublishesBoundSkillRoot(t *testing.T) {
 		instanceAgentRepo{agent: model.AgentProfile{
 			ID:           "agent_1",
 			Name:         "Default",
-			SkillIDsJSON: `["doc-writer"]`,
+			SkillNamesJSON: `["doc-writer"]`,
 		}},
 		nil,
 		repo,
@@ -288,7 +288,7 @@ func TestAgentInstanceServiceStartPublishesBoundSkillRoot(t *testing.T) {
 	}
 }
 
-func TestAgentInstanceServiceStartDefaultsToActiveSkillsRoot(t *testing.T) {
+func TestAgentInstanceServiceStartDefaultsToEmptyProjectRootWithoutSkillService(t *testing.T) {
 	workDir := t.TempDir()
 	repo := &memoryInstanceRepo{}
 	supervisor := &captureSupervisor{}
@@ -303,9 +303,8 @@ func TestAgentInstanceServiceStartDefaultsToActiveSkillsRoot(t *testing.T) {
 	if _, err := svc.Start(context.Background(), dto.StartAgentInstanceRequest{AgentID: "agent_1"}); err != nil {
 		t.Fatalf("start: %v", err)
 	}
-	wantRoot := filepath.Join(workDir, ".skills", "active")
-	if supervisor.spec.DefaultProjectRoot != wantRoot {
-		t.Fatalf("default project root = %q, want %q", supervisor.spec.DefaultProjectRoot, wantRoot)
+	if supervisor.spec.DefaultProjectRoot != "" {
+		t.Fatalf("default project root = %q, want empty when no skill service", supervisor.spec.DefaultProjectRoot)
 	}
 }
 

@@ -41,7 +41,7 @@ function agentPayload(input, options = {}) {
     tool_whitelist: normalizeList(input.toolWhitelist),
     network_allow: normalizeList(input.networkAllow),
     mcp_server_ids: normalizeList(input.mcpServerIds),
-    skill_ids: normalizeList(input.skillIds),
+    skill_names: normalizeList(input.skillNames),
     enabled: Boolean(input.enabled),
   }
   if (options.includeId) {
@@ -85,7 +85,7 @@ function normalizeAgent(agent) {
     toolWhitelist: agent.tool_whitelist || [],
     networkAllow: agent.network_allow || [],
     mcpServerIds: agent.mcp_server_ids || [],
-    skillIds: agent.skill_ids || [],
+    skillNames: agent.skill_names || [],
     enabled: agent.enabled,
     createdAt: agent.created_at,
     updatedAt: agent.updated_at,
