@@ -165,7 +165,10 @@ function formatTimestamp(value) {
         <div
           v-else-if="shouldShowMessageBody"
           class="markdown-body text-sm leading-7"
-          :class="message.error ? 'text-rose-100' : 'text-[color:var(--qq-text-primary)]'"
+          :class="[
+            message.error ? 'text-rose-100' : 'text-[color:var(--qq-text-primary)]',
+            isToolMessage ? 'markdown-body--tool' : '',
+          ]"
           v-html="renderedContent"
         />
         <div
@@ -439,6 +442,27 @@ function formatTimestamp(value) {
   color: var(--qq-text-secondary);
 }
 
+.markdown-body--tool {
+  border-radius: 6px;
+  background: rgba(3, 24, 22, 0.22);
+  padding: 0.45rem 0.55rem;
+  font-size: 0.8rem;
+  line-height: 1.36;
+}
+
+.markdown-body--tool :deep(p) {
+  padding: 0;
+}
+
+.markdown-body--tool :deep(p + p) {
+  margin-top: 0.2rem;
+}
+
+.message-bubble--tool .tool-message-meta {
+  margin-top: 0.45rem;
+  padding-top: 0.45rem;
+}
+
 :global([data-theme="light"] .message-bubble--user) {
   background: rgba(8, 125, 167, 0.08);
   border-color: rgba(8, 125, 167, 0.22);
@@ -505,6 +529,26 @@ function formatTimestamp(value) {
   color: var(--qq-text-secondary);
 }
 
+:global([data-theme="light"] .markdown-body--tool) {
+  border: 1px solid rgba(15, 23, 42, 0.08);
+  background: #f7fafc;
+  color: #1f2937;
+}
+
+:global([data-theme="light"] .markdown-body--tool p:first-child) {
+  margin: -0.45rem -0.55rem 0.45rem;
+  border-bottom: 1px solid rgba(15, 23, 42, 0.08);
+  border-radius: 6px 6px 0 0;
+  background: #eef3f8;
+  padding: 0.28rem 0.55rem;
+}
+
+:global([data-theme="light"] .markdown-body--tool p:first-child strong) {
+  color: #334155;
+  font-size: 0.8rem;
+  letter-spacing: 0.02em;
+}
+
 :global([data-theme="light"] .markdown-body) :deep(h1),
 :global([data-theme="light"] .markdown-body) :deep(h2),
 :global([data-theme="light"] .markdown-body) :deep(h3),
@@ -534,16 +578,29 @@ function formatTimestamp(value) {
 }
 
 :global([data-theme="light"] .markdown-body) :deep(code) {
-  border-color: rgba(15, 23, 42, 0.14);
-  background: rgba(15, 23, 42, 0.08);
-  color: var(--qq-accent-strong);
+  border-color: rgba(15, 23, 42, 0.12);
+  background: rgba(255, 255, 255, 0.86);
+  color: #1f2937;
   word-break: break-all;
   white-space: pre-wrap;
 }
 
+:global([data-theme="light"] .markdown-body--tool code) {
+  border-color: rgba(8, 125, 167, 0.16);
+  background: #edf6fa;
+  color: #0f3f55;
+  box-decoration-break: clone;
+  line-height: 1.34;
+}
+
 :global([data-theme="light"] .markdown-body) :deep(pre) {
-  border-color: rgba(15, 23, 42, 0.14);
-  background: rgba(15, 23, 42, 0.07);
+  border-color: rgba(15, 23, 42, 0.12);
+  background: rgba(255, 255, 255, 0.86);
   color: var(--qq-text-primary);
+}
+
+:global([data-theme="light"] .markdown-body--tool pre) {
+  border-color: rgba(15, 23, 42, 0.10);
+  background: #ffffff;
 }
 </style>
