@@ -145,7 +145,7 @@ func (rt *Runtime) executeToolCalls(ctx context.Context, calls []model.ToolCall,
 		if !segment.concurrent {
 			exec := rt.executeSingleToolCall(ctx, segment.calls[0].call, tools, chain, baseState, tracer, agentSpan, req.SessionID, req.RequestID)
 			recordMiddlewareErr(exec)
-			if exec.err != nil && (errors.Is(exec.err, context.Canceled) || errors.Is(exec.err, context.DeadlineExceeded)) {
+			if toolErrorCanceledRun(ctx, exec.err) {
 				return exec.err
 			}
 			continue
@@ -189,7 +189,7 @@ func (rt *Runtime) executeToolCalls(ctx context.Context, calls []model.ToolCall,
 					return
 				}
 				results[i] = rt.executeSingleToolCall(groupCtx, item.call, concurrentExec, chain, baseState, tracer, agentSpan, req.SessionID, req.RequestID)
-				if results[i].err != nil && (errors.Is(results[i].err, context.Canceled) || errors.Is(results[i].err, context.DeadlineExceeded)) {
+				if toolErrorCanceledRun(ctx, results[i].err) {
 					errCh <- results[i].err
 					cancel()
 					return
@@ -207,7 +207,7 @@ func (rt *Runtime) executeToolCalls(ctx context.Context, calls []model.ToolCall,
 		}
 		for i, exec := range results {
 			recordMiddlewareErr(exec)
-			if !exec.started && (errors.Is(exec.err, context.Canceled) || errors.Is(exec.err, context.DeadlineExceeded)) {
+			if !exec.started && toolErrorCanceledRun(ctx, exec.err) {
 				continue
 			}
 			tools.appendCallResult(segment.calls[i].call, exec.result, exec.err)
@@ -218,4 +218,11 @@ func (rt *Runtime) executeToolCalls(ctx context.Context, calls []model.ToolCall,
 	}
 
 	return firstMiddlewareErr
+}
+
+func toolErrorCanceledRun(ctx context.Context, err error) bool {
+	if err == nil || ctx == nil || ctx.Err() == nil {
+		return false
+	}
+	return errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded)
 }

@@ -8,6 +8,7 @@ import (
 	"os"
 	"strings"
 	"testing"
+	"time"
 
 	"icoo_claw/server/claw/pkg/sessionstore"
 
@@ -215,6 +216,57 @@ func (m *fetchModel) CompleteStream(_ context.Context, req sdkmodel.Request, cb 
 			Final: true,
 			Response: &sdkmodel.Response{
 				Message:    sdkmodel.Message{Role: "assistant", Content: "fetch ok"},
+				StopReason: "end_turn",
+			},
+		})
+	default:
+		m.t.Fatalf("unexpected model call count %d", m.callCount)
+		return nil
+	}
+}
+
+type timeoutFetchModel struct {
+	t         *testing.T
+	url       string
+	callCount int
+}
+
+func (m *timeoutFetchModel) Complete(context.Context, sdkmodel.Request) (*sdkmodel.Response, error) {
+	return nil, nil
+}
+
+func (m *timeoutFetchModel) CompleteStream(_ context.Context, req sdkmodel.Request, cb sdkmodel.StreamHandler) error {
+	m.callCount++
+	switch m.callCount {
+	case 1:
+		if !hasTool(req.Tools, "fetch") {
+			m.t.Fatalf("model request tools = %+v, missing fetch", req.Tools)
+		}
+		return cb(sdkmodel.StreamResult{
+			Final: true,
+			Response: &sdkmodel.Response{
+				Message: sdkmodel.Message{
+					Role: "assistant",
+					ToolCalls: []sdkmodel.ToolCall{{
+						ID:   "tool_call_fetch_timeout",
+						Name: "fetch",
+						Arguments: map[string]any{
+							"url":     m.url,
+							"timeout": 0.001,
+						},
+					}},
+				},
+				StopReason: "tool_calls",
+			},
+		})
+	case 2:
+		if !requestHasToolResult(req, "fetch", "context deadline exceeded") {
+			m.t.Fatalf("second model request missing fetch timeout result: %+v", req.Messages)
+		}
+		return cb(sdkmodel.StreamResult{
+			Final: true,
+			Response: &sdkmodel.Response{
+				Message:    sdkmodel.Message{Role: "assistant", Content: "fetch timeout handled"},
 				StopReason: "end_turn",
 			},
 		})
@@ -516,6 +568,75 @@ func TestSDKRunnerExecutesFetchTool(t *testing.T) {
 	}
 	if model.callCount != 2 {
 		t.Fatalf("model callCount=%d, want 2", model.callCount)
+	}
+}
+
+func TestSDKRunnerStreamContinuesAfterFetchToolTimeout(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		time.Sleep(50 * time.Millisecond)
+		_, _ = w.Write([]byte("late response"))
+	}))
+	defer server.Close()
+
+	root := t.TempDir()
+	store := &memoryHistoryStore{}
+	history := NewHistoryAdapter(store)
+	model := &timeoutFetchModel{t: t, url: server.URL}
+	factory := NewRuntimeFactory(history, model)
+	runner := NewSDKRunner(factory, history)
+
+	events, err := runner.RunStream(context.Background(), RunRequest{
+		SessionID:     "sess_fetch_timeout",
+		Prompt:        "fetch the slow url",
+		ToolWhitelist: []string{"fetch"},
+		Agent: map[string]any{
+			"project_root":          root,
+			"enabled_builtin_tools": []any{"fetch"},
+			"network_allow":         []any{"127.0.0.1"},
+			"max_iterations":        float64(3),
+		},
+	})
+	if err != nil {
+		t.Fatalf("run stream: %v", err)
+	}
+
+	output := ""
+	toolFailedSeen := false
+	completedCount := 0
+	for event := range events {
+		if event.Type == StreamEventSessionError {
+			t.Fatalf("stream should continue after tool timeout, got error: %+v", event.Error)
+		}
+		output += streamEventText(event)
+		if event.Type == StreamEventSessionUpdate && event.Update != nil &&
+			event.Update.SessionUpdate == "tool_call_update" &&
+			event.Update.ToolCallID == "tool_call_fetch_timeout" &&
+			event.Update.Status == "failed" {
+			toolFailedSeen = true
+		}
+		if event.Type == StreamEventSessionCompleted {
+			completedCount++
+		}
+	}
+
+	if output != "fetch timeout handled" {
+		t.Fatalf("stream output = %q, want timeout recovery response", output)
+	}
+	if !toolFailedSeen {
+		t.Fatalf("stream did not surface failed tool status")
+	}
+	if completedCount != 1 {
+		t.Fatalf("completed events = %d, want 1", completedCount)
+	}
+	if model.callCount != 2 {
+		t.Fatalf("model callCount=%d, want 2", model.callCount)
+	}
+	if len(store.messages) != 4 {
+		t.Fatalf("saved messages = %+v, want user + assistant tool call + failed tool result + assistant", store.messages)
+	}
+	toolResult := mustJSON(t, store.messages[2].ToolCalls)
+	if store.messages[2].Role != "tool" || !strings.Contains(toolResult, "context deadline exceeded") {
+		t.Fatalf("failed tool result message = %+v", store.messages[2])
 	}
 }
 
