@@ -148,6 +148,81 @@ describe('chat store', () => {
     expect(messages[0].content).toContain('README.md')
   })
 
+  it('merges streamed tool input chunks into structured input for the same tool call', () => {
+    const chatStore = useChatStore()
+    const conversationsStore = useConversationsStore()
+
+    conversationsStore.items = [{ id: 'conv_a', title: 'A', status: 'active' }]
+
+    chatStore.applySessionUpdate('conv_a', {
+      sessionUpdate: 'tool_call',
+      toolCallId: 'tool_1',
+      title: 'fetch',
+      kind: 'fetch',
+      status: 'pending',
+    })
+    chatStore.applySessionUpdate('conv_a', {
+      sessionUpdate: 'tool_call_update',
+      toolCallId: 'tool_1',
+      rawInput: '{"url":"https://example.com"',
+    })
+    chatStore.applySessionUpdate('conv_a', {
+      sessionUpdate: 'tool_call_update',
+      toolCallId: 'tool_1',
+      rawInput: ',"timeout":15}',
+    })
+
+    const toolMessage = conversationsStore.messagesFor('conv_a')[0]
+    expect(toolMessage.metadata.rawInput).toEqual({
+      url: 'https://example.com',
+      timeout: 15,
+    })
+  })
+
+  it('finalizes pending tool messages when a stream completes', () => {
+    const chatStore = useChatStore()
+    const conversationsStore = useConversationsStore()
+
+    conversationsStore.items = [{ id: 'conv_a', title: 'A', status: 'running' }]
+    chatStore.applySessionUpdate('conv_a', {
+      sessionUpdate: 'tool_call',
+      toolCallId: 'tool_1',
+      title: 'fetch',
+      kind: 'fetch',
+      status: 'pending',
+      rawInput: { url: 'https://example.com' },
+    })
+
+    conversationsStore.markAssistantDraftComplete('conv_a')
+
+    const toolMessage = conversationsStore.messagesFor('conv_a')[0]
+    expect(toolMessage.metadata.toolStatus).toBe('cancelled')
+    expect(toolMessage.draft).toBe(false)
+    expect(toolMessage.content).toContain('状态：cancelled')
+  })
+
+  it('marks pending tool messages as failed when a stream errors', async () => {
+    const chatStore = useChatStore()
+    const conversationsStore = useConversationsStore()
+
+    conversationsStore.items = [{ id: 'conv_a', title: 'A', status: 'running' }]
+    chatStore.applySessionUpdate('conv_a', {
+      sessionUpdate: 'tool_call',
+      toolCallId: 'tool_1',
+      title: 'fetch',
+      kind: 'fetch',
+      status: 'pending',
+      rawInput: { url: 'https://example.com' },
+    })
+
+    await chatStore.handleSocketMessage({ type: 'session/error', error: 'request interrupted' }, 'conv_a')
+
+    const toolMessage = conversationsStore.messagesFor('conv_a')[0]
+    expect(toolMessage.metadata.toolStatus).toBe('failed')
+    expect(toolMessage.draft).toBe(false)
+    expect(toolMessage.content).toContain('request interrupted')
+  })
+
   it('keeps assistant text after a tool call in display order', () => {
     const chatStore = useChatStore()
     const conversationsStore = useConversationsStore()
@@ -242,6 +317,41 @@ describe('chat store', () => {
     expect(messages[1].content).toContain('README.md')
     expect(messages[1].content).toContain('contents')
     expect(messages[2].content).toBe('done')
+  })
+
+  it('normalizes persisted tool results by tool id even when result is not adjacent', () => {
+    const messages = normalizeMessages([
+      {
+        id: 'msg_call',
+        role: 'assistant',
+        content: '',
+        tool_calls: [
+          { ID: 'tool_a', Name: 'fetch', Arguments: { url: 'https://a.example' } },
+          { ID: 'tool_b', Name: 'fetch', Arguments: { url: 'https://b.example' } },
+        ],
+      },
+      {
+        id: 'msg_tool_b',
+        role: 'tool',
+        content: '',
+        tool_calls: [{ ID: 'tool_b', Name: 'fetch', Result: 'b result' }],
+      },
+      {
+        id: 'msg_tool_a',
+        role: 'tool',
+        content: '',
+        tool_calls: [{ ID: 'tool_a', Name: 'fetch', Result: 'a result' }],
+      },
+    ])
+
+    expect(messages).toHaveLength(2)
+    expect(messages[0].metadata.toolCallId).toBe('tool_a')
+    expect(messages[0].metadata.rawInput).toEqual({ url: 'https://a.example' })
+    expect(messages[0].metadata.rawOutput).toBe('a result')
+    expect(messages[0].metadata.toolStatus).toBe('completed')
+    expect(messages[1].metadata.toolCallId).toBe('tool_b')
+    expect(messages[1].metadata.rawOutput).toBe('b result')
+    expect(messages[1].metadata.toolStatus).toBe('completed')
   })
 
   it('does not create empty assistant messages for usage-only updates', () => {

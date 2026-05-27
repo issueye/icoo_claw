@@ -31,6 +31,17 @@ func TestSubagentToolAllowExcludesSkillForSkillExecutor(t *testing.T) {
 	}
 }
 
+func TestNormalizedSubagentModelClearsBuiltinAliases(t *testing.T) {
+	for _, value := range []string{subagents.ModelSonnet, subagents.ModelHaiku, " " + subagents.ModelSonnet + " "} {
+		if got := normalizedSubagentModel(value); got != "" {
+			t.Fatalf("normalizedSubagentModel(%q) = %q, want empty", value, got)
+		}
+	}
+	if got := normalizedSubagentModel("gpt-test-model"); got != "gpt-test-model" {
+		t.Fatalf("normalizedSubagentModel custom = %q", got)
+	}
+}
+
 func TestRuntimeSubagentRunsModelLoop(t *testing.T) {
 	rt := &Runtime{
 		opts: Options{

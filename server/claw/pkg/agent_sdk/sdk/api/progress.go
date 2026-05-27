@@ -96,7 +96,7 @@ func (p *progressMiddleware) BeforeTool(ctx context.Context, st *middleware.Stat
 		return nil
 	}
 	iter := st.Iteration
-	p.emit(ctx, StreamEvent{Type: EventToolExecutionStart, ToolUseID: call.ID, Name: call.Name, Iteration: &iter})
+	p.emit(ctx, StreamEvent{Type: EventToolExecutionStart, ToolUseID: call.ID, Name: call.Name, Output: call.Arguments, Iteration: &iter})
 	return nil
 }
 
@@ -137,7 +137,8 @@ func (p *progressMiddleware) AfterTool(ctx context.Context, st *middleware.State
 	if len(meta) > 0 {
 		payload["metadata"] = meta
 	}
-	p.emit(ctx, StreamEvent{Type: EventToolExecutionResult, ToolUseID: call.ID, Name: call.Name, Output: payload})
+	isError := cr.Err != nil
+	p.emit(ctx, StreamEvent{Type: EventToolExecutionResult, ToolUseID: call.ID, Name: call.Name, Output: payload, IsError: &isError})
 	return nil
 }
 
@@ -163,7 +164,7 @@ func (p *progressMiddleware) toolBlock(ctx context.Context, idx int, call model.
 		if err != nil {
 			encoded = []byte(`""`)
 		}
-		p.emit(ctx, StreamEvent{Type: EventContentBlockDelta, Index: &idx, Delta: &Delta{Type: "input_json_delta", PartialJSON: json.RawMessage(encoded)}})
+		p.emit(ctx, StreamEvent{Type: EventContentBlockDelta, Index: &idx, ToolUseID: call.ID, Delta: &Delta{Type: "input_json_delta", PartialJSON: json.RawMessage(encoded)}})
 	}
 	p.emit(ctx, StreamEvent{Type: EventContentBlockStop, Index: &idx})
 }

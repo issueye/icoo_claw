@@ -122,9 +122,6 @@ onMounted(() => {
         <div class="mt-3 flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
           <div>
             <h2 class="text-3xl font-semibold text-slate-50">技能包管理</h2>
-            <p class="mt-4 max-w-3xl text-sm leading-7 text-[color:var(--qq-text-secondary)]">
-              从 zip 技能包导入 SKILL.md 以及 scripts、references、assets 支持文件，网关会发布到本地 .skills 并供 Claw 实例加载。
-            </p>
           </div>
           <div class="flex flex-wrap gap-3">
             <QqButton variant="secondary" :disabled="skillsStore.loading" @click="refreshSkills">

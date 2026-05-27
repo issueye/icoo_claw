@@ -64,14 +64,17 @@ export function normalizeMessages(messages = []) {
       for (const call of toolCalls) {
         const previous = out.at(-1)
         const toolCallId = toolValue(call, 'ID', 'id') || previous?.metadata?.toolCallId || ''
-        if (previous?.metadata?.toolCallId && previous.metadata.toolCallId === toolCallId) {
-          previous.metadata = {
-            ...previous.metadata,
+        const target = findToolMessage(out, toolCallId) || (
+          previous?.metadata?.toolCallId && previous.metadata.toolCallId === toolCallId ? previous : null
+        )
+        if (target) {
+          target.metadata = {
+            ...target.metadata,
             toolStatus: 'completed',
             rawOutput: toolValue(call, 'Result', 'result'),
           }
-          previous.content = toolMessageContent(previous.metadata)
-          previous.draft = false
+          target.content = toolMessageContent(target.metadata)
+          target.draft = false
         } else {
           out.push(buildToolMessage(normalized, call, {
             toolCallId,
@@ -89,9 +92,9 @@ export function normalizeMessages(messages = []) {
       }
       for (const call of toolCalls) {
         out.push(buildToolMessage(normalized, call, {
-          toolStatus: toolValue(call, 'Result', 'result') ? 'completed' : 'pending',
+          toolStatus: 'pending',
           rawInput: toolValue(call, 'Arguments', 'arguments'),
-          rawOutput: toolValue(call, 'Result', 'result'),
+          rawOutput: '',
         }))
       }
       continue
@@ -100,6 +103,13 @@ export function normalizeMessages(messages = []) {
     out.push(normalized)
   }
   return out
+}
+
+function findToolMessage(messages, toolCallId) {
+  if (!toolCallId) {
+    return null
+  }
+  return messages.find((message) => message.metadata?.toolCallId === toolCallId) || null
 }
 
 function buildToolMessage(source, call, patch = {}) {

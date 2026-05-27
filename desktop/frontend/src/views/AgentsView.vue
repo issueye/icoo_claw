@@ -305,9 +305,6 @@ onMounted(() => {
         <div class="mt-3 flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
           <div>
             <h2 class="text-3xl font-semibold text-slate-50">Agent 管理</h2>
-            <p class="mt-4 max-w-3xl text-sm leading-7 text-[color:var(--qq-text-secondary)]">
-              配置 Agent 绑定的供应商、模型和运行参数，然后手动启动、关闭或重启对应实例。
-            </p>
           </div>
           <div class="flex flex-wrap gap-3">
             <QqButton variant="secondary" :disabled="agentInstancesStore.loading || agentsStore.loading" @click="refreshAll">

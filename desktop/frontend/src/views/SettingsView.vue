@@ -194,9 +194,6 @@ function agentOptions() {
       <section class="qq-panel-strong rounded-[8px] px-5 py-5">
         <p class="text-xs uppercase tracking-[0.24em] text-[color:var(--qq-text-tertiary)]">Local Settings</p>
         <h2 class="mt-3 text-3xl font-semibold text-slate-50">桌面端配置</h2>
-        <p class="mt-4 max-w-3xl text-sm leading-7 text-[color:var(--qq-text-secondary)]">
-          当前只保留聊天主链路需要的本地设置。网关地址、默认 Agent 和工作目录使用 TOML 写入本机配置文件。
-        </p>
       </section>
 
       <QqFormSection

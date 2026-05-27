@@ -2,6 +2,7 @@ package agent_sdk
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"strings"
 
@@ -157,6 +158,7 @@ func mapRuntimeStreamEvent(event api.StreamEvent, req RunRequest) StreamEvent {
 			Title:         defaultString(event.Name, "Tool call"),
 			Kind:          toolKind(event.Name),
 			Status:        "in_progress",
+			RawInput:      event.Output,
 		}
 		return base
 	case api.EventToolExecutionOutput:
@@ -260,6 +262,10 @@ func normalizeStopReason(value string) string {
 func jsonRawMessageString(value []byte) any {
 	if len(value) == 0 {
 		return nil
+	}
+	var text string
+	if err := json.Unmarshal(value, &text); err == nil {
+		return text
 	}
 	return string(value)
 }

@@ -200,9 +200,9 @@ func (s *SkillService) PublishForAgent(agentID, skillIDsJSON string) (string, er
 		return "", err
 	}
 	for _, name := range names {
-		source := filepath.Join(s.activeSkillsRoot(), name, "SKILL.md")
-		target := filepath.Join(root, ".agents", "skills", name, "SKILL.md")
-		if err := copyFile(source, target); err != nil {
+		source := filepath.Join(s.activeSkillsRoot(), name)
+		target := filepath.Join(root, ".agents", "skills", name)
+		if err := copyDir(source, target); err != nil {
 			return "", fmt.Errorf("publish skill %s for agent %s: %w", name, agentID, err)
 		}
 	}
@@ -306,6 +306,36 @@ func copyFile(source, target string) error {
 		return err
 	}
 	return os.WriteFile(target, data, 0o600)
+}
+
+func copyDir(source, target string) error {
+	info, err := os.Stat(source)
+	if err != nil {
+		return err
+	}
+	if !info.IsDir() {
+		return fmt.Errorf("%s is not a directory", source)
+	}
+	if err := os.RemoveAll(target); err != nil {
+		return err
+	}
+	return filepath.WalkDir(source, func(path string, entry os.DirEntry, walkErr error) error {
+		if walkErr != nil {
+			return walkErr
+		}
+		rel, err := filepath.Rel(source, path)
+		if err != nil {
+			return err
+		}
+		if rel == "." {
+			return os.MkdirAll(target, 0o755)
+		}
+		dest := filepath.Join(target, rel)
+		if entry.IsDir() {
+			return os.MkdirAll(dest, 0o755)
+		}
+		return copyFile(path, dest)
+	})
 }
 
 func isValidSkillName(name string) bool {

@@ -250,6 +250,9 @@ func TestAgentInstanceServiceStartPublishesBoundSkillRoot(t *testing.T) {
 		Name:        "doc-writer",
 		Description: "Write documents",
 		Path:        "docs/doc-writer",
+		Files: []dto.SkillFile{
+			{Path: "references/template.md", Content: "template notes"},
+		},
 	}); err != nil {
 		t.Fatalf("create skill: %v", err)
 	}
@@ -279,6 +282,9 @@ func TestAgentInstanceServiceStartPublishesBoundSkillRoot(t *testing.T) {
 	}
 	if _, err := os.Stat(filepath.Join(wantRoot, ".agents", "skills", "doc-writer", "SKILL.md")); err != nil {
 		t.Fatalf("published skill missing: %v", err)
+	}
+	if data, err := os.ReadFile(filepath.Join(wantRoot, ".agents", "skills", "doc-writer", "references", "template.md")); err != nil || string(data) != "template notes" {
+		t.Fatalf("published skill support file = %q, %v", string(data), err)
 	}
 }
 

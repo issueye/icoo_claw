@@ -145,9 +145,6 @@ onMounted(() => {
         <div class="mt-3 flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
           <div>
             <h2 class="text-3xl font-semibold text-slate-50">供应商管理</h2>
-            <p class="mt-4 max-w-3xl text-sm leading-7 text-[color:var(--qq-text-secondary)]">
-              API Key、Base URL 和默认模型由网关统一保存；Agent 可按供应商类型自动使用启用中的供应商配置。
-            </p>
           </div>
           <div class="flex flex-wrap gap-3">
             <QqButton variant="secondary" :disabled="providersStore.loading" @click="refreshProviders">

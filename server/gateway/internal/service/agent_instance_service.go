@@ -188,14 +188,80 @@ func (s *AgentInstanceService) Restart(ctx context.Context, id string) (*dto.Age
 		return nil, err
 	}
 	_ = s.supervisor.Stop(ctx, *instance)
-	started, err := s.Start(ctx, dto.StartAgentInstanceRequest{AgentID: instance.AgentID, Name: instance.Name})
+
+	agent, err := s.agents.Get(ctx, instance.AgentID)
 	if err != nil {
 		return nil, err
 	}
-	instance.Status = "stopped"
-	instance.UpdatedAt = time.Now().UTC()
-	_ = s.instances.Update(ctx, *instance)
-	return started, nil
+	launch, err := s.resolveLaunchConfig(ctx, agent)
+	if err != nil {
+		return nil, err
+	}
+
+	existing, err := s.instances.List(ctx)
+	if err != nil {
+		return nil, err
+	}
+	var filtered []model.AgentInstance
+	for _, inst := range existing {
+		if inst.ID != id {
+			filtered = append(filtered, inst)
+		}
+	}
+	port, err := s.allocatePort(filtered)
+	if err != nil {
+		return nil, err
+	}
+
+	spec := processSpecFromConfig(s.cfg, id, instance.AgentID, port)
+	spec.Transport = normalizeTransport(instance.Transport)
+	if spec.Transport == "acp" {
+		spec.BaseURL = client.ACPBaseURL(id)
+	}
+	spec.CommandArgs = parseStringSlice(instance.CommandArgsJSON)
+	spec.Agent = launch
+	if s.skills != nil {
+		skillsRoot, err := s.skills.PublishForAgent(id, agent.SkillIDsJSON)
+		if err != nil {
+			return nil, fmt.Errorf("publish skills for agent: %w", err)
+		}
+		if skillsRoot != "" {
+			spec.DefaultProjectRoot = skillsRoot
+		}
+	}
+
+	process, err := s.supervisor.Start(ctx, spec)
+	if err != nil {
+		return nil, err
+	}
+
+	now := time.Now().UTC()
+	instance.PID = process.PID
+	instance.Host = spec.Host
+	instance.Port = spec.Port
+	instance.BaseURL = spec.BaseURL
+	instance.Status = "starting"
+	instance.UpdatedAt = now
+
+	probeCtx, cancel := context.WithTimeout(ctx, startupTimeout(s.cfg))
+	defer cancel()
+	if err := s.waitUntilReady(probeCtx, *instance); err != nil {
+		instance.Status = "failed"
+		instance.LastError = err.Error()
+		_ = s.supervisor.Stop(context.Background(), *instance)
+		_ = s.instances.Update(ctx, *instance)
+		return nil, err
+	}
+
+	instance.Status = "ready"
+	instance.LastHeartbeatAt = &now
+	instance.LastError = ""
+	if err := s.instances.Update(ctx, *instance); err != nil {
+		return nil, err
+	}
+
+	dtoInst := toAgentInstanceDTO(*instance)
+	return dtoInst, nil
 }
 
 func (s *AgentInstanceService) resolveLaunchConfig(ctx context.Context, agent *model.AgentProfile) (AgentLaunchConfig, error) {

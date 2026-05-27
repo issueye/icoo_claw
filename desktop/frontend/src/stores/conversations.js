@@ -220,6 +220,7 @@ export const useConversationsStore = defineStore('conversations', {
     markAssistantDraftComplete(conversationId) {
       const messages = this.ensureMessageBuffer(conversationId)
       removeEmptyAssistantMessages(messages)
+      finalizePendingToolMessages(messages, 'cancelled')
       for (const draft of messages.filter((message) => message.role === 'assistant' && message.draft)) {
         draft.draft = false
       }
@@ -239,6 +240,7 @@ export const useConversationsStore = defineStore('conversations', {
 
     markAssistantDraftError(conversationId, message) {
       const messages = this.ensureMessageBuffer(conversationId)
+      finalizePendingToolMessages(messages, 'failed', message)
       const draft = [...messages].reverse().find((item) => item.role === 'assistant' && item.draft)
       if (draft) {
         draft.draft = false
@@ -364,6 +366,26 @@ function removeEmptyAssistantMessages(messages) {
   }
 }
 
+function finalizePendingToolMessages(messages, status, reason = '') {
+  for (const message of messages) {
+    const metadata = message.metadata || {}
+    if (!metadata.toolCallId) {
+      continue
+    }
+    if (['completed', 'failed', 'cancelled'].includes(metadata.toolStatus)) {
+      message.draft = false
+      continue
+    }
+    metadata.toolStatus = status
+    if (reason && (metadata.rawOutput === null || metadata.rawOutput === undefined || metadata.rawOutput === '')) {
+      metadata.rawOutput = reason
+    }
+    message.metadata = metadata
+    message.content = toolMessageContent(metadata)
+    message.draft = false
+  }
+}
+
 function attachUsageToLastAssistant(messages, usage) {
   if (!usage) {
     return
@@ -385,12 +407,27 @@ function attachUsageToLastAssistant(messages, usage) {
 
 function mergeToolPayload(previous, next) {
   if (previous === null || previous === undefined || previous === '') {
-    return next
+    return normalizeToolPayload(next)
   }
   if (typeof previous === 'string' && typeof next === 'string') {
-    return `${previous}${next}`
+    return normalizeToolPayload(`${previous}${next}`)
   }
-  return next
+  return normalizeToolPayload(next)
+}
+
+function normalizeToolPayload(value) {
+  if (typeof value !== 'string') {
+    return value
+  }
+  const text = value.trim()
+  if (!text) {
+    return value
+  }
+  try {
+    return JSON.parse(text)
+  } catch {
+    return value
+  }
 }
 
 function toolMessageContent(metadata = {}) {

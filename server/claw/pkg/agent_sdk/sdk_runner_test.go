@@ -342,10 +342,15 @@ func TestSDKRunnerStreamCompletesOnlyAfterToolLoopFinishes(t *testing.T) {
 
 	output := ""
 	toolResultSeen := false
+	toolInputWithIDSeen := false
 	completedCount := 0
 	completedBeforeToolResult := false
 	for event := range events {
 		output += streamEventText(event)
+		if event.Type == StreamEventSessionUpdate && event.Update != nil &&
+			event.Update.SessionUpdate == "tool_call_update" && event.Update.ToolCallID == "tool_call_1" && event.Update.RawInput != nil {
+			toolInputWithIDSeen = true
+		}
 		if event.Type == StreamEventSessionUpdate && event.Update != nil &&
 			event.Update.SessionUpdate == "tool_call_update" && event.Update.Status == "completed" {
 			toolResultSeen = true
@@ -363,6 +368,9 @@ func TestSDKRunnerStreamCompletesOnlyAfterToolLoopFinishes(t *testing.T) {
 	}
 	if !toolResultSeen {
 		t.Fatalf("stream did not surface completed tool result")
+	}
+	if !toolInputWithIDSeen {
+		t.Fatalf("stream did not surface tool input with matching tool id")
 	}
 	if completedBeforeToolResult {
 		t.Fatalf("stream completed before tool result was emitted")

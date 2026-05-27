@@ -74,7 +74,7 @@ func (rt *Runtime) runSubagent(ctx context.Context, subCtx subagents.Context, re
 			Messages:          convertMessages(history.All()),
 			Tools:             availableToolsForSession(rt.registry, allow, rt.deferred, sessionID),
 			System:            prompt,
-			Model:             strings.TrimSpace(subCtx.Model),
+			Model:             normalizedSubagentModel(subCtx.Model),
 			SessionID:         sessionID,
 			EnablePromptCache: rt.opts.DefaultEnableCache,
 		}
@@ -118,6 +118,16 @@ func subagentSystemPrompt(base, target string) string {
 		return extra
 	}
 	return base + "\n\n" + extra
+}
+
+func normalizedSubagentModel(value string) string {
+	value = strings.TrimSpace(value)
+	switch value {
+	case subagents.ModelSonnet, subagents.ModelHaiku:
+		return ""
+	default:
+		return value
+	}
 }
 
 func subagentToolAllow(rt *Runtime, whitelist []string, target string) map[string]struct{} {

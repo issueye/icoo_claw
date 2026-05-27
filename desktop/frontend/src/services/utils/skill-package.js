@@ -22,6 +22,12 @@ export async function parseSkillZip(file) {
   const skillDir = skillEntry.name.includes('/') ? skillEntry.name.slice(0, skillEntry.name.lastIndexOf('/') + 1) : ''
   const skillText = await skillEntry.async('string')
   const parsed = parseSkillMarkdown(skillText)
+  const metadata = normalizeMetadata(parsed.metadata.metadata)
+  const originalName = parsed.metadata.name
+  const normalizedName = normalizeSkillName(originalName)
+  if (!normalizedName) {
+    throw new Error(`SKILL.md name 无法转换为合法技能名：${originalName}`)
+  }
   const files = []
 
   for (const entry of entries) {
@@ -43,16 +49,17 @@ export async function parseSkillZip(file) {
 
   return {
     id: '',
-    name: parsed.metadata.name,
+    name: normalizedName,
     description: parsed.metadata.description,
-    path: parsed.metadata?.metadata?.gateway_path || parsed.metadata.name,
+    path: metadata.gateway_path || normalizedName,
     content: parsed.body,
-    version: parsed.metadata?.metadata?.version || 'v1',
+    version: metadata.version || 'v1',
     source: `zip:${file.name}`,
     metadata: {
+      ...metadata,
       import_file: file.name,
       support_file_count: files.length,
-      ...(parsed.metadata.metadata || {}),
+      ...(originalName !== normalizedName ? { original_name: originalName } : {}),
     },
     files,
   }
@@ -124,6 +131,13 @@ function unquoteYaml(value) {
   if ((text.startsWith('"') && text.endsWith('"')) || (text.startsWith("'") && text.endsWith("'"))) {
     return text.slice(1, -1).replace(/\\"/g, '"').replace(/\\n/g, '\n').replace(/\\\\/g, '\\')
   }
+  if ((text.startsWith('{') && text.endsWith('}')) || (text.startsWith('[') && text.endsWith(']'))) {
+    try {
+      return JSON.parse(text)
+    } catch {
+      return text
+    }
+  }
   return text
 }
 
@@ -140,4 +154,18 @@ function isSupportedFile(path) {
     return false
   }
   return supportRoots.has(path.split('/')[0])
+}
+
+function normalizeMetadata(value) {
+  return value && typeof value === 'object' && !Array.isArray(value) ? value : {}
+}
+
+function normalizeSkillName(value) {
+  return String(value || '')
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .slice(0, 64)
+    .replace(/-+$/g, '')
 }

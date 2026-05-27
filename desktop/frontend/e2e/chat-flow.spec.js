@@ -60,6 +60,7 @@ test('chat flow creates, streams, and deletes a conversation', async ({ page }) 
 
   const conversationId = page.url().split('/chat/')[1]
   await page.getByTestId(`conversation-delete-${conversationId}`).click()
+  await page.getByTestId('conversation-delete-confirm').click()
 
   await page.waitForURL(/\/chat$/)
   await expect(page.getByTestId('chat-composer-input')).toBeEditable()

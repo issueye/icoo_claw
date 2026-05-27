@@ -40,7 +40,6 @@ const conversationDeleteDialog = reactive({
 
 const navItems = [
   { name: 'chat-home', label: 'Chat', icon: MessageSquareText, to: '/chat' },
-  { name: 'ued', label: 'UED', icon: LayoutTemplate, to: '/ued' },
   { name: 'search', label: 'Search', icon: Search, to: '/search' },
   { name: 'agents', label: 'Agents', icon: Bot, to: '/agents' },
   { name: 'providers', label: 'Providers', icon: KeyRound, to: '/providers' },
@@ -410,7 +409,7 @@ watch(
 
       <template #footer>
         <QqButton variant="ghost" :disabled="Boolean(conversationsStore.deletingId)" @click="closeConversationDeleteDialog">取消</QqButton>
-        <QqButton variant="danger" :disabled="Boolean(conversationsStore.deletingId)" @click="confirmDeleteConversation">
+        <QqButton data-testid="conversation-delete-confirm" variant="danger" :disabled="Boolean(conversationsStore.deletingId)" @click="confirmDeleteConversation">
           删除会话
         </QqButton>
       </template>
