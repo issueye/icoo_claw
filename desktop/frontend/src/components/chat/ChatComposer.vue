@@ -36,7 +36,7 @@ function handleKeydown(event) {
 </script>
 
 <template>
-  <div class="composer-dock border-t border-white/8 qq-chat-composer-bg px-4 py-3 backdrop-blur-xl">
+  <div class="composer-dock border-white/8 qq-chat-composer-bg px-4 py-3 backdrop-blur-xl">
     <div class="composer-shell mx-auto">
       <textarea
         :value="modelValue"
@@ -124,7 +124,7 @@ function handleKeydown(event) {
   min-height: 76px;
   max-height: 180px;
   width: 100%;
-  resize: vertical;
+  resize: none;
   border: 0;
   background: transparent;
   padding: 1rem 1rem 0.35rem;
@@ -136,6 +136,10 @@ function handleKeydown(event) {
 
 .composer-input::placeholder {
   color: var(--qq-text-tertiary);
+}
+
+.composer-input::-webkit-resizer {
+  display: none;
 }
 
 .composer-toolbar {

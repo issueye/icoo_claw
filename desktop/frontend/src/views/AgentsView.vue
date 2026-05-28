@@ -301,7 +301,6 @@ onMounted(() => {
   <section class="scrollbar-thin h-full overflow-y-auto px-5 py-5">
     <div class="mx-auto max-w-7xl space-y-5">
       <section class="qq-panel-strong rounded-[8px] px-5 py-5">
-        <p class="text-xs uppercase tracking-[0.24em] text-[color:var(--qq-text-tertiary)]">Agents</p>
         <div class="mt-3 flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
           <div>
             <h2 class="text-3xl font-semibold text-[color:var(--qq-text-primary)]">Agent 管理</h2>

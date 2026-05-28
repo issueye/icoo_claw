@@ -163,7 +163,7 @@
 }
 
 .qq-panel-strong {
-  border: 1px solid var(--qq-border);
+  /* border: 1px solid var(--qq-border); */
   background: linear-gradient(180deg, rgba(13, 20, 35, 0.94) 0%, var(--qq-surface-strong) 100%);
   backdrop-filter: blur(32px);
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
