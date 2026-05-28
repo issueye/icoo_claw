@@ -13,7 +13,7 @@ import (
 	"sync"
 	"time"
 
-	"icoo_claw/common/core/agent_sdk/sdk/mcp"
+	"icoo_claw/common/core/agent_sdk/mcp"
 )
 
 // Registry keeps the mapping between tool names and implementations.

@@ -6,7 +6,7 @@ import (
 	"strings"
 	"time"
 
-	"icoo_claw/common/core/agent_sdk/sdk/model"
+	"icoo_claw/common/core/agent_sdk/model"
 )
 
 const (

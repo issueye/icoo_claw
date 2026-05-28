@@ -7,8 +7,8 @@ import (
 	"strings"
 	"time"
 
-	"icoo_claw/common/core/agent_sdk/sdk/model"
-	"icoo_claw/common/core/agent_sdk/sdk/tool"
+	"icoo_claw/common/core/agent_sdk/model"
+	"icoo_claw/common/core/agent_sdk/tool"
 )
 
 // TraceEvent captures a single middleware hook invocation and its payloads.

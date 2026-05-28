@@ -5,8 +5,8 @@ import (
 	"strings"
 	"testing"
 
-	"icoo_claw/common/core/agent_sdk/sdk/runtime/skills"
-	"icoo_claw/common/core/agent_sdk/sdk/runtime/subagents"
+	"icoo_claw/common/core/agent_sdk/runtime/skills"
+	"icoo_claw/common/core/agent_sdk/runtime/subagents"
 )
 
 type fakeSkillDispatcher struct {

@@ -5,8 +5,8 @@ import (
 	"errors"
 	"fmt"
 
-	"icoo_claw/common/core/agent_sdk/sdk/sandbox"
-	"icoo_claw/common/core/agent_sdk/sdk/tool"
+	"icoo_claw/common/core/agent_sdk/sandbox"
+	"icoo_claw/common/core/agent_sdk/tool"
 )
 
 const writeDescription = `Writes a file within the configured sandbox (overwrites if it exists).`

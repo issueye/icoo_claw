@@ -5,8 +5,8 @@ import (
 	"sort"
 	"strings"
 
-	"icoo_claw/common/core/agent_sdk/sdk/runtime/skills"
-	"icoo_claw/common/core/agent_sdk/sdk/runtime/subagents"
+	"icoo_claw/common/core/agent_sdk/runtime/skills"
+	"icoo_claw/common/core/agent_sdk/runtime/subagents"
 )
 
 func applyPromptMetadata(prompt string, meta map[string]any) string {

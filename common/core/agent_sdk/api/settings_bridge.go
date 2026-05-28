@@ -7,7 +7,7 @@ import (
 	"os"
 	"strings"
 
-	"icoo_claw/common/core/agent_sdk/sdk/config"
+	"icoo_claw/common/core/agent_sdk/config"
 )
 
 // loadSettings resolves settings.json using the new layered SettingsLoader and

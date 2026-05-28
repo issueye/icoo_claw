@@ -7,13 +7,13 @@ import (
 	"maps"
 	"strings"
 
-	hooks "icoo_claw/common/core/agent_sdk/sdk/hooks"
-	"icoo_claw/common/core/agent_sdk/sdk/message"
-	"icoo_claw/common/core/agent_sdk/sdk/middleware"
-	"icoo_claw/common/core/agent_sdk/sdk/model"
-	"icoo_claw/common/core/agent_sdk/sdk/runtime/skills"
-	"icoo_claw/common/core/agent_sdk/sdk/runtime/subagents"
-	toolbuiltin "icoo_claw/common/core/agent_sdk/sdk/tool/builtin"
+	hooks "icoo_claw/common/core/agent_sdk/hooks"
+	"icoo_claw/common/core/agent_sdk/message"
+	"icoo_claw/common/core/agent_sdk/middleware"
+	"icoo_claw/common/core/agent_sdk/model"
+	"icoo_claw/common/core/agent_sdk/runtime/skills"
+	"icoo_claw/common/core/agent_sdk/runtime/subagents"
+	toolbuiltin "icoo_claw/common/core/agent_sdk/tool/builtin"
 
 	"github.com/google/uuid"
 )

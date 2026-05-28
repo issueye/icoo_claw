@@ -4,8 +4,8 @@ import (
 	"context"
 	"strings"
 
-	"icoo_claw/common/core/agent_sdk/sdk/message"
-	"icoo_claw/common/core/agent_sdk/sdk/model"
+	"icoo_claw/common/core/agent_sdk/message"
+	"icoo_claw/common/core/agent_sdk/model"
 )
 
 func isPromptTooLongError(err error) bool {

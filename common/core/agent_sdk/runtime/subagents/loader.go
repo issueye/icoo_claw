@@ -10,7 +10,7 @@ import (
 	"sort"
 	"strings"
 
-	"icoo_claw/common/core/agent_sdk/sdk/config"
+	"icoo_claw/common/core/agent_sdk/config"
 
 	"gopkg.in/yaml.v3"
 )

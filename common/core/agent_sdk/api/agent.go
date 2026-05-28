@@ -8,11 +8,11 @@ import (
 	"strings"
 	"sync"
 
-	"icoo_claw/common/core/agent_sdk/sdk/config"
-	hooks "icoo_claw/common/core/agent_sdk/sdk/hooks"
-	"icoo_claw/common/core/agent_sdk/sdk/message"
-	"icoo_claw/common/core/agent_sdk/sdk/sandbox"
-	"icoo_claw/common/core/agent_sdk/sdk/tool"
+	"icoo_claw/common/core/agent_sdk/config"
+	hooks "icoo_claw/common/core/agent_sdk/hooks"
+	"icoo_claw/common/core/agent_sdk/message"
+	"icoo_claw/common/core/agent_sdk/sandbox"
+	"icoo_claw/common/core/agent_sdk/tool"
 )
 
 var newTracer = NewTracer

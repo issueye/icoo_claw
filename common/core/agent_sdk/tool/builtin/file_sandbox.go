@@ -8,7 +8,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"icoo_claw/common/core/agent_sdk/sdk/sandbox"
+	"icoo_claw/common/core/agent_sdk/sandbox"
 )
 
 const defaultMaxFileBytes = 1 << 20 // 1 MiB

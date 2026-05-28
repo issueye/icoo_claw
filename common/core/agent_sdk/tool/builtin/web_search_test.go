@@ -7,7 +7,7 @@ import (
 	"strings"
 	"testing"
 
-	"icoo_claw/common/core/agent_sdk/sdk/sandbox"
+	"icoo_claw/common/core/agent_sdk/sandbox"
 )
 
 func TestWebSearchToolParsesDuckDuckGoHTML(t *testing.T) {

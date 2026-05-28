@@ -6,10 +6,10 @@ import (
 	"fmt"
 	"strings"
 
-	"icoo_claw/common/core/agent_sdk/sdk/message"
-	"icoo_claw/common/core/agent_sdk/sdk/middleware"
-	"icoo_claw/common/core/agent_sdk/sdk/model"
-	"icoo_claw/common/core/agent_sdk/sdk/runtime/subagents"
+	"icoo_claw/common/core/agent_sdk/message"
+	"icoo_claw/common/core/agent_sdk/middleware"
+	"icoo_claw/common/core/agent_sdk/model"
+	"icoo_claw/common/core/agent_sdk/runtime/subagents"
 )
 
 func (rt *Runtime) bindRuntimeSubagents() {

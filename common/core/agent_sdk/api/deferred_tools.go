@@ -5,7 +5,7 @@ import (
 	"strings"
 	"sync"
 
-	"icoo_claw/common/core/agent_sdk/sdk/tool"
+	"icoo_claw/common/core/agent_sdk/tool"
 )
 
 type deferredToolState struct {

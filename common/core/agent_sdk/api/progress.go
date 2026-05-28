@@ -5,9 +5,9 @@ import (
 	"encoding/json"
 	"sync/atomic"
 
-	"icoo_claw/common/core/agent_sdk/sdk/middleware"
-	"icoo_claw/common/core/agent_sdk/sdk/model"
-	"icoo_claw/common/core/agent_sdk/sdk/tool"
+	"icoo_claw/common/core/agent_sdk/middleware"
+	"icoo_claw/common/core/agent_sdk/model"
+	"icoo_claw/common/core/agent_sdk/tool"
 )
 
 // streamEmitFunc is stored on context so tools can push incremental output

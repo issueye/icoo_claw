@@ -10,7 +10,7 @@ import (
 	"sync"
 	"sync/atomic"
 
-	"icoo_claw/common/core/agent_sdk/sdk/runtime/skills"
+	"icoo_claw/common/core/agent_sdk/runtime/skills"
 )
 
 const (

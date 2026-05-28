@@ -8,7 +8,7 @@ import (
 type middlewareContextKey string
 
 const (
-	middlewareStateKey middlewareContextKey = "icoo_claw/server/claw/pkg/agent_sdk/sdk/middleware-state"
+	middlewareStateKey middlewareContextKey = "icoo_claw/common/core/agent_sdk/middleware-state"
 	// MiddlewareStateKey exposes the context key so other packages can attach middleware state.
 	MiddlewareStateKey = middlewareStateKey
 )

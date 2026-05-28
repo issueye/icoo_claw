@@ -5,8 +5,8 @@ import (
 	"strings"
 	"time"
 
-	"icoo_claw/common/core/agent_sdk/sdk/config"
-	hooks "icoo_claw/common/core/agent_sdk/sdk/hooks"
+	"icoo_claw/common/core/agent_sdk/config"
+	hooks "icoo_claw/common/core/agent_sdk/hooks"
 )
 
 func newHookExecutor(opts Options, settings *config.Settings) *hooks.Executor {

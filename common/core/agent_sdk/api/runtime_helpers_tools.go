@@ -1,6 +1,6 @@
 package api
 
-import "icoo_claw/common/core/agent_sdk/sdk/model"
+import "icoo_claw/common/core/agent_sdk/model"
 
 // EnabledBuiltinToolKeys returns the built-in registration keys selected by
 // Options.EnabledBuiltinTools for the effective entrypoint.

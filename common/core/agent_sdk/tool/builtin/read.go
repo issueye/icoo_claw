@@ -9,8 +9,8 @@ import (
 	"strconv"
 	"strings"
 
-	"icoo_claw/common/core/agent_sdk/sdk/sandbox"
-	"icoo_claw/common/core/agent_sdk/sdk/tool"
+	"icoo_claw/common/core/agent_sdk/sandbox"
+	"icoo_claw/common/core/agent_sdk/tool"
 )
 
 const (

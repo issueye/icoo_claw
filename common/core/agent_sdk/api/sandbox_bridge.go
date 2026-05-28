@@ -4,8 +4,8 @@ import (
 	"path/filepath"
 	"strings"
 
-	"icoo_claw/common/core/agent_sdk/sdk/config"
-	"icoo_claw/common/core/agent_sdk/sdk/sandbox"
+	"icoo_claw/common/core/agent_sdk/config"
+	"icoo_claw/common/core/agent_sdk/sandbox"
 )
 
 type noopFileSystemPolicy struct {

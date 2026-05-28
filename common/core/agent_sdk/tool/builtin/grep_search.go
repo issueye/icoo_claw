@@ -10,7 +10,7 @@ import (
 	"regexp"
 	"strings"
 
-	"icoo_claw/common/core/agent_sdk/sdk/gitignore"
+	"icoo_claw/common/core/agent_sdk/gitignore"
 )
 
 type grepSearchOptions struct {

@@ -17,10 +17,10 @@ import (
 	"time"
 	"unicode"
 
-	"icoo_claw/common/core/agent_sdk/sdk/middleware"
-	"icoo_claw/common/core/agent_sdk/sdk/model"
-	"icoo_claw/common/core/agent_sdk/sdk/sandbox"
-	"icoo_claw/common/core/agent_sdk/sdk/tool"
+	"icoo_claw/common/core/agent_sdk/middleware"
+	"icoo_claw/common/core/agent_sdk/model"
+	"icoo_claw/common/core/agent_sdk/sandbox"
+	"icoo_claw/common/core/agent_sdk/tool"
 )
 
 const (

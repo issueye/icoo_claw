@@ -8,9 +8,9 @@ import (
 	"sort"
 	"strings"
 
-	"icoo_claw/common/core/agent_sdk/sdk/runtime/skills"
-	"icoo_claw/common/core/agent_sdk/sdk/runtime/subagents"
-	"icoo_claw/common/core/agent_sdk/sdk/tool"
+	"icoo_claw/common/core/agent_sdk/runtime/skills"
+	"icoo_claw/common/core/agent_sdk/runtime/subagents"
+	"icoo_claw/common/core/agent_sdk/tool"
 )
 
 const skillToolDescriptionHeader = `Execute a skill.

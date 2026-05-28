@@ -1,8 +1,8 @@
-go 1.25.0
+go 1.25.10
 
 use (
+	./common
 	./desktop
 	./server/claw
 	./server/gateway
-	./server/shared/errors
 )

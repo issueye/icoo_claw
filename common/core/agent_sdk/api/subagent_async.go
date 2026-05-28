@@ -4,9 +4,9 @@ import (
 	"log"
 	"strings"
 
-	hooks "icoo_claw/common/core/agent_sdk/sdk/hooks"
-	"icoo_claw/common/core/agent_sdk/sdk/message"
-	"icoo_claw/common/core/agent_sdk/sdk/runtime/subagents"
+	hooks "icoo_claw/common/core/agent_sdk/hooks"
+	"icoo_claw/common/core/agent_sdk/message"
+	"icoo_claw/common/core/agent_sdk/runtime/subagents"
 )
 
 const subagentOutputLimit = 2000

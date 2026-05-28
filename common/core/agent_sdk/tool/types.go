@@ -3,7 +3,7 @@ package tool
 import (
 	"time"
 
-	"icoo_claw/common/core/agent_sdk/sdk/sandbox"
+	"icoo_claw/common/core/agent_sdk/sandbox"
 )
 
 // Call captures a single tool invocation request.

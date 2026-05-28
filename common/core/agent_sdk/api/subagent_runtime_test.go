@@ -4,10 +4,10 @@ import (
 	"context"
 	"testing"
 
-	"icoo_claw/common/core/agent_sdk/sdk/model"
-	"icoo_claw/common/core/agent_sdk/sdk/runtime/subagents"
-	"icoo_claw/common/core/agent_sdk/sdk/tool"
-	toolbuiltin "icoo_claw/common/core/agent_sdk/sdk/tool/builtin"
+	"icoo_claw/common/core/agent_sdk/model"
+	"icoo_claw/common/core/agent_sdk/runtime/subagents"
+	"icoo_claw/common/core/agent_sdk/tool"
+	toolbuiltin "icoo_claw/common/core/agent_sdk/tool/builtin"
 )
 
 func TestSubagentToolAllowExcludesSkillForSkillExecutor(t *testing.T) {

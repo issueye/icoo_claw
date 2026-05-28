@@ -8,7 +8,7 @@ import (
 	"sync"
 	"time"
 
-	"icoo_claw/common/core/agent_sdk/sdk/sandbox"
+	"icoo_claw/common/core/agent_sdk/sandbox"
 )
 
 // Executor wires tool registry lookup with sandbox enforcement.

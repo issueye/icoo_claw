@@ -7,8 +7,8 @@ import (
 	"os"
 	"strings"
 
-	"icoo_claw/common/core/agent_sdk/sdk/sandbox"
-	"icoo_claw/common/core/agent_sdk/sdk/tool"
+	"icoo_claw/common/core/agent_sdk/sandbox"
+	"icoo_claw/common/core/agent_sdk/tool"
 )
 
 const editDescription = `Performs exact string replacements within the configured sandbox (old_string must be unique unless replace_all).`

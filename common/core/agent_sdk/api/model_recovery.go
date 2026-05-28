@@ -7,8 +7,8 @@ import (
 	"strings"
 	"time"
 
-	"icoo_claw/common/core/agent_sdk/sdk/message"
-	"icoo_claw/common/core/agent_sdk/sdk/model"
+	"icoo_claw/common/core/agent_sdk/message"
+	"icoo_claw/common/core/agent_sdk/model"
 )
 
 var ErrStreamStall = errors.New("api: streaming stall detected")

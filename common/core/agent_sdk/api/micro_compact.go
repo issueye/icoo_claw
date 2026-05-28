@@ -5,7 +5,7 @@ import (
 	"strings"
 	"unicode/utf8"
 
-	"icoo_claw/common/core/agent_sdk/sdk/message"
+	"icoo_claw/common/core/agent_sdk/message"
 )
 
 const microCompactToolResultPrefix = "[output truncated, "
