@@ -141,7 +141,6 @@ onMounted(() => {
   <section class="scrollbar-thin h-full overflow-y-auto px-5 py-5">
     <div class="mx-auto max-w-7xl space-y-5">
       <section class="qq-panel-strong rounded-[8px] px-5 py-5">
-        <p class="text-xs uppercase tracking-[0.24em] text-[color:var(--qq-text-tertiary)]">Providers</p>
         <div class="mt-3 flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
           <div>
             <h2 class="text-3xl font-semibold text-[color:var(--qq-text-primary)]">供应商管理</h2>
@@ -174,11 +173,7 @@ onMounted(() => {
         </div>
       </section>
 
-      <QqFormSection
-        eyebrow="Directory"
-        title="供应商列表"
-        description="同类型可配置多个供应商；自动匹配会使用最近更新且启用的供应商。"
-      >
+      <QqFormSection title="供应商列表">
         <div class="grid gap-3">
           <div
             v-if="!providersStore.items.length"

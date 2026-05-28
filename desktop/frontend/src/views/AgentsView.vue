@@ -334,11 +334,7 @@ onMounted(() => {
       </section>
 
       <div class="grid gap-5 xl:grid-cols-[1fr_1fr]">
-        <QqFormSection
-          eyebrow="Profiles"
-          title="Agent 配置"
-          description="API Key 由供应商保存；Agent 可绑定供应商，也可以填写 Base URL 作为覆盖项。"
-        >
+        <QqFormSection title="Agent 配置">
           <div class="grid gap-3">
             <div
               v-if="!agentsStore.items.length"
@@ -412,11 +408,7 @@ onMounted(() => {
           </div>
         </QqFormSection>
 
-        <QqFormSection
-          eyebrow="Runtime"
-          title="Agent 实例"
-          description="实例启动时会读取 Agent 与供应商配置，并把模型信息传入 Agent 进程；修改配置后重启实例即可刷新启动参数。"
-        >
+        <QqFormSection title="Agent 实例">
           <div class="grid gap-3">
             <div
               v-if="!agentInstancesStore.items.length"

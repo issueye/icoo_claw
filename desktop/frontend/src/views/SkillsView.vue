@@ -118,7 +118,6 @@ onMounted(() => {
 
     <div class="mx-auto max-w-7xl space-y-5">
       <section class="qq-panel-strong rounded-[8px] px-5 py-5">
-        <p class="text-xs uppercase tracking-[0.24em] text-[color:var(--qq-text-tertiary)]">Skills</p>
         <div class="mt-3 flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
           <div>
             <h2 class="text-3xl font-semibold text-[color:var(--qq-text-primary)]">技能包管理</h2>
@@ -154,7 +153,6 @@ onMounted(() => {
       <section class="qq-panel rounded-[6px] px-5 py-5">
         <div class="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
           <div>
-            <p class="text-xs uppercase tracking-[0.18em] text-[color:var(--qq-text-tertiary)]">Directory</p>
             <h2 class="mt-2 text-xl font-semibold text-[color:var(--qq-text-primary)] md:text-2xl">已安装技能</h2>
           </div>
           <span class="qq-badge w-fit rounded-[4px] px-2 py-0.5 text-[11px]">zip · SKILL.md</span>

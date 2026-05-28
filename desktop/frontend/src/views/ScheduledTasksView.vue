@@ -227,7 +227,6 @@ onMounted(() => {
   <section class="scrollbar-thin h-full overflow-y-auto px-5 py-5">
     <div class="mx-auto max-w-7xl space-y-5">
       <section class="qq-panel-strong rounded-[8px] px-5 py-5">
-        <p class="text-xs uppercase tracking-[0.24em] text-[color:var(--qq-text-tertiary)]">Scheduled Tasks</p>
         <div class="mt-3 flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
           <div>
             <h2 class="text-3xl font-semibold text-[color:var(--qq-text-primary)]">定时任务管理</h2>
@@ -260,11 +259,7 @@ onMounted(() => {
         </div>
       </section>
 
-      <QqFormSection
-        eyebrow="Directory"
-        title="任务列表"
-        description="间隔任务使用 5m / 1h 这样的时长；每日任务使用 UTC HH:mm；一次性任务使用 RFC3339 时间。"
-      >
+      <QqFormSection title="任务列表">
         <div class="grid gap-3">
           <div
             v-if="!scheduledTasksStore.items.length"

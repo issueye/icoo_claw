@@ -192,15 +192,10 @@ function agentOptions() {
   <section class="scrollbar-thin h-full overflow-y-auto px-5 py-5">
     <div class="mx-auto max-w-5xl space-y-5">
       <section class="qq-panel-strong rounded-[8px] px-5 py-5">
-        <p class="text-xs uppercase tracking-[0.24em] text-[color:var(--qq-text-tertiary)]">Local Settings</p>
         <h2 class="mt-3 text-3xl font-semibold text-[color:var(--qq-text-primary)]">桌面端配置</h2>
       </section>
 
-      <QqFormSection
-        eyebrow="Projects"
-        title="本地项目"
-        description="项目只保存在本机配置里，用于标记当前聊天上下文；没有项目时聊天仍会照常工作。"
-      >
+      <QqFormSection title="本地项目">
         <div class="grid gap-5 xl:grid-cols-[0.9fr_1.1fr]">
           <div class="grid content-start gap-4">
             <QqFormField label="当前项目" helper="切换后会同步旧版 workspace.rootDir 字段。">
@@ -290,11 +285,7 @@ function agentOptions() {
       </QqFormSection>
 
       <div class="grid gap-5 xl:grid-cols-[1.1fr_0.9fr]">
-        <QqFormSection
-          eyebrow="Gateway"
-          title="网关与默认 Agent"
-          description="连接地址、默认 Agent 和工作目录都从这里管理，保持桌面端与网关配置一致。"
-        >
+        <QqFormSection title="网关与默认 Agent">
           <div class="grid gap-5">
             <QqFormField label="Gateway URL" helper="桌面端所有 HTTP 和 WebSocket 请求都走这个地址。">
               <QqInput v-model="form.gateway.baseUrl" type="text" />
@@ -313,11 +304,7 @@ function agentOptions() {
           </div>
         </QqFormSection>
 
-        <QqFormSection
-          eyebrow="Behavior"
-          title="界面行为"
-          description="先把聊天主链路需要的可见行为统一收口，后面再扩展更细的偏好项。"
-        >
+        <QqFormSection title="界面行为">
           <div class="grid gap-3">
             <QqSwitch
               v-model="form.ui.showTimestamps"
@@ -336,7 +323,7 @@ function agentOptions() {
         </QqFormSection>
       </div>
 
-      <QqFormSection eyebrow="Runtime" title="运行信息" description="用于确认当前本地配置路径和运行时环境。">
+      <QqFormSection title="运行信息">
         <div class="grid gap-4 md:grid-cols-2">
           <div class="rounded-[6px] border border-white/10 bg-[var(--qq-fill-soft)] px-4 py-3 text-sm text-[color:var(--qq-text-secondary)]">
             <p class="text-xs uppercase tracking-[0.16em] text-[color:var(--qq-text-tertiary)]">Config Path</p>

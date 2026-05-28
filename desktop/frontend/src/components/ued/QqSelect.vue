@@ -248,7 +248,7 @@ onBeforeUnmount(() => {
       <div
         v-if="open"
         ref="menuRef"
-        class="fixed z-[80] overflow-y-auto rounded-[6px] border border-[color:var(--qq-border-strong)] bg-[rgba(10,16,30,0.96)] p-1 shadow-[0_18px_42px_rgba(0,0,0,0.65)] backdrop-blur-xl"
+        class="qq-select-menu scrollbar-thin fixed z-[80] overflow-y-auto p-1 backdrop-blur-xl"
         :style="menuStyle"
         :id="`${selectId}-listbox`"
         role="listbox"
@@ -258,14 +258,11 @@ onBeforeUnmount(() => {
           :id="`${selectId}-option-${index}`"
           :key="`${option.value}-${index}`"
           :data-option-index="index"
-          class="flex min-h-9 w-full items-center justify-between gap-3 rounded-[4px] px-3 py-2 text-left text-sm transition"
+          class="qq-select-option"
           :class="[
-            option.disabled ? 'cursor-not-allowed opacity-45' : 'cursor-pointer',
-            option.value === modelValue
-              ? 'bg-[rgba(0,242,254,0.15)] text-[color:var(--qq-text-primary)]'
-              : index === activeIndex
-                ? 'bg-[var(--qq-fill-strong)] text-[color:var(--qq-text-primary)]'
-                : 'text-[color:var(--qq-text-secondary)] hover:bg-[var(--qq-fill-medium)] hover:text-[color:var(--qq-text-primary)]',
+            option.disabled ? 'is-disabled' : '',
+            option.value === modelValue ? 'is-selected' : '',
+            index === activeIndex ? 'is-active' : '',
           ]"
           role="option"
           type="button"
@@ -290,3 +287,82 @@ onBeforeUnmount(() => {
     </Teleport>
   </div>
 </template>
+
+<style scoped>
+.qq-select-menu {
+  border: 1px solid var(--qq-border-strong);
+  border-radius: 6px;
+  background: rgba(10, 16, 30, 0.96);
+  box-shadow: 0 18px 42px rgba(0, 0, 0, 0.65);
+}
+
+.qq-select-option {
+  display: flex;
+  min-height: 2.25rem;
+  width: 100%;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  border: 0;
+  border-radius: 4px;
+  background: transparent;
+  padding: 0.5rem 0.75rem;
+  color: var(--qq-text-secondary);
+  cursor: pointer;
+  font-size: 0.875rem;
+  text-align: left;
+  transition:
+    background-color 150ms ease,
+    color 150ms ease;
+}
+
+.qq-select-option:hover,
+.qq-select-option.is-active {
+  background: var(--qq-fill-strong);
+  color: var(--qq-text-primary);
+}
+
+.qq-select-option.is-selected {
+  background: rgba(0, 242, 254, 0.15);
+  color: var(--qq-text-primary);
+}
+
+.qq-select-option.is-disabled {
+  cursor: not-allowed;
+  opacity: 0.45;
+}
+
+.qq-select-option.is-disabled:hover {
+  background: transparent;
+  color: var(--qq-text-secondary);
+}
+
+html[data-theme="light"] .qq-select-menu {
+  border-color: rgba(15, 23, 42, 0.14);
+  background: rgba(255, 255, 255, 0.98);
+  box-shadow:
+    0 18px 42px rgba(15, 23, 42, 0.16),
+    0 1px 0 rgba(15, 23, 42, 0.04);
+}
+
+html[data-theme="light"] .qq-select-option:hover,
+html[data-theme="light"] .qq-select-option.is-active {
+  background: rgba(15, 23, 42, 0.06);
+  color: var(--qq-text-primary);
+}
+
+html[data-theme="light"] .qq-select-option.is-selected {
+  background: rgba(8, 125, 167, 0.1);
+  color: var(--qq-accent-strong);
+}
+
+html[data-theme="light"] .qq-select-option.is-disabled {
+  color: var(--qq-text-tertiary);
+  opacity: 0.6;
+}
+
+html[data-theme="light"] .qq-select-option.is-disabled:hover {
+  background: transparent;
+  color: var(--qq-text-tertiary);
+}
+</style>

@@ -186,6 +186,42 @@ function formatTimestamp(value) {
 <style scoped>
 .markdown-body {
   overflow-wrap: anywhere;
+  color: var(--qq-text-primary);
+  --markdown-heading-color: rgb(248 250 252);
+  --markdown-strong-color: rgb(255 255 255);
+  --markdown-table-border: rgba(255, 255, 255, 0.12);
+  --markdown-table-bg: linear-gradient(90deg, rgba(54, 220, 200, 0.08), transparent 35%),
+    rgba(3, 24, 22, 0.24);
+  --markdown-thead-bg: rgba(54, 220, 200, 0.14);
+  --markdown-cell-border: rgba(255, 255, 255, 0.1);
+  --markdown-cell-divider: rgba(255, 255, 255, 0.06);
+  --markdown-th-color: rgb(225 255 250);
+  --markdown-td-color: rgb(241 245 249);
+  --markdown-row-hover-bg: rgba(255, 255, 255, 0.04);
+  --markdown-code-border: rgba(255, 255, 255, 0.12);
+  --markdown-code-bg: rgba(4, 20, 18, 0.42);
+  --markdown-code-color: var(--qq-accent);
+  --markdown-pre-bg: rgba(4, 20, 18, 0.52);
+  --markdown-blockquote-color: var(--qq-text-secondary);
+}
+
+html[data-theme="light"] .markdown-body {
+  --markdown-heading-color: var(--qq-text-primary);
+  --markdown-strong-color: var(--qq-text-primary);
+  --markdown-table-border: rgba(15, 23, 42, 0.14);
+  --markdown-table-bg: linear-gradient(90deg, rgba(8, 125, 167, 0.055), transparent 35%),
+    rgba(255, 255, 255, 0.72);
+  --markdown-thead-bg: rgba(8, 125, 167, 0.12);
+  --markdown-cell-border: rgba(15, 23, 42, 0.1);
+  --markdown-cell-divider: rgba(15, 23, 42, 0.08);
+  --markdown-th-color: var(--qq-accent-strong);
+  --markdown-td-color: var(--qq-text-primary);
+  --markdown-row-hover-bg: rgba(15, 23, 42, 0.04);
+  --markdown-code-border: rgba(15, 23, 42, 0.12);
+  --markdown-code-bg: rgba(255, 255, 255, 0.86);
+  --markdown-code-color: #1f2937;
+  --markdown-pre-bg: rgba(255, 255, 255, 0.86);
+  --markdown-blockquote-color: var(--qq-text-secondary);
 }
 
 .message-shell {
@@ -299,7 +335,7 @@ function formatTimestamp(value) {
 .markdown-body :deep(h3),
 .markdown-body :deep(h4) {
   margin: 1rem 0 0.45rem;
-  color: rgb(248 250 252);
+  color: var(--markdown-heading-color);
   font-weight: 700;
   line-height: 1.35;
 }
@@ -334,7 +370,7 @@ function formatTimestamp(value) {
 }
 
 .markdown-body :deep(strong) {
-  color: rgb(255 255 255);
+  color: var(--markdown-strong-color);
   font-weight: 700;
 }
 
@@ -348,11 +384,9 @@ function formatTimestamp(value) {
   width: 100%;
   max-width: 100%;
   overflow-x: auto;
-  border: 1px solid rgba(255, 255, 255, 0.12);
+  border: 1px solid var(--markdown-table-border);
   border-radius: 6px;
-  background:
-    linear-gradient(90deg, rgba(54, 220, 200, 0.08), transparent 35%),
-    rgba(3, 24, 22, 0.24);
+  background: var(--markdown-table-bg);
 }
 
 .markdown-body :deep(table) {
@@ -363,13 +397,13 @@ function formatTimestamp(value) {
 }
 
 .markdown-body :deep(thead) {
-  background: rgba(54, 220, 200, 0.14);
+  background: var(--markdown-thead-bg);
 }
 
 .markdown-body :deep(th),
 .markdown-body :deep(td) {
-  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-  border-right: 1px solid rgba(255, 255, 255, 0.06);
+  border-bottom: 1px solid var(--markdown-cell-border);
+  border-right: 1px solid var(--markdown-cell-divider);
   padding: 0.55rem 0.75rem;
   text-align: left;
   vertical-align: top;
@@ -383,13 +417,13 @@ function formatTimestamp(value) {
 }
 
 .markdown-body :deep(th) {
-  color: rgb(225 255 250);
+  color: var(--markdown-th-color);
   font-size: 0.78rem;
   font-weight: 700;
 }
 
 .markdown-body :deep(td) {
-  color: rgb(241 245 249);
+  color: var(--markdown-td-color);
 }
 
 .markdown-body :deep(tbody tr:last-child td) {
@@ -397,11 +431,7 @@ function formatTimestamp(value) {
 }
 
 .markdown-body :deep(tbody tr:hover) {
-  background: rgba(255, 255, 255, 0.04);
-}
-
-:global([data-theme="light"] .markdown-body) :deep(tbody tr:hover) {
-  background: rgba(15, 23, 42, 0.04);
+  background: var(--markdown-row-hover-bg);
 }
 
 .markdown-body :deep(table code) {
@@ -409,11 +439,11 @@ function formatTimestamp(value) {
 }
 
 .markdown-body :deep(code) {
-  border: 1px solid rgba(255, 255, 255, 0.12);
+  border: 1px solid var(--markdown-code-border);
   border-radius: 4px;
-  background: rgba(4, 20, 18, 0.42);
+  background: var(--markdown-code-bg);
   padding: 0.1rem 0.32rem;
-  color: var(--qq-accent);
+  color: var(--markdown-code-color);
   font-size: 0.9em;
   word-break: break-all;
   white-space: pre-wrap;
@@ -421,9 +451,9 @@ function formatTimestamp(value) {
 
 .markdown-body :deep(pre) {
   overflow-x: auto;
-  border: 1px solid rgba(255, 255, 255, 0.12);
+  border: 1px solid var(--markdown-code-border);
   border-radius: 6px;
-  background: rgba(4, 20, 18, 0.52);
+  background: var(--markdown-pre-bg);
   padding: 0.8rem;
 }
 
@@ -439,7 +469,7 @@ function formatTimestamp(value) {
 .markdown-body :deep(blockquote) {
   border-left: 3px solid var(--qq-accent);
   padding-left: 0.8rem;
-  color: var(--qq-text-secondary);
+  color: var(--markdown-blockquote-color);
 }
 
 .markdown-body--tool {
@@ -525,10 +555,6 @@ function formatTimestamp(value) {
   color: var(--qq-text-primary);
 }
 
-:global([data-theme="light"] .markdown-body) :deep(blockquote) {
-  color: var(--qq-text-secondary);
-}
-
 :global([data-theme="light"] .markdown-body--tool) {
   border: 1px solid rgba(15, 23, 42, 0.08);
   background: #f7fafc;
@@ -549,54 +575,12 @@ function formatTimestamp(value) {
   letter-spacing: 0.02em;
 }
 
-:global([data-theme="light"] .markdown-body) :deep(h1),
-:global([data-theme="light"] .markdown-body) :deep(h2),
-:global([data-theme="light"] .markdown-body) :deep(h3),
-:global([data-theme="light"] .markdown-body) :deep(h4),
-:global([data-theme="light"] .markdown-body) :deep(strong) {
-  color: var(--qq-text-primary);
-}
-
-:global([data-theme="light"] .markdown-body) :deep(td) {
-  color: var(--qq-text-primary);
-}
-
-:global([data-theme="light"] .markdown-body) :deep(th) {
-  color: var(--qq-accent-strong);
-}
-
-:global([data-theme="light"] .markdown-body) :deep(.markdown-table-scroll) {
-  border-color: rgba(15, 23, 42, 0.14);
-  background:
-    linear-gradient(90deg, rgba(8, 125, 167, 0.055), transparent 35%),
-    rgba(255, 255, 255, 0.72);
-}
-
-:global([data-theme="light"] .markdown-body) :deep(th),
-:global([data-theme="light"] .markdown-body) :deep(td) {
-  border-color: rgba(15, 23, 42, 0.10);
-}
-
-:global([data-theme="light"] .markdown-body) :deep(code) {
-  border-color: rgba(15, 23, 42, 0.12);
-  background: rgba(255, 255, 255, 0.86);
-  color: #1f2937;
-  word-break: break-all;
-  white-space: pre-wrap;
-}
-
 :global([data-theme="light"] .markdown-body--tool code) {
   border-color: rgba(8, 125, 167, 0.16);
   background: #edf6fa;
   color: #0f3f55;
   box-decoration-break: clone;
   line-height: 1.34;
-}
-
-:global([data-theme="light"] .markdown-body) :deep(pre) {
-  border-color: rgba(15, 23, 42, 0.12);
-  background: rgba(255, 255, 255, 0.86);
-  color: var(--qq-text-primary);
 }
 
 :global([data-theme="light"] .markdown-body--tool pre) {
