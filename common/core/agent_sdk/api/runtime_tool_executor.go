@@ -162,6 +162,16 @@ func (t *runtimeToolExecutor) execute(ctx context.Context, call model.ToolCall, 
 			evt.IsStderr = &isStderr
 			emit(ctx, evt)
 		}
+	} else if agentEmit := agentEmitFromContext(ctx); agentEmit != nil {
+		callSpec.StreamSink = func(chunk string, isStderr bool) {
+			agentEmit(ctx, AgentEvent{
+				Type:        AEToolExecutionOutput,
+				ToolUseID:   call.ID,
+				ToolName:    call.Name,
+				ToolOutput:  chunk,
+				IsStderr:    isStderr,
+			})
+		}
 	}
 
 	result, err := t.executor.Execute(ctx, callSpec)

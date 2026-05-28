@@ -158,9 +158,9 @@ func collectStreamWithTimeout(ctx context.Context, mdl model.Model, req model.Re
 
 func runStreamCollection(ctx context.Context, mdl model.Model, req model.Request, progress chan<- struct{}) streamOutcome {
 	var final *model.Response
-	emit := streamEmitFromContext(ctx)
+	agentEmit := agentEmitFromContext(ctx)
+	legacyEmit := streamEmitFromContext(ctx)
 	textStarted := false
-	textIndex := 0
 	err := mdl.CompleteStream(ctx, req, func(sr model.StreamResult) error {
 		if progress != nil {
 			select {
@@ -168,20 +168,35 @@ func runStreamCollection(ctx context.Context, mdl model.Model, req model.Request
 			default:
 			}
 		}
-		if sr.Delta != "" && emit != nil {
-			if !textStarted {
-				textStarted = true
-				emit(ctx, StreamEvent{Type: EventContentBlockStart, Index: &textIndex, ContentBlock: &ContentBlock{Type: "text"}})
+		if sr.Delta != "" {
+			if agentEmit != nil {
+				if !textStarted {
+					textStarted = true
+					agentEmit(ctx, AgentEvent{Type: AETextStart})
+				}
+				agentEmit(ctx, AgentEvent{Type: AETextDelta, Text: sr.Delta})
+			} else if legacyEmit != nil {
+				if !textStarted {
+					textStarted = true
+					idx := 0
+					legacyEmit(ctx, StreamEvent{Type: EventContentBlockStart, Index: &idx, ContentBlock: &ContentBlock{Type: "text"}})
+				}
+				idx := 0
+				legacyEmit(ctx, StreamEvent{Type: EventContentBlockDelta, Index: &idx, Delta: &Delta{Type: "text_delta", Text: sr.Delta}})
 			}
-			emit(ctx, StreamEvent{Type: EventContentBlockDelta, Index: &textIndex, Delta: &Delta{Type: "text_delta", Text: sr.Delta}})
 		}
 		if sr.Final && sr.Response != nil {
 			final = sr.Response
 		}
 		return nil
 	})
-	if textStarted && emit != nil {
-		emit(ctx, StreamEvent{Type: EventContentBlockStop, Index: &textIndex})
+	if textStarted {
+		if agentEmit != nil {
+			agentEmit(ctx, AgentEvent{Type: AETextStop})
+		} else if legacyEmit != nil {
+			idx := 0
+			legacyEmit(ctx, StreamEvent{Type: EventContentBlockStop, Index: &idx})
+		}
 	}
 	if err != nil {
 		return streamOutcome{err: err}

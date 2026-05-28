@@ -21,6 +21,8 @@ type streamContextKey string
 
 const streamEmitCtxKey streamContextKey = "agentsdk.stream.emit"
 
+const agentEmitCtxKey streamContextKey = "agentsdk.stream.agent.emit"
+
 func withStreamEmit(ctx context.Context, emit streamEmitFunc) context.Context {
 	if ctx == nil {
 		ctx = context.Background()
@@ -36,6 +38,26 @@ func streamEmitFromContext(ctx context.Context) streamEmitFunc {
 		return nil
 	}
 	if emit, ok := ctx.Value(streamEmitCtxKey).(streamEmitFunc); ok {
+		return emit
+	}
+	return nil
+}
+
+func withAgentEmit(ctx context.Context, emit agentEmitFunc) context.Context {
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	if emit == nil {
+		return ctx
+	}
+	return context.WithValue(ctx, agentEmitCtxKey, emit)
+}
+
+func agentEmitFromContext(ctx context.Context) agentEmitFunc {
+	if ctx == nil {
+		return nil
+	}
+	if emit, ok := ctx.Value(agentEmitCtxKey).(agentEmitFunc); ok {
 		return emit
 	}
 	return nil
@@ -213,7 +235,16 @@ func (rt *Runtime) Run(ctx context.Context, req Request) (*Response, error) {
 }
 
 // RunStream executes the pipeline asynchronously and returns events over a channel.
+// The returned events use the default Anthropic SSE protocol for backward
+// compatibility. Use RunStreamWithProtocol for alternative wire formats.
 func (rt *Runtime) RunStream(ctx context.Context, req Request) (<-chan StreamEvent, error) {
+	return rt.RunStreamWithProtocol(ctx, req, nil)
+}
+
+// RunStreamWithProtocol executes the pipeline asynchronously using the given
+// StreamProtocol to encode events. If protocol is nil, the default
+// AnthropicSSEProtocol is used, preserving backward compatibility with RunStream.
+func (rt *Runtime) RunStreamWithProtocol(ctx context.Context, req Request, protocol StreamProtocol) (<-chan StreamEvent, error) {
 	if rt == nil {
 		return nil, ErrRuntimeClosed
 	}
@@ -231,20 +262,26 @@ func (rt *Runtime) RunStream(ctx context.Context, req Request) (<-chan StreamEve
 		return nil, err
 	}
 
-	// 缓冲区增大以吸收前端延迟（逐字符渲染等）导致的背压，避免 progress emit 阻塞工具执行
+	if protocol == nil {
+		protocol = NewAnthropicSSEProtocol()
+	}
+
 	out := make(chan StreamEvent, 512)
 	progressChan := make(chan StreamEvent, 256)
 	baseCtx := ctx
 	if baseCtx == nil {
 		baseCtx = context.Background()
 	}
-	progressMW := newProgressMiddleware(progressChan)
+
+	progressMW := newProgressMiddlewareWithProtocol(progressChan, protocol)
 	ctxWithEmit := withStreamEmit(baseCtx, progressMW.streamEmit())
+	ctxWithAgentEmit := withAgentEmit(ctxWithEmit, progressMW.streamEmitAgent())
+
 	go func() {
 		defer rt.endRun()
 		defer close(out)
 
-		prep, err := rt.prepare(ctxWithEmit, req)
+		prep, err := rt.prepare(ctxWithAgentEmit, req)
 		if err != nil {
 			isErr := true
 			out <- StreamEvent{Type: EventError, Output: err.Error(), IsError: &isErr}
@@ -261,7 +298,7 @@ func (rt *Runtime) RunStream(ctx context.Context, req Request) (<-chan StreamEve
 				}
 				select {
 				case out <- event:
-				case <-ctxWithEmit.Done():
+				case <-ctxWithAgentEmit.Done():
 					dropping = true
 				}
 			}
