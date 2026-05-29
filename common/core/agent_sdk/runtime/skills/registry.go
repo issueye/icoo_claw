@@ -8,6 +8,8 @@ import (
 	"sort"
 	"strings"
 	"sync"
+
+	"icoo_claw/common/core/agent_sdk/runtime/activation"
 )
 
 var (
@@ -198,31 +200,22 @@ func (r *Registry) Match(ctx ActivationContext) []Activation {
 	if len(matches) == 0 {
 		return nil
 	}
-	sort.SliceStable(matches, func(i, j int) bool {
-		di := matches[i].Skill.definition
-		dj := matches[j].Skill.definition
-		if di.Priority != dj.Priority {
-			return di.Priority > dj.Priority
-		}
-		if matches[i].Score != matches[j].Score {
-			return matches[i].Score > matches[j].Score
-		}
-		return di.Name < dj.Name
-	})
 
-	selected := matches[:0]
-	seen := map[string]struct{}{}
-	for _, activation := range matches {
-		key := activation.Skill.definition.MutexKey
-		if key == "" {
-			selected = append(selected, activation)
-			continue
-		}
-		if _, ok := seen[key]; ok {
-			continue
-		}
-		seen[key] = struct{}{}
-		selected = append(selected, activation)
+	candidates := make([]activation.Candidate[Activation], 0, len(matches))
+	for _, match := range matches {
+		def := match.Skill.definition
+		candidates = append(candidates, activation.Candidate[Activation]{
+			Item:     match,
+			Name:     def.Name,
+			Priority: def.Priority,
+			Score:    match.Score,
+			MutexKey: def.MutexKey,
+		})
+	}
+	selectedCandidates := activation.Select(candidates)
+	selected := make([]Activation, 0, len(selectedCandidates))
+	for _, candidate := range selectedCandidates {
+		selected = append(selected, candidate.Item)
 	}
 	return selected
 }

@@ -10,6 +10,7 @@ import (
 	"sync"
 	"sync/atomic"
 
+	"icoo_claw/common/core/agent_sdk/runtime/activation"
 	"icoo_claw/common/core/agent_sdk/runtime/skills"
 )
 
@@ -450,14 +451,16 @@ func (m *Manager) matching(ctx skills.ActivationContext) []*registeredSubagent {
 	}
 	m.mu.RUnlock()
 
-	type candidate struct {
-		sub   *registeredSubagent
-		score float64
-	}
-	var candidates []candidate
+	var candidates []activation.Candidate[*registeredSubagent]
 	for _, sub := range snapshot {
 		if len(sub.definition.Matchers) == 0 {
-			candidates = append(candidates, candidate{sub, 0.5})
+			candidates = append(candidates, activation.Candidate[*registeredSubagent]{
+				Item:     sub,
+				Name:     sub.definition.Name,
+				Priority: sub.definition.Priority,
+				Score:    0.5,
+				MutexKey: sub.definition.MutexKey,
+			})
 			continue
 		}
 		var best skills.MatchResult
@@ -478,33 +481,18 @@ func (m *Manager) matching(ctx skills.ActivationContext) []*registeredSubagent {
 		if !matched {
 			continue
 		}
-		candidates = append(candidates, candidate{sub: sub, score: best.Score})
+		candidates = append(candidates, activation.Candidate[*registeredSubagent]{
+			Item:     sub,
+			Name:     sub.definition.Name,
+			Priority: sub.definition.Priority,
+			Score:    best.Score,
+			MutexKey: sub.definition.MutexKey,
+		})
 	}
-	sort.SliceStable(candidates, func(i, j int) bool {
-		di := candidates[i].sub.definition
-		dj := candidates[j].sub.definition
-		if di.Priority != dj.Priority {
-			return di.Priority > dj.Priority
-		}
-		if candidates[i].score != candidates[j].score {
-			return candidates[i].score > candidates[j].score
-		}
-		return di.Name < dj.Name
-	})
-
-	seen := map[string]struct{}{}
-	filtered := make([]*registeredSubagent, 0, len(candidates))
-	for _, cand := range candidates {
-		key := cand.sub.definition.MutexKey
-		if key == "" {
-			filtered = append(filtered, cand.sub)
-			continue
-		}
-		if _, ok := seen[key]; ok {
-			continue
-		}
-		seen[key] = struct{}{}
-		filtered = append(filtered, cand.sub)
+	selected := activation.Select(candidates)
+	filtered := make([]*registeredSubagent, 0, len(selected))
+	for _, cand := range selected {
+		filtered = append(filtered, cand.Item)
 	}
 	return filtered
 }

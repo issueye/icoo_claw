@@ -109,7 +109,6 @@ func withToolSearch(tools []tool.Tool) []tool.Tool {
 }
 
 func builtinToolFactories(root string, networkAllow []string, sandboxDisabled bool, entry EntryPoint, settings *config.Settings, skReg *skills.Registry, subMgr *subagents.Manager) map[string]func() tool.Tool {
-	factories := map[string]func() tool.Tool{}
 	var networkPolicy sandbox.NetworkPolicy
 	if !sandboxDisabled {
 		if len(networkAllow) == 0 {
@@ -118,90 +117,121 @@ func builtinToolFactories(root string, networkAllow []string, sandboxDisabled bo
 		networkPolicy = sandbox.NewDomainAllowList(networkAllow...)
 	}
 
-	bashCtor := func() tool.Tool {
-		var bash *toolbuiltin.BashTool
-		if sandboxDisabled {
-			bash = toolbuiltin.NewBashToolWithSandbox(root, nil)
-		} else {
-			bash = toolbuiltin.NewBashToolWithRoot(root)
-		}
-		if entry == EntryPointCLI {
-			bash.AllowShellMetachars(true)
-		}
-		return bash
-	}
-
-	readCtor := func() tool.Tool {
-		if sandboxDisabled {
-			return toolbuiltin.NewReadToolWithSandbox(root, nil)
-		}
-		return toolbuiltin.NewReadToolWithRoot(root)
-	}
-	writeCtor := func() tool.Tool {
-		if sandboxDisabled {
-			return toolbuiltin.NewWriteToolWithSandbox(root, nil)
-		}
-		return toolbuiltin.NewWriteToolWithRoot(root)
-	}
-	editCtor := func() tool.Tool {
-		if sandboxDisabled {
-			return toolbuiltin.NewEditToolWithSandbox(root, nil)
-		}
-		return toolbuiltin.NewEditToolWithRoot(root)
-	}
-
 	respectGitignore := true
 	if settings != nil && settings.RespectGitignore != nil {
 		respectGitignore = *settings.RespectGitignore
 	}
-	grepCtor := func() tool.Tool {
-		if sandboxDisabled {
-			grep := toolbuiltin.NewGrepToolWithSandbox(root, nil)
-			grep.SetRespectGitignore(respectGitignore)
-			return grep
-		}
-		grep := toolbuiltin.NewGrepToolWithRoot(root)
-		grep.SetRespectGitignore(respectGitignore)
-		return grep
-	}
-	globCtor := func() tool.Tool {
-		if sandboxDisabled {
-			glob := toolbuiltin.NewGlobToolWithSandbox(root, nil)
-			glob.SetRespectGitignore(respectGitignore)
-			return glob
-		}
-		glob := toolbuiltin.NewGlobToolWithRoot(root)
-		glob.SetRespectGitignore(respectGitignore)
-		return glob
-	}
-	findCtor := func() tool.Tool {
-		if sandboxDisabled {
-			find := toolbuiltin.NewFindToolWithSandbox(root, nil)
-			find.SetRespectGitignore(respectGitignore)
-			return find
-		}
-		find := toolbuiltin.NewFindToolWithRoot(root)
-		find.SetRespectGitignore(respectGitignore)
-		return find
-	}
-	fetchCtor := func() tool.Tool {
-		return toolbuiltin.NewFetchToolWithNetworkPolicy(networkPolicy)
-	}
-	webSearchCtor := func() tool.Tool {
-		return toolbuiltin.NewWebSearchToolWithNetworkPolicy(networkPolicy)
-	}
-	factories["bash"] = bashCtor
-	factories["read"] = readCtor
-	factories["write"] = writeCtor
-	factories["edit"] = editCtor
-	factories["find"] = findCtor
-	factories["fetch"] = fetchCtor
-	factories["web_search"] = webSearchCtor
-	factories["grep"] = grepCtor
-	factories["glob"] = globCtor
-	factories["skill"] = func() tool.Tool { return toolbuiltin.NewSkillToolWithSubagent(skReg, nil, subMgr) }
 
-	return factories
+	cfg := builtinToolFactoryConfig{
+		root:             root,
+		entry:            entry,
+		sandboxDisabled:  sandboxDisabled,
+		networkPolicy:    networkPolicy,
+		respectGitignore: respectGitignore,
+		skReg:            skReg,
+		subMgr:           subMgr,
+	}
+	return map[string]func() tool.Tool{
+		"bash":       cfg.bash,
+		"read":       cfg.read,
+		"write":      cfg.write,
+		"edit":       cfg.edit,
+		"find":       cfg.find,
+		"fetch":      cfg.fetch,
+		"web_search": cfg.webSearch,
+		"grep":       cfg.grep,
+		"glob":       cfg.glob,
+		"skill":      cfg.skill,
+	}
+}
+
+type builtinToolFactoryConfig struct {
+	root             string
+	entry            EntryPoint
+	sandboxDisabled  bool
+	networkPolicy    sandbox.NetworkPolicy
+	respectGitignore bool
+	skReg            *skills.Registry
+	subMgr           *subagents.Manager
+}
+
+func (c builtinToolFactoryConfig) bash() tool.Tool {
+	var bash *toolbuiltin.BashTool
+	if c.sandboxDisabled {
+		bash = toolbuiltin.NewBashToolWithSandbox(c.root, nil)
+	} else {
+		bash = toolbuiltin.NewBashToolWithRoot(c.root)
+	}
+	if c.entry == EntryPointCLI {
+		bash.AllowShellMetachars(true)
+	}
+	return bash
+}
+
+func (c builtinToolFactoryConfig) read() tool.Tool {
+	if c.sandboxDisabled {
+		return toolbuiltin.NewReadToolWithSandbox(c.root, nil)
+	}
+	return toolbuiltin.NewReadToolWithRoot(c.root)
+}
+
+func (c builtinToolFactoryConfig) write() tool.Tool {
+	if c.sandboxDisabled {
+		return toolbuiltin.NewWriteToolWithSandbox(c.root, nil)
+	}
+	return toolbuiltin.NewWriteToolWithRoot(c.root)
+}
+
+func (c builtinToolFactoryConfig) edit() tool.Tool {
+	if c.sandboxDisabled {
+		return toolbuiltin.NewEditToolWithSandbox(c.root, nil)
+	}
+	return toolbuiltin.NewEditToolWithRoot(c.root)
+}
+
+func (c builtinToolFactoryConfig) grep() tool.Tool {
+	var grep *toolbuiltin.GrepTool
+	if c.sandboxDisabled {
+		grep = toolbuiltin.NewGrepToolWithSandbox(c.root, nil)
+	} else {
+		grep = toolbuiltin.NewGrepToolWithRoot(c.root)
+	}
+	grep.SetRespectGitignore(c.respectGitignore)
+	return grep
+}
+
+func (c builtinToolFactoryConfig) glob() tool.Tool {
+	var glob *toolbuiltin.GlobTool
+	if c.sandboxDisabled {
+		glob = toolbuiltin.NewGlobToolWithSandbox(c.root, nil)
+	} else {
+		glob = toolbuiltin.NewGlobToolWithRoot(c.root)
+	}
+	glob.SetRespectGitignore(c.respectGitignore)
+	return glob
+}
+
+func (c builtinToolFactoryConfig) find() tool.Tool {
+	var find *toolbuiltin.FindTool
+	if c.sandboxDisabled {
+		find = toolbuiltin.NewFindToolWithSandbox(c.root, nil)
+	} else {
+		find = toolbuiltin.NewFindToolWithRoot(c.root)
+	}
+	find.SetRespectGitignore(c.respectGitignore)
+	return find
+}
+
+func (c builtinToolFactoryConfig) fetch() tool.Tool {
+	return toolbuiltin.NewFetchToolWithNetworkPolicy(c.networkPolicy)
+}
+
+func (c builtinToolFactoryConfig) webSearch() tool.Tool {
+	return toolbuiltin.NewWebSearchToolWithNetworkPolicy(c.networkPolicy)
+}
+
+func (c builtinToolFactoryConfig) skill() tool.Tool {
+	return toolbuiltin.NewSkillToolWithSubagent(c.skReg, nil, c.subMgr)
 }
 
 func builtinOrder(entry EntryPoint) []string {

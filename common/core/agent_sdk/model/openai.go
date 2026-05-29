@@ -8,7 +8,6 @@ import (
 	"net/http"
 	"sort"
 	"strings"
-	"time"
 
 	"github.com/openai/openai-go"
 	"github.com/openai/openai-go/option"
@@ -298,26 +297,7 @@ func (m *openaiModel) buildParams(req Request) openai.ChatCompletionNewParams {
 }
 
 func (m *openaiModel) doWithRetry(ctx context.Context, fn func(context.Context) error) error {
-	attempts := 0
-	for {
-		err := fn(ctx)
-		if err == nil {
-			return nil
-		}
-		if ctx.Err() != nil {
-			return ctx.Err()
-		}
-		if !isOpenAIRetryable(err) || attempts >= m.maxRetries {
-			return err
-		}
-		attempts++
-		backoff := time.Duration(attempts*attempts) * 100 * time.Millisecond
-		select {
-		case <-ctx.Done():
-			return ctx.Err()
-		case <-time.After(backoff):
-		}
-	}
+	return runWithRetry(ctx, m.maxRetries, isOpenAIRetryable, fn)
 }
 
 func isOpenAIRetryable(err error) bool {

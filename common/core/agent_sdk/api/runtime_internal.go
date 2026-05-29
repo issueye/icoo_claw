@@ -117,6 +117,7 @@ func (rt *Runtime) runAgentWithMiddleware(prep preparedRun, extras ...middleware
 		host:      "localhost",
 		sessionID: prep.normalized.SessionID,
 		deferred:  rt.deferred,
+		perm:      rt.perm,
 	}
 
 	chainItems := make([]middleware.Middleware, 0, len(rt.opts.Middleware)+len(extras))
@@ -151,27 +152,9 @@ func (rt *Runtime) runLoop(prep preparedRun, mdl model.Model, hookAdapter *runti
 		ctx = context.Background()
 	}
 
-	if strings.TrimSpace(prep.prompt) != "" || len(prep.contentBlocks) > 0 {
-		userMsg := message.Message{Role: "user", Content: strings.TrimSpace(prep.prompt)}
-		if len(prep.contentBlocks) > 0 {
-			userMsg.ContentBlocks = convertAPIContentBlocks(prep.contentBlocks)
-		}
-		prep.history.Append(userMsg)
-	}
+	appendUserInput(prep.history, prep.prompt, prep.contentBlocks)
 
-	state := &middleware.State{Values: map[string]any{}}
-	if sessionID := strings.TrimSpace(prep.normalized.SessionID); sessionID != "" {
-		state.Values["session_id"] = sessionID
-	}
-	if requestID := strings.TrimSpace(prep.normalized.RequestID); requestID != "" {
-		state.Values["request_id"] = requestID
-	}
-	if len(prep.normalized.ForceSkills) > 0 {
-		state.Values["request.force_skills"] = append([]string(nil), prep.normalized.ForceSkills...)
-	}
-	if rt.opts.skReg != nil {
-		state.Values["skills.registry"] = rt.opts.skReg
-	}
+	state := newRunState(prep.normalized, rt.opts.skReg)
 
 	ctx = context.WithValue(ctx, model.MiddlewareStateKey, state)
 
@@ -225,14 +208,7 @@ func (rt *Runtime) runLoop(prep preparedRun, mdl model.Model, hookAdapter *runti
 		if trimmer != nil {
 			snapshot = trimmer.Trim(snapshot)
 		}
-		toolDefs := availableToolsForSession(rt.registry, prep.toolWhitelist, rt.deferred, prep.normalized.SessionID)
-
-		req := model.Request{
-			Messages:          convertMessages(snapshot),
-			Tools:             toolDefs,
-			System:            systemPrompt,
-			EnablePromptCache: enableCache,
-		}
+		req := rt.modelRequestForIteration(prep, snapshot, systemPrompt, enableCache)
 		state.ModelInput = &req
 		state.Values["model.request"] = req
 		if err := chain.Execute(ctx, middleware.StageBeforeAgent, state); err != nil {
@@ -262,18 +238,7 @@ func (rt *Runtime) runLoop(prep preparedRun, mdl model.Model, hookAdapter *runti
 		state.Values["model.stop_reason"] = resp.StopReason
 		stopErr := budgetTracker.Observe(resp.Usage)
 
-		assistant := message.Message{
-			Role:             resp.Message.Role,
-			Content:          strings.TrimSpace(resp.Message.Content),
-			ReasoningContent: resp.Message.ReasoningContent,
-		}
-		if len(resp.Message.ToolCalls) > 0 {
-			assistant.ToolCalls = make([]message.ToolCall, len(resp.Message.ToolCalls))
-			for i, call := range resp.Message.ToolCalls {
-				assistant.ToolCalls[i] = message.ToolCall{ID: call.ID, Name: call.Name, Arguments: call.Arguments}
-			}
-		}
-		prep.history.Append(assistant)
+		appendAssistantResponse(prep.history, resp)
 
 		if err := chain.Execute(ctx, middleware.StageAfterAgent, state); err != nil {
 			runErr = err
@@ -317,6 +282,64 @@ func (rt *Runtime) runLoop(prep preparedRun, mdl model.Model, hookAdapter *runti
 			return resp, nil
 		}
 	}
+}
+
+func appendUserInput(history *message.History, prompt string, blocks []model.ContentBlock) {
+	if history == nil {
+		return
+	}
+	if strings.TrimSpace(prompt) == "" && len(blocks) == 0 {
+		return
+	}
+	userMsg := message.Message{Role: "user", Content: strings.TrimSpace(prompt)}
+	if len(blocks) > 0 {
+		userMsg.ContentBlocks = convertAPIContentBlocks(blocks)
+	}
+	history.Append(userMsg)
+}
+
+func newRunState(req Request, skReg *skills.Registry) *middleware.State {
+	state := &middleware.State{Values: map[string]any{}}
+	if sessionID := strings.TrimSpace(req.SessionID); sessionID != "" {
+		state.Values["session_id"] = sessionID
+	}
+	if requestID := strings.TrimSpace(req.RequestID); requestID != "" {
+		state.Values["request_id"] = requestID
+	}
+	if len(req.ForceSkills) > 0 {
+		state.Values["request.force_skills"] = append([]string(nil), req.ForceSkills...)
+	}
+	if skReg != nil {
+		state.Values["skills.registry"] = skReg
+	}
+	return state
+}
+
+func (rt *Runtime) modelRequestForIteration(prep preparedRun, snapshot []message.Message, systemPrompt string, enableCache bool) model.Request {
+	return model.Request{
+		Messages:          convertMessages(snapshot),
+		Tools:             availableToolsForSession(rt.registry, prep.toolWhitelist, rt.deferred, prep.normalized.SessionID),
+		System:            systemPrompt,
+		EnablePromptCache: enableCache,
+	}
+}
+
+func appendAssistantResponse(history *message.History, resp *model.Response) {
+	if history == nil || resp == nil {
+		return
+	}
+	assistant := message.Message{
+		Role:             resp.Message.Role,
+		Content:          strings.TrimSpace(resp.Message.Content),
+		ReasoningContent: resp.Message.ReasoningContent,
+	}
+	if len(resp.Message.ToolCalls) > 0 {
+		assistant.ToolCalls = make([]message.ToolCall, len(resp.Message.ToolCalls))
+		for i, call := range resp.Message.ToolCalls {
+			assistant.ToolCalls[i] = message.ToolCall{ID: call.ID, Name: call.Name, Arguments: call.Arguments}
+		}
+	}
+	history.Append(assistant)
 }
 
 func (rt *Runtime) buildResponse(prep preparedRun, result runResult) *Response {

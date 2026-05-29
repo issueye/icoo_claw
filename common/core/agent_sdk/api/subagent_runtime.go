@@ -30,9 +30,6 @@ func (rt *Runtime) runSubagent(ctx context.Context, subCtx subagents.Context, re
 	if rt == nil {
 		return subagents.Result{}, ErrRuntimeClosed
 	}
-	if rt.opts.Model == nil {
-		return subagents.Result{}, errors.New("subagent model is nil")
-	}
 	if strings.TrimSpace(req.Instruction) == "" {
 		return subagents.Result{}, subagents.ErrEmptyInstruction
 	}
@@ -58,8 +55,13 @@ func (rt *Runtime) runSubagent(ctx context.Context, subCtx subagents.Context, re
 		host:      "localhost",
 		sessionID: sessionID,
 		deferred:  rt.deferred,
+		perm:      rt.perm,
 	}
 	chain := middleware.NewChain(rt.opts.Middleware, middleware.WithTimeout(rt.opts.MiddlewareTimeout))
+	selectedModel, modelOverride := rt.selectRuntimeSubagentModel(req.Target, subCtx.Model)
+	if selectedModel == nil {
+		return subagents.Result{}, errors.New("subagent model is nil")
+	}
 	prompt := subagentSystemPrompt(rt.systemPromptForSession(sessionID, allow), req.Target)
 
 	for iteration := 0; ; iteration++ {
@@ -74,11 +76,11 @@ func (rt *Runtime) runSubagent(ctx context.Context, subCtx subagents.Context, re
 			Messages:          convertMessages(history.All()),
 			Tools:             availableToolsForSession(rt.registry, allow, rt.deferred, sessionID),
 			System:            prompt,
-			Model:             normalizedSubagentModel(subCtx.Model),
+			Model:             modelOverride,
 			SessionID:         sessionID,
 			EnablePromptCache: rt.opts.DefaultEnableCache,
 		}
-		resp, err := completeViaStream(ctx, rt.opts.Model, modelReq, rt.opts.StreamStall.withDefaults(), streamEmitFromContext(ctx) != nil)
+		resp, err := completeViaStream(ctx, selectedModel, modelReq, rt.opts.StreamStall.withDefaults(), streamEmitFromContext(ctx) != nil)
 		if err != nil {
 			return subagents.Result{}, err
 		}
@@ -105,6 +107,61 @@ func (rt *Runtime) runSubagent(ctx context.Context, subCtx subagents.Context, re
 		if err := rt.executeToolCalls(ctx, resp.Message.ToolCalls, toolExec, chain, &middleware.State{Values: map[string]any{}}, rt.opts.tracer, nil, Request{SessionID: sessionID}); err != nil {
 			return subagents.Result{}, err
 		}
+	}
+}
+
+func (rt *Runtime) selectRuntimeSubagentModel(target, preferred string) (model.Model, string) {
+	if rt == nil {
+		return nil, ""
+	}
+	preferred = strings.TrimSpace(preferred)
+	if preferred != "" {
+		if _, ok := subagentModelAliasTier(preferred); !ok {
+			return rt.opts.Model, preferred
+		}
+	}
+	if tier, ok := rt.subagentMappingTier(target); ok {
+		if mdl := rt.modelForTier(tier); mdl != nil {
+			return mdl, ""
+		}
+	}
+	if tier, ok := subagentModelAliasTier(preferred); ok {
+		if mdl := rt.modelForTier(tier); mdl != nil {
+			return mdl, ""
+		}
+	}
+	return rt.opts.Model, normalizedSubagentModel(preferred)
+}
+
+func (rt *Runtime) subagentMappingTier(target string) (ModelTier, bool) {
+	if rt == nil || len(rt.opts.SubagentModelMapping) == 0 {
+		return "", false
+	}
+	key := strings.ToLower(strings.TrimSpace(target))
+	if key == "" {
+		return "", false
+	}
+	tier, ok := rt.opts.SubagentModelMapping[key]
+	return tier, ok
+}
+
+func (rt *Runtime) modelForTier(tier ModelTier) model.Model {
+	if rt == nil || tier == "" || len(rt.opts.ModelPool) == 0 {
+		return nil
+	}
+	return rt.opts.ModelPool[tier]
+}
+
+func subagentModelAliasTier(value string) (ModelTier, bool) {
+	switch strings.ToLower(strings.TrimSpace(value)) {
+	case subagents.ModelHaiku:
+		return ModelTierLow, true
+	case subagents.ModelSonnet:
+		return ModelTierMid, true
+	case "opus":
+		return ModelTierHigh, true
+	default:
+		return "", false
 	}
 }
 

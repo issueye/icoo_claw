@@ -6,6 +6,7 @@ import (
 	"maps"
 	"strings"
 	"sync"
+	"time"
 
 	"icoo_claw/common/core/agent_sdk/middleware"
 	"icoo_claw/common/core/agent_sdk/model"
@@ -95,6 +96,9 @@ func (rt *Runtime) executeSingleToolCall(ctx context.Context, call model.ToolCal
 	state.ToolCall = call
 	if err := chain.Execute(ctx, middleware.StageBeforeTool, state); err != nil {
 		exec.beforeErr = err
+		exec.err = err
+		exec.result = blockedToolCallResult(call, err, sessionID)
+		return exec
 	}
 	if tools == nil {
 		exec.err = errors.New("api: tool executor is nil")
@@ -122,6 +126,30 @@ func (rt *Runtime) executeSingleToolCall(ctx context.Context, call model.ToolCal
 	return exec
 }
 
+func blockedToolCallResult(call model.ToolCall, err error, sessionID string) *tool.CallResult {
+	now := time.Now()
+	output := toolCallResultContent(nil, err)
+	params := cloneArguments(call.Arguments)
+	if params == nil {
+		params = map[string]any{}
+	}
+	return &tool.CallResult{
+		Call: tool.Call{
+			Name:      call.Name,
+			Params:    params,
+			SessionID: strings.TrimSpace(sessionID),
+		},
+		Result: &tool.ToolResult{
+			Success: false,
+			Output:  output,
+			Data:    map[string]any{"error": err.Error()},
+		},
+		Err:         err,
+		StartedAt:   now,
+		CompletedAt: now,
+	}
+}
+
 func (rt *Runtime) executeToolCalls(ctx context.Context, calls []model.ToolCall, tools *runtimeToolExecutor, chain *middleware.Chain, baseState *middleware.State, tracer Tracer, agentSpan SpanContext, req Request) error {
 	if len(calls) > 0 && tools == nil {
 		return errors.New("api: tool executor is nil")
@@ -145,6 +173,10 @@ func (rt *Runtime) executeToolCalls(ctx context.Context, calls []model.ToolCall,
 		if !segment.concurrent {
 			exec := rt.executeSingleToolCall(ctx, segment.calls[0].call, tools, chain, baseState, tracer, agentSpan, req.SessionID, req.RequestID)
 			recordMiddlewareErr(exec)
+			if exec.beforeErr != nil {
+				tools.appendCallResult(exec.call, exec.result, exec.beforeErr)
+				return exec.beforeErr
+			}
 			if toolErrorCanceledRun(ctx, exec.err) {
 				return exec.err
 			}
@@ -189,6 +221,11 @@ func (rt *Runtime) executeToolCalls(ctx context.Context, calls []model.ToolCall,
 					return
 				}
 				results[i] = rt.executeSingleToolCall(groupCtx, item.call, concurrentExec, chain, baseState, tracer, agentSpan, req.SessionID, req.RequestID)
+				if results[i].beforeErr != nil {
+					errCh <- results[i].beforeErr
+					cancel()
+					return
+				}
 				if toolErrorCanceledRun(ctx, results[i].err) {
 					errCh <- results[i].err
 					cancel()

@@ -174,6 +174,7 @@ type Options struct {
 	HookTimeout            time.Duration
 	DisableSafetyHook      bool
 	DisableSubagentSummary bool
+	PermissionPrompter     PermissionPrompter
 
 	Skills           []SkillRegistration
 	Subagents        []SubagentRegistration

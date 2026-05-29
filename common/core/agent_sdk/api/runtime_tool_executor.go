@@ -28,6 +28,7 @@ type runtimeToolExecutor struct {
 	host      string
 	sessionID string
 	deferred  *deferredToolState
+	perm      *permissionEvaluator
 }
 
 func (t *runtimeToolExecutor) withoutHistory() *runtimeToolExecutor {
@@ -93,6 +94,23 @@ func (t *runtimeToolExecutor) execute(ctx context.Context, call model.ToolCall, 
 				Result: content,
 			}},
 		})
+	}
+
+	if t.perm != nil {
+		decision, err := t.perm.Evaluate(ctx, call)
+		emitPermissionDecision(ctx, decision)
+		if err != nil {
+			errContent := toolCallResultContent(nil, err)
+			appendToolResult(errContent)
+			now := time.Now()
+			return &tool.CallResult{
+				Call:        tool.Call{Name: call.Name, Params: cloneArguments(call.Arguments), SessionID: t.sessionID},
+				Result:      &tool.ToolResult{Success: false, Output: errContent, Data: map[string]any{"error": err.Error()}},
+				Err:         err,
+				StartedAt:   now,
+				CompletedAt: now,
+			}, err
+		}
 	}
 
 	if len(call.Arguments) == 0 {
@@ -165,11 +183,11 @@ func (t *runtimeToolExecutor) execute(ctx context.Context, call model.ToolCall, 
 	} else if agentEmit := agentEmitFromContext(ctx); agentEmit != nil {
 		callSpec.StreamSink = func(chunk string, isStderr bool) {
 			agentEmit(ctx, AgentEvent{
-				Type:        AEToolExecutionOutput,
-				ToolUseID:   call.ID,
-				ToolName:    call.Name,
-				ToolOutput:  chunk,
-				IsStderr:    isStderr,
+				Type:       AEToolExecutionOutput,
+				ToolUseID:  call.ID,
+				ToolName:   call.Name,
+				ToolOutput: chunk,
+				IsStderr:   isStderr,
 			})
 		}
 	}
@@ -242,6 +260,12 @@ func coreToolResultPayload(call model.ToolCall, res *tool.CallResult, err error)
 	}
 	payload.Err = err
 	return payload
+}
+
+func emitPermissionDecision(ctx context.Context, decision PermissionDecision) {
+	if state, ok := ctx.Value(model.MiddlewareStateKey).(interface{ SetValue(string, any) }); ok && state != nil {
+		state.SetValue("permission.decision", decision)
+	}
 }
 
 func (t *runtimeToolExecutor) activateDeferredTools(call model.ToolCall, result *tool.CallResult) {

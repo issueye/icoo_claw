@@ -63,6 +63,56 @@ func TestRuntimeSubagentRunsModelLoop(t *testing.T) {
 	}
 }
 
+func TestRuntimeSubagentUsesModelPoolForBuiltinAlias(t *testing.T) {
+	rt := &Runtime{
+		opts: Options{
+			ModelPool: map[ModelTier]model.Model{
+				ModelTierLow: subagentStaticModel{output: "low-tier"},
+			},
+			MaxIterations: 3,
+		},
+		registry: tool.NewRegistry(),
+	}
+
+	res, err := rt.runSubagent(context.Background(), subagents.Context{Model: subagents.ModelHaiku}, subagents.Request{
+		Target:      subagents.TypeExplore,
+		Instruction: "route this",
+	})
+	if err != nil {
+		t.Fatalf("run subagent: %v", err)
+	}
+	if res.Output != "low-tier" {
+		t.Fatalf("output = %q, want low-tier", res.Output)
+	}
+}
+
+func TestRuntimeSubagentModelMappingOverridesBuiltinAlias(t *testing.T) {
+	rt := &Runtime{
+		opts: Options{
+			ModelPool: map[ModelTier]model.Model{
+				ModelTierLow:  subagentStaticModel{output: "low-tier"},
+				ModelTierHigh: subagentStaticModel{output: "high-tier"},
+			},
+			SubagentModelMapping: map[string]ModelTier{
+				subagents.TypeExplore: ModelTierHigh,
+			},
+			MaxIterations: 3,
+		},
+		registry: tool.NewRegistry(),
+	}
+
+	res, err := rt.runSubagent(context.Background(), subagents.Context{Model: subagents.ModelHaiku}, subagents.Request{
+		Target:      subagents.TypeExplore,
+		Instruction: "route this",
+	})
+	if err != nil {
+		t.Fatalf("run subagent: %v", err)
+	}
+	if res.Output != "high-tier" {
+		t.Fatalf("output = %q, want high-tier", res.Output)
+	}
+}
+
 type subagentLoopModel struct {
 	t *testing.T
 }
@@ -79,6 +129,24 @@ func (m subagentLoopModel) CompleteStream(_ context.Context, req model.Request, 
 		Final: true,
 		Response: &model.Response{
 			Message:    model.Message{Role: "assistant", Content: "成都今天晴。"},
+			StopReason: "end_turn",
+		},
+	})
+}
+
+type subagentStaticModel struct {
+	output string
+}
+
+func (m subagentStaticModel) Complete(context.Context, model.Request) (*model.Response, error) {
+	return nil, nil
+}
+
+func (m subagentStaticModel) CompleteStream(_ context.Context, _ model.Request, cb model.StreamHandler) error {
+	return cb(model.StreamResult{
+		Final: true,
+		Response: &model.Response{
+			Message:    model.Message{Role: "assistant", Content: m.output},
 			StopReason: "end_turn",
 		},
 	})

@@ -10,7 +10,6 @@ import (
 	"net/http"
 	"os"
 	"strings"
-	"time"
 
 	anthropicsdk "github.com/anthropics/anthropic-sdk-go"
 	"github.com/anthropics/anthropic-sdk-go/option"
@@ -308,27 +307,7 @@ func (m *anthropicModel) buildParams(req Request) (anthropicsdk.MessageNewParams
 }
 
 func (m *anthropicModel) doWithRetry(ctx context.Context, fn func(context.Context) error) error {
-	attempts := 0
-	for {
-		err := fn(ctx)
-		if err == nil {
-			return nil
-		}
-		// Check context before deciding to retry
-		if ctx.Err() != nil {
-			return ctx.Err()
-		}
-		if !isRetryable(err) || attempts >= m.maxRetries {
-			return err
-		}
-		attempts++
-		backoff := time.Duration(attempts*attempts) * 100 * time.Millisecond
-		select {
-		case <-ctx.Done():
-			return ctx.Err()
-		case <-time.After(backoff):
-		}
-	}
+	return runWithRetry(ctx, m.maxRetries, isRetryable, fn)
 }
 
 func isRetryable(err error) bool {

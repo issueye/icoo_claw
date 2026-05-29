@@ -73,6 +73,7 @@ type Runtime struct {
 	histories *historyStore
 	compactor *compactor
 	deferred  *deferredToolState
+	perm      *permissionEvaluator
 
 	mu sync.RWMutex
 
@@ -154,6 +155,7 @@ func New(ctx context.Context, opts Options) (*Runtime, error) {
 
 	hooks := newHookExecutor(opts, settings)
 	compactor := newCompactor(opts.AutoCompact, opts.TokenLimit)
+	permissions := newPermissionEvaluator(settings, registry, opts.PermissionPrompter)
 
 	tracer, err := newTracer(opts.OTEL)
 	if err != nil {
@@ -186,6 +188,7 @@ func New(ctx context.Context, opts Options) (*Runtime, error) {
 		histories: histories,
 		compactor: compactor,
 		deferred:  newDeferredToolState(registry),
+		perm:      permissions,
 	}
 	rt.bindRuntimeSubagents()
 	rt.bindSubagentCallbacks()
