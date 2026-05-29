@@ -81,6 +81,9 @@ type Delta struct {
 
 // Usage records token accounting snapshots compatible with Anthropic payloads.
 type Usage struct {
-	InputTokens  int `json:"input_tokens,omitempty"`  // InputTokens counts tokens provided in the prompt.
-	OutputTokens int `json:"output_tokens,omitempty"` // OutputTokens counts tokens produced by the model/toolchain.
+	InputTokens         int `json:"input_tokens,omitempty"`  // InputTokens counts tokens provided in the prompt.
+	OutputTokens        int `json:"output_tokens,omitempty"` // OutputTokens counts tokens produced by the model/toolchain.
+	TotalTokens         int `json:"total_tokens,omitempty"`
+	CacheReadTokens     int `json:"cache_read_tokens,omitempty"`
+	CacheCreationTokens int `json:"cache_creation_tokens,omitempty"`
 }

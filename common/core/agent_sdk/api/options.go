@@ -58,6 +58,18 @@ const (
 	ModelTierHigh ModelTier = "high" // High cost: Opus
 )
 
+// HistorySaverMode 决定 SessionStore/HistorySaver 持久化时的写入策略。
+type HistorySaverMode int
+
+const (
+	// HistorySaverModeAppend 每轮对话结束时仅追加新消息（增量写入，默认）。
+	// 性能更高，但若历史被 compact 需主动调用 SaveHistory 全量覆写。
+	HistorySaverModeAppend HistorySaverMode = iota
+	// HistorySaverModeFull 每轮对话结束时全量覆写持久化文件。
+	// 适用于历史较短或后端支持高效覆写的场景。
+	HistorySaverModeFull
+)
+
 type ModeContext struct {
 	EntryPoint EntryPoint
 }
@@ -167,7 +179,21 @@ type Options struct {
 	MaxTokensEscalation    MaxTokensEscalationConfig
 	MaxSessions            int
 	MaxConcurrentSubagents int
-	HistoryLoader          func(sessionID string) ([]message.Message, error) // restores persisted session history
+	// HistoryLoader 在新会话创建时调用，从外部加载历史消息。
+	// 当设置了 SessionStore 时，SessionStore.LoadHistory 优先；此字段仅作降级兜底。
+	// Deprecated: 优先使用 SessionStore。
+	HistoryLoader func(sessionID string) ([]message.Message, error)
+
+	// HistorySaver 在每轮对话结束时调用，持久化完整会话历史。
+	// 当设置了 SessionStore 时，SessionStore.SaveHistory 优先；此字段仅作降级兜底。
+	// Deprecated: 优先使用 SessionStore。
+	HistorySaver func(sessionID string, msgs []message.Message) error
+
+	SessionStore Store
+
+	// HistorySaverMode 控制 SessionStore/HistorySaver 的写入策略。
+	// HistorySaverModeAppend 为增量追加（默认）；HistorySaverModeFull 为全量覆写。
+	HistorySaverMode HistorySaverMode
 	Tools                  []tool.Tool
 	EnabledBuiltinTools    []string
 	DisallowedTools        []string
@@ -250,8 +276,35 @@ type SandboxReport struct {
 // WithHistoryLoader sets a function that is called when a new session is created.
 // The loader receives the session ID and should return previously persisted messages,
 // or nil, nil if no history exists.
+//
+// Deprecated: prefer WithSessionStore for full bidirectional persistence.
 func WithHistoryLoader(loader func(string) ([]message.Message, error)) func(*Options) {
 	return func(o *Options) { o.HistoryLoader = loader }
+}
+
+// WithHistorySaver 设置每轮对话结束时调用的持久化函数。
+// saver 接收 sessionID 和完整历史消息列表，应将其持久化到外部存储。
+//
+// Deprecated: prefer WithSessionStore for full bidirectional persistence.
+func WithHistorySaver(saver func(string, []message.Message) error) func(*Options) {
+	return func(o *Options) { o.HistorySaver = saver }
+}
+
+// WithSessionStore 设置统一的会话持久化后端。
+// 设置后自动管理 HistoryLoader 和 HistorySaver 行为，无需手动注入两个函数。
+//
+// 示例：
+//
+//	store, _ := persist.NewFileStore("/var/lib/agent/sessions")
+//	rt, _ := api.New(ctx, api.Options{}, api.WithSessionStore(store))
+func WithSessionStore(store Store) func(*Options) {
+	return func(o *Options) { o.SessionStore = store }
+}
+
+// WithHistorySaverMode 设置持久化写入策略。
+// HistorySaverModeAppend（默认）为增量追加；HistorySaverModeFull 为全量覆写。
+func WithHistorySaverMode(mode HistorySaverMode) func(*Options) {
+	return func(o *Options) { o.HistorySaverMode = mode }
 }
 
 func WithMaxSessions(n int) func(*Options) {
@@ -414,7 +467,6 @@ func defaultNetworkAllowList(_ EntryPoint) []string {
 		"localhost",
 		"127.0.0.1",
 		"::1",       // IPv6 localhost
-		"0.0.0.0",   // 本机所有接口
 		"*.local",   // 本地域名
 		"192.168.*", // 私有网段
 		"10.*",      // 私有网段

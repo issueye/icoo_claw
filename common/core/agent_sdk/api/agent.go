@@ -177,7 +177,26 @@ func New(ctx context.Context, opts Options) (*Runtime, error) {
 	opts.SystemPromptBuilder = builder
 	opts.SystemPrompt = builder.Build()
 
-	histories := newHistoryStore(opts.MaxSessions, opts.HistoryLoader)
+	// 组装 loader & saver 适配器
+	var loader func(string) ([]message.Message, error)
+	if opts.SessionStore != nil {
+		loader = func(id string) ([]message.Message, error) {
+			return opts.SessionStore.LoadHistory(context.Background(), id)
+		}
+	} else if opts.HistoryLoader != nil {
+		loader = opts.HistoryLoader
+	}
+
+	var saver func(string, []message.Message) error
+	if opts.SessionStore != nil {
+		saver = func(id string, msgs []message.Message) error {
+			return opts.SessionStore.SaveHistory(context.Background(), id, msgs)
+		}
+	} else if opts.HistorySaver != nil {
+		saver = opts.HistorySaver
+	}
+
+	histories := newHistoryStoreWithSaver(opts.MaxSessions, loader, saver)
 
 	rt := &Runtime{
 		opts:      opts,
@@ -190,6 +209,18 @@ func New(ctx context.Context, opts Options) (*Runtime, error) {
 		deferred:  newDeferredToolState(registry),
 		perm:      permissions,
 	}
+
+	if rt.deferred != nil {
+		histories.onEvict = func(evicted string) {
+			rt.deferred.evict(evicted)
+		}
+		if opts.SessionStore != nil {
+			rt.deferred.saver = func(sessionID string, activeTools []string) error {
+				return opts.SessionStore.SaveDeferredState(context.Background(), sessionID, activeTools)
+			}
+		}
+	}
+
 	rt.bindRuntimeSubagents()
 	rt.bindSubagentCallbacks()
 	return rt, nil
@@ -408,6 +439,57 @@ func (rt *Runtime) SessionHistory(sessionID string) ([]message.Message, bool) {
 		return nil, false
 	}
 	return rt.histories.Snapshot(sessionID)
+}
+
+// SummarizeSession 手动触发并生成指定会话的摘要，若配置了 SessionStore，摘要也会自动同步存入元数据。
+func (rt *Runtime) SummarizeSession(ctx context.Context, sessionID string) (string, error) {
+	if rt == nil {
+		return "", errors.New("api: runtime is not initialized")
+	}
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	sessionID = strings.TrimSpace(sessionID)
+	if sessionID == "" {
+		return "", errors.New("api: sessionID cannot be empty")
+	}
+
+	// 1. 获取会话历史
+	history, err := rt.histories.Get(sessionID)
+	if err != nil {
+		return "", err
+	}
+	snapshot := history.All()
+	if len(snapshot) == 0 {
+		return "", nil
+	}
+
+	// 2. 获取模型
+	mdl := rt.opts.Model
+	if mdl == nil {
+		return "", errors.New("api: model is not configured")
+	}
+
+	// 3. 剥离工具 I/O 并提交模型生成摘要
+	stripped := stripToolIO(snapshot)
+	summary, err := compressMessages(ctx, mdl, stripped, rt.opts.AutoCompact.SummaryPrompt)
+	if err != nil {
+		return "", fmt.Errorf("api: summarize session %q failed: %w", sessionID, err)
+	}
+
+	summary = strings.TrimSpace(summary)
+	if summary == "" {
+		return "", nil
+	}
+
+	// 4. 持久化存入 SessionStore
+	if rt.opts.SessionStore != nil {
+		if err := rt.opts.SessionStore.UpdateSessionSummary(ctx, sessionID, summary); err != nil {
+			log.Printf("api: warning: failed to save summary to SessionStore for session %q: %v", sessionID, err)
+		}
+	}
+
+	return summary, nil
 }
 
 // ----------------- internal helpers -----------------

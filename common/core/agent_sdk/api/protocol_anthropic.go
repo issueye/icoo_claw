@@ -88,8 +88,11 @@ func (p *AnthropicSSEProtocol) Encode(event AgentEvent) interface{} {
 		return StreamEvent{
 			Type: EventMessageDelta,
 			Usage: &Usage{
-				InputTokens:  event.InputTokens,
-				OutputTokens: event.OutputTokens,
+				InputTokens:         event.InputTokens,
+				OutputTokens:        event.OutputTokens,
+				TotalTokens:         event.TotalTokens,
+				CacheReadTokens:     event.CacheReadTokens,
+				CacheCreationTokens: event.CacheCreationTokens,
 			},
 		}
 

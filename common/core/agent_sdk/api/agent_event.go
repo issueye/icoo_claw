@@ -74,8 +74,11 @@ type AgentEvent struct {
 	IsError       bool
 
 	// Usage metrics (AEUsageUpdate).
-	InputTokens  int
-	OutputTokens int
+	InputTokens         int
+	OutputTokens        int
+	TotalTokens         int
+	CacheReadTokens     int
+	CacheCreationTokens int
 
 	// Stop reason (AEStopReason).
 	StopReason string

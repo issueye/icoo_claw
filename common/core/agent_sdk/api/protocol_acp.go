@@ -53,9 +53,11 @@ type ACPContent struct {
 
 // ACPUsage represents token usage in the ACP format.
 type ACPUsage struct {
-	InputTokens  int `json:"inputTokens,omitempty"`
-	OutputTokens int `json:"outputTokens,omitempty"`
-	TotalTokens  int `json:"totalTokens,omitempty"`
+	InputTokens         int `json:"inputTokens,omitempty"`
+	OutputTokens        int `json:"outputTokens,omitempty"`
+	TotalTokens         int `json:"totalTokens,omitempty"`
+	CacheReadTokens     int `json:"cacheReadTokens,omitempty"`
+	CacheCreationTokens int `json:"cacheCreationTokens,omitempty"`
 }
 
 // Encode converts a protocol-agnostic AgentEvent into an ACP-compatible
@@ -153,9 +155,11 @@ func (p *ACPProtocol) Encode(event AgentEvent) interface{} {
 			Update: &ACPUpdate{
 				SessionUpdate: "usage_update",
 				Usage: &ACPUsage{
-					InputTokens:  event.InputTokens,
-					OutputTokens: event.OutputTokens,
-					TotalTokens:  event.InputTokens + event.OutputTokens,
+					InputTokens:         event.InputTokens,
+					OutputTokens:        event.OutputTokens,
+					TotalTokens:         event.TotalTokens,
+					CacheReadTokens:     event.CacheReadTokens,
+					CacheCreationTokens: event.CacheCreationTokens,
 				},
 			},
 		}

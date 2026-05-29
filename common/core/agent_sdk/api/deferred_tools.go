@@ -1,6 +1,7 @@
 package api
 
 import (
+	"context"
 	"sort"
 	"strings"
 	"sync"
@@ -12,6 +13,7 @@ type deferredToolState struct {
 	mu       sync.RWMutex
 	tools    map[string]tool.Tool
 	sessions map[string]map[string]struct{}
+	saver    func(sessionID string, activeTools []string) error
 }
 
 func newDeferredToolState(registry *tool.Registry) *deferredToolState {
@@ -63,21 +65,81 @@ func (s *deferredToolState) activate(sessionID string, names []string) {
 		return
 	}
 	s.mu.Lock()
-	defer s.mu.Unlock()
 	active := s.sessions[sessionID]
 	if active == nil {
 		active = map[string]struct{}{}
 		s.sessions[sessionID] = active
 	}
+	changed := false
 	for _, name := range names {
 		key := canonicalToolName(name)
 		if key == "" {
 			continue
 		}
 		if _, ok := s.tools[key]; ok {
+			if _, ok := active[key]; !ok {
+				active[key] = struct{}{}
+				changed = true
+			}
+		}
+	}
+	var activeNames []string
+	if changed && s.saver != nil {
+		activeNames = make([]string, 0, len(active))
+		for k := range active {
+			if t, ok := s.tools[k]; ok {
+				activeNames = append(activeNames, t.Name())
+			} else {
+				activeNames = append(activeNames, k)
+			}
+		}
+	}
+	s.mu.Unlock()
+
+	if changed && s.saver != nil {
+		_ = s.saver(sessionID, activeNames)
+	}
+}
+
+func (s *deferredToolState) evict(sessionID string) {
+	if s == nil || sessionID == "" {
+		return
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	delete(s.sessions, sessionID)
+}
+
+func (s *deferredToolState) loadIfMissing(ctx context.Context, sessionID string, loader func(context.Context, string) ([]string, error)) error {
+	if s == nil || sessionID == "" || loader == nil {
+		return nil
+	}
+	s.mu.Lock()
+	if _, ok := s.sessions[sessionID]; ok {
+		s.mu.Unlock()
+		return nil
+	}
+	s.mu.Unlock()
+
+	tools, err := loader(ctx, sessionID)
+	if err != nil {
+		return err
+	}
+
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if _, ok := s.sessions[sessionID]; ok {
+		return nil
+	}
+	active := map[string]struct{}{}
+	for _, toolName := range tools {
+		key := canonicalToolName(toolName)
+		if key != "" {
 			active[key] = struct{}{}
 		}
 	}
+	s.sessions[sessionID] = active
+	return nil
 }
 
 func (s *deferredToolState) inactiveNames(sessionID string, whitelist map[string]struct{}) []string {

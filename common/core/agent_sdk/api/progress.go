@@ -95,6 +95,15 @@ func (p *progressMiddleware) AfterAgent(ctx context.Context, st *middleware.Stat
 		p.blockIndex++
 	}
 
+	p.emitAgent(ctx, AgentEvent{
+		Type:                AEUsageUpdate,
+		InputTokens:         resp.Usage.InputTokens,
+		OutputTokens:        resp.Usage.OutputTokens,
+		TotalTokens:         resp.Usage.TotalTokens,
+		CacheReadTokens:     resp.Usage.CacheReadTokens,
+		CacheCreationTokens: resp.Usage.CacheCreationTokens,
+	})
+
 	reason := "end_turn"
 	if len(resp.Message.ToolCalls) > 0 {
 		reason = "tool_use"

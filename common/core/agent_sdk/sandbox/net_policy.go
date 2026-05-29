@@ -100,20 +100,65 @@ func matchesHost(target, allowed string) bool {
 	if allowed == "" {
 		return false
 	}
-	if target == allowed {
-		return true
-	}
 	if allowed == "*" {
 		return true
 	}
-	// wildcard prefix
+	// 尝试将 target 解析为 IP
+	targetIP := net.ParseIP(target)
+	if targetIP != nil {
+		return matchesIP(targetIP, allowed)
+	}
+	return matchesDomain(target, allowed)
+}
+
+func matchesIP(targetIP net.IP, allowed string) bool {
+	// 尝试解析为 CIDR
+	if _, ipnet, err := net.ParseCIDR(allowed); err == nil {
+		return ipnet.Contains(targetIP)
+	}
+	// 尝试解析带 * 的通配符，如 10.*、192.168.* 或 192.168.1.*
+	if strings.Contains(allowed, "*") {
+		// 必须是像 IP 的通配符才解析，防范将域名通配符（如 *.example.com）误判为 0.0.0.0/0
+		isIPWildcard := true
+		for _, r := range allowed {
+			if (r < '0' || r > '9') && r != '.' && r != '*' {
+				isIPWildcard = false
+				break
+			}
+		}
+		if isIPWildcard {
+			parts := strings.Split(allowed, ".")
+			if len(parts) >= 1 && len(parts) <= 4 {
+				var ipParts []string
+				bits := 32
+				for i, part := range parts {
+					if part == "*" {
+						bits = i * 8
+						break
+					}
+					ipParts = append(ipParts, part)
+				}
+				for len(ipParts) < 4 {
+					ipParts = append(ipParts, "0")
+				}
+				cidr := fmt.Sprintf("%s/%d", strings.Join(ipParts, "."), bits)
+				if _, ipnet, err := net.ParseCIDR(cidr); err == nil {
+					return ipnet.Contains(targetIP)
+				}
+			}
+		}
+	}
+	// 尝试解析精确 IP
+	if allowedIP := net.ParseIP(allowed); allowedIP != nil {
+		return allowedIP.Equal(targetIP)
+	}
+	return false
+}
+
+func matchesDomain(target, allowed string) bool {
 	if strings.HasPrefix(allowed, "*.") {
 		suffix := strings.TrimPrefix(allowed, "*.")
-		return strings.HasSuffix(target, suffix)
+		return target == suffix || strings.HasSuffix(target, "."+suffix)
 	}
-	if strings.HasSuffix(allowed, ".*") {
-		prefix := strings.TrimSuffix(allowed, "*")
-		return strings.HasPrefix(target, prefix)
-	}
-	return strings.HasSuffix(target, "."+allowed)
+	return target == allowed || strings.HasSuffix(target, "."+allowed)
 }

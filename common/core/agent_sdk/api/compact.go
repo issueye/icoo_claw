@@ -3,6 +3,7 @@ package api
 import (
 	"context"
 	"errors"
+	"log"
 	"strings"
 	"sync"
 
@@ -74,7 +75,7 @@ func (c *compactor) shouldCompact(msgCount, tokenCount int) bool {
 	return ratio >= c.cfg.Threshold
 }
 
-func (c *compactor) maybeCompact(ctx context.Context, hist *message.History, mdl model.Model) (bool, error) {
+func (c *compactor) maybeCompact(ctx context.Context, sessionID string, hist *message.History, mdl model.Model, store SessionStore) (bool, error) {
 	if c == nil || hist == nil || !c.cfg.Enabled {
 		return false, nil
 	}
@@ -118,6 +119,12 @@ func (c *compactor) maybeCompact(ctx context.Context, hist *message.History, mdl
 	summary = strings.TrimSpace(summary)
 	if summary == "" {
 		return false, nil
+	}
+
+	if store != nil && sessionID != "" {
+		if err := store.UpdateSessionSummary(ctx, sessionID, summary); err != nil {
+			log.Printf("api: warning: failed to auto-save summary to SessionStore for session %q: %v", sessionID, err)
+		}
 	}
 
 	out := make([]message.Message, 0, 1+len(snapshot[cut:]))

@@ -376,6 +376,7 @@ type historyStore struct {
 	maxSize  int
 	onEvict  func(string)
 	loader   func(string) ([]message.Message, error)
+	saver    func(sessionID string, msgs []message.Message) error // nil = 不持久化
 }
 
 func newHistoryStore(maxSize int, loader func(string) ([]message.Message, error)) *historyStore {
@@ -388,6 +389,17 @@ func newHistoryStore(maxSize int, loader func(string) ([]message.Message, error)
 		maxSize:  maxSize,
 		loader:   loader,
 	}
+}
+
+// newHistoryStoreWithSaver 创建支持双向持久化的 historyStore。
+func newHistoryStoreWithSaver(
+	maxSize int,
+	loader func(string) ([]message.Message, error),
+	saver func(string, []message.Message) error,
+) *historyStore {
+	s := newHistoryStore(maxSize, loader)
+	s.saver = saver
+	return s
 }
 
 func (s *historyStore) Get(id string) (*message.History, error) {
@@ -436,6 +448,20 @@ func (s *historyStore) Get(id string) (*message.History, error) {
 		}
 	}
 	return hist, nil
+}
+
+// Save 持久化指定会话的当前历史（全量覆写）。
+func (s *historyStore) Save(sessionID string) error {
+	if s == nil || s.saver == nil {
+		return nil
+	}
+	s.mu.Lock()
+	hist, ok := s.data[sessionID]
+	s.mu.Unlock()
+	if !ok || hist == nil {
+		return nil
+	}
+	return s.saver(sessionID, hist.All())
 }
 
 func (s *historyStore) Loaded(id string) (*message.History, bool) {

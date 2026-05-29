@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log"
 	"maps"
 	"strings"
 
@@ -55,6 +56,15 @@ func (rt *Runtime) prepare(ctx context.Context, req Request) (preparedRun, error
 	history, err := rt.histories.Get(normalized.SessionID)
 	if err != nil {
 		return preparedRun{}, err
+	}
+
+	if rt.deferred != nil && rt.opts.SessionStore != nil {
+		loader := func(c context.Context, id string) ([]string, error) {
+			return rt.opts.SessionStore.LoadDeferredState(c, id)
+		}
+		if err := rt.deferred.loadIfMissing(ctx, normalized.SessionID, loader); err != nil {
+			log.Printf("api: warning: failed to load deferred tools state for session %q: %v", normalized.SessionID, err)
+		}
 	}
 	recorder := defaultHookRecorder()
 
@@ -198,7 +208,7 @@ func (rt *Runtime) runLoop(prep preparedRun, mdl model.Model, hookAdapter *runti
 		state.Iteration = iteration
 
 		if rt.compactor != nil {
-			if _, err := rt.compactor.maybeCompact(ctx, prep.history, mdl); err != nil {
+			if _, err := rt.compactor.maybeCompact(ctx, prep.normalized.SessionID, prep.history, mdl, rt.opts.SessionStore); err != nil {
 				runErr = err
 				return last, err
 			}
