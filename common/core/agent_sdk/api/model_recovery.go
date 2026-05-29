@@ -51,7 +51,7 @@ func (rt *Runtime) completeWithRecovery(ctx context.Context, mdl model.Model, re
 			return resp, nil
 		}
 
-		nextMaxTokens := nextEscalatedMaxTokens(req.MaxTokens, escalation.Ceiling)
+		nextMaxTokens := nextEscalatedMaxTokens(req.MaxTokens, escalation)
 		if nextMaxTokens <= 0 || nextMaxTokens == req.MaxTokens {
 			return resp, nil
 		}
@@ -233,17 +233,25 @@ func shouldEscalateMaxTokens(resp *model.Response, cfg MaxTokensEscalationConfig
 	return strings.TrimSpace(resp.StopReason) == "max_tokens"
 }
 
-func nextEscalatedMaxTokens(current, ceiling int) int {
+// nextEscalatedMaxTokens 根据 escalation 配置计算下一轮的 MaxTokens 值。
+// 每次将 current 乘以 cfg.StepMultiplier，上限为 cfg.Ceiling。
+func nextEscalatedMaxTokens(current int, cfg MaxTokensEscalationConfig) int {
+	ceiling := cfg.Ceiling
 	if ceiling <= 0 {
 		ceiling = defaultEscalationCeiling
 	}
+	multiplier := cfg.StepMultiplier
+	if multiplier <= 1 {
+		multiplier = 2
+	}
 	if current <= 0 {
-		if defaultMaxTokensEscalationBase > ceiling {
+		base := defaultMaxTokensEscalationBase
+		if base > ceiling {
 			return ceiling
 		}
-		return defaultMaxTokensEscalationBase
+		return base
 	}
-	next := current * 2
+	next := current * multiplier
 	if next < defaultMaxTokensEscalationBase {
 		next = defaultMaxTokensEscalationBase
 	}

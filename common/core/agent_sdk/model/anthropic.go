@@ -9,6 +9,7 @@ import (
 	"net"
 	"net/http"
 	"os"
+	"runtime"
 	"strings"
 
 	anthropicsdk "github.com/anthropics/anthropic-sdk-go"
@@ -45,23 +46,21 @@ type anthropicModel struct {
 	configuredAPIKey string
 }
 
+const sdkVersion = "1.0.0"
+
+// anthropicPredefinedHeaders 仅包含 Anthropic API 规范要求的头，
+// 不伪造客户端平台/语言信息。
 var anthropicPredefinedHeaders = map[string]string{
-	"accept":         "application/json",
-	"anthropic-beta": "interleaved-thinking-2025-05-14,fine-grained-tool-streaming-2025-05-14",
-	"anthropic-dangerous-direct-browser-access": "true",
-	"anthropic-version":                         "2023-06-01",
-	"content-type":                              "application/json",
-	"user-agent":                                "claude-cli/2.0.34 (external, cli)",
-	"x-app":                                     "cli",
-	"x-stainless-arch":                          "arm64",
-	"x-stainless-helper-method":                 "stream",
-	"x-stainless-lang":                          "js",
-	"x-stainless-os":                            "MacOS",
-	"x-stainless-package-version":               "0.68.0",
-	"x-stainless-retry-count":                   "0",
-	"x-stainless-runtime":                       "node",
-	"x-stainless-runtime-version":               "v22.20.0",
-	"x-stainless-timeout":                       "600",
+	"anthropic-beta":    "interleaved-thinking-2025-05-14,fine-grained-tool-streaming-2025-05-14",
+	"anthropic-version": "2023-06-01",
+	"user-agent":        "icoo-agent-sdk/" + sdkVersion + " Go/" + goVersion(),
+}
+
+func goVersion() string {
+	if v := runtime.Version(); v != "" {
+		return v
+	}
+	return "unknown"
 }
 
 func anthropicCustomHeadersEnabled() bool {

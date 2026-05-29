@@ -184,64 +184,70 @@ func (rt *Runtime) executeToolCalls(ctx context.Context, calls []model.ToolCall,
 		}
 
 		results := make([]toolExecution, len(segment.calls))
-		groupCtx, cancel := context.WithCancel(ctx)
-		defer cancel()
-		limit := rt.opts.ToolConcurrency
-		var sem chan struct{}
-		if limit > 0 {
-			sem = make(chan struct{}, limit)
-		}
-		var wg sync.WaitGroup
-		errCh := make(chan error, len(segment.calls))
-		concurrentExec := tools.withoutHistory()
-		for i, item := range segment.calls {
-			i := i
-			item := item
-			wg.Add(1)
-			go func() {
-				defer wg.Done()
-				if err := groupCtx.Err(); err != nil {
-					results[i] = toolExecution{call: item.call, err: err}
-					errCh <- err
-					return
-				}
-				if sem != nil {
-					select {
-					case sem <- struct{}{}:
-					case <-groupCtx.Done():
-						results[i] = toolExecution{call: item.call, err: groupCtx.Err()}
-						errCh <- groupCtx.Err()
+		// 使用立即执行的函数作用域，确保 groupCtx 在每次迭代结束时立即释放，
+		// 而非等待整个外层函数返回才 defer cancel()。
+		groupErr := func() error {
+			groupCtx, cancel := context.WithCancel(ctx)
+			defer cancel()
+
+			limit := rt.opts.ToolConcurrency
+			var sem chan struct{}
+			if limit > 0 {
+				sem = make(chan struct{}, limit)
+			}
+			var wg sync.WaitGroup
+			errCh := make(chan error, len(segment.calls))
+			concurrentExec := tools.withoutHistory()
+			for i, item := range segment.calls {
+				i := i
+				item := item
+				wg.Add(1)
+				go func() {
+					defer wg.Done()
+					if err := groupCtx.Err(); err != nil {
+						results[i] = toolExecution{call: item.call, err: err}
+						errCh <- err
 						return
 					}
-					defer func() { <-sem }()
-				}
-				if err := groupCtx.Err(); err != nil {
-					results[i] = toolExecution{call: item.call, err: err}
-					errCh <- err
-					return
-				}
-				results[i] = rt.executeSingleToolCall(groupCtx, item.call, concurrentExec, chain, baseState, tracer, agentSpan, req.SessionID, req.RequestID)
-				if results[i].beforeErr != nil {
-					errCh <- results[i].beforeErr
-					cancel()
-					return
-				}
-				if toolErrorCanceledRun(ctx, results[i].err) {
-					errCh <- results[i].err
-					cancel()
-					return
-				}
-			}()
-		}
-		wg.Wait()
-		close(errCh)
-		var groupErr error
-		for err := range errCh {
-			if err != nil {
-				groupErr = err
-				break
+					if sem != nil {
+						select {
+						case sem <- struct{}{}:
+						case <-groupCtx.Done():
+							results[i] = toolExecution{call: item.call, err: groupCtx.Err()}
+							errCh <- groupCtx.Err()
+							return
+						}
+						defer func() { <-sem }()
+					}
+					if err := groupCtx.Err(); err != nil {
+						results[i] = toolExecution{call: item.call, err: err}
+						errCh <- err
+						return
+					}
+					results[i] = rt.executeSingleToolCall(groupCtx, item.call, concurrentExec, chain, baseState, tracer, agentSpan, req.SessionID, req.RequestID)
+					if results[i].beforeErr != nil {
+						errCh <- results[i].beforeErr
+						cancel()
+						return
+					}
+					if toolErrorCanceledRun(ctx, results[i].err) {
+						errCh <- results[i].err
+						cancel()
+						return
+					}
+				}()
 			}
-		}
+			wg.Wait()
+			close(errCh)
+			var firstErr error
+			for err := range errCh {
+				if err != nil {
+					firstErr = err
+					break
+				}
+			}
+			return firstErr
+		}()
 		for i, exec := range results {
 			recordMiddlewareErr(exec)
 			if !exec.started && toolErrorCanceledRun(ctx, exec.err) {

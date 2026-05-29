@@ -10,12 +10,15 @@ import (
 	"icoo_claw/common/core/agent_sdk/model"
 )
 
+const defaultCompactSummaryPrompt = "You are a prompt compression engine. Summarize the conversation for future context. Do not include any tool inputs, tool JSON, or tool outputs verbatim. Keep key facts, decisions, and constraints. Be concise."
+
 // CompactConfig controls automatic context compaction.
 type CompactConfig struct {
 	Enabled            bool    `json:"enabled"`
-	Threshold          float64 `json:"threshold"`            // trigger ratio (default 0.8)
-	PreserveCount      int     `json:"preserve_count"`       // keep latest N messages (default 5)
-	MicroPreserveCount int     `json:"micro_preserve_count"` // keep latest N messages intact for micro-compaction; zero disables
+	Threshold          float64 `json:"threshold"`             // trigger ratio (default 0.8)
+	PreserveCount      int     `json:"preserve_count"`        // keep latest N messages (default 5)
+	MicroPreserveCount int     `json:"micro_preserve_count"`  // keep latest N messages intact for micro-compaction; zero disables
+	SummaryPrompt      string  `json:"summary_prompt,omitempty"` // custom system prompt for the compaction LLM call; empty = use default
 }
 
 const (
@@ -32,6 +35,9 @@ func (c CompactConfig) withDefaults() CompactConfig {
 	}
 	if cfg.PreserveCount <= 0 {
 		cfg.PreserveCount = defaultCompactPreserve
+	}
+	if strings.TrimSpace(cfg.SummaryPrompt) == "" {
+		cfg.SummaryPrompt = defaultCompactSummaryPrompt
 	}
 	return cfg
 }
@@ -105,7 +111,7 @@ func (c *compactor) maybeCompact(ctx context.Context, hist *message.History, mdl
 		return false, nil
 	}
 
-	summary, err := compressMessages(ctx, mdl, stripToolIO(snapshot[:cut]))
+	summary, err := compressMessages(ctx, mdl, stripToolIO(snapshot[:cut]), c.cfg.SummaryPrompt)
 	if err != nil {
 		return false, err
 	}
@@ -169,12 +175,15 @@ func stripToolIO(msgs []message.Message) []message.Message {
 	return out
 }
 
-func compressMessages(ctx context.Context, mdl model.Model, msgs []message.Message) (string, error) {
+func compressMessages(ctx context.Context, mdl model.Model, msgs []message.Message, systemPrompt string) (string, error) {
 	if mdl == nil {
 		return "", errors.New("api: compressMessages: model is nil")
 	}
+	if strings.TrimSpace(systemPrompt) == "" {
+		systemPrompt = defaultCompactSummaryPrompt
+	}
 	req := model.Request{
-		System: "You are a prompt compression engine. Summarize the conversation for future context. Do not include any tool inputs, tool JSON, or tool outputs verbatim. Keep key facts, decisions, and constraints. Be concise.",
+		System: systemPrompt,
 		Messages: append(convertMessages(msgs), model.Message{
 			Role:    "user",
 			Content: "Compress the above conversation into a short summary.",

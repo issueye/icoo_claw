@@ -10,6 +10,7 @@ import (
 	"path/filepath"
 	"slices"
 	"strings"
+	"sync"
 	"time"
 
 	"icoo_claw/common/core/agent_sdk/config"
@@ -85,9 +86,10 @@ func (c StreamStallConfig) withDefaults() StreamStallConfig {
 }
 
 type MaxTokensEscalationConfig struct {
-	Enabled     bool `json:"enabled"`
-	MaxAttempts int  `json:"max_attempts"`
-	Ceiling     int  `json:"ceiling"`
+	Enabled        bool `json:"enabled"`
+	MaxAttempts    int  `json:"max_attempts"`
+	Ceiling        int  `json:"ceiling"`
+	StepMultiplier int  `json:"step_multiplier"` // 每次升级将 MaxTokens 乘以此倍数（默认 2）
 }
 
 func (c MaxTokensEscalationConfig) withDefaults() MaxTokensEscalationConfig {
@@ -97,6 +99,9 @@ func (c MaxTokensEscalationConfig) withDefaults() MaxTokensEscalationConfig {
 	}
 	if cfg.Ceiling <= 0 {
 		cfg.Ceiling = defaultEscalationCeiling
+	}
+	if cfg.StepMultiplier <= 1 {
+		cfg.StepMultiplier = 2
 	}
 	if !cfg.Enabled && c.MaxAttempts <= 0 && c.Ceiling <= 0 {
 		cfg.Enabled = true
@@ -515,8 +520,9 @@ type HookRecorder interface {
 	Drain() []hooks.Event
 }
 
-// hookRecorder stores hook events for the response payload.
+// hookRecorder 线程安全地记录钩子事件，供响应负载使用。
 type hookRecorder struct {
+	mu     sync.Mutex
 	events []hooks.Event
 }
 
@@ -524,15 +530,20 @@ func (r *hookRecorder) Record(evt hooks.Event) {
 	if evt.Timestamp.IsZero() {
 		evt.Timestamp = time.Now().UTC()
 	}
+	r.mu.Lock()
+	defer r.mu.Unlock()
 	r.events = append(r.events, evt)
 }
 
 func (r *hookRecorder) Drain() []hooks.Event {
-	defer func() { r.events = nil }()
+	r.mu.Lock()
+	defer r.mu.Unlock()
 	if len(r.events) == 0 {
 		return nil
 	}
-	return append([]hooks.Event(nil), r.events...)
+	out := append([]hooks.Event(nil), r.events...)
+	r.events = nil
+	return out
 }
 
 // defaultHookRecorder implements HookRecorder when callers do not provide one.

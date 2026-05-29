@@ -49,7 +49,7 @@ func (c *compactor) reactiveCompact(ctx context.Context, hist *message.History, 
 		return didMicroCompact, nil
 	}
 
-	summary, err := compressMessages(ctx, mdl, stripToolIO(snapshot[:cut]))
+	summary, err := compressMessages(ctx, mdl, stripToolIO(snapshot[:cut]), c.cfg.SummaryPrompt)
 	if err != nil {
 		return false, err
 	}
