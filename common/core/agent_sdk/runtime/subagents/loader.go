@@ -21,8 +21,9 @@ type LoaderOptions struct {
 	// Deprecated: user-level scanning has been removed; this field is ignored.
 	UserHome string
 	// Deprecated: user-level scanning has been removed; this flag is ignored.
-	EnableUser bool
-	FS         *config.FS
+	EnableUser   bool
+	FS           *config.FS
+	SubagentDirs []string
 }
 
 // SubagentFile captures an on-disk subagent definition.
@@ -80,6 +81,20 @@ func LoadFromFS(opts LoaderOptions) ([]SubagentRegistration, []error) {
 	errs = append(errs, loadErrs...)
 	for name, file := range files {
 		merged[name] = file
+	}
+	for _, dir := range opts.SubagentDirs {
+		if strings.TrimSpace(dir) == "" {
+			continue
+		}
+		files, loadErrs := loadSubagentDir(dir, fsLayer)
+		errs = append(errs, loadErrs...)
+		for name, file := range files {
+			if _, exists := merged[name]; exists {
+				errs = append(errs, fmt.Errorf("subagents: duplicate subagent %q in %s", name, dir))
+				continue
+			}
+			merged[name] = file
+		}
 	}
 
 	if len(merged) == 0 {

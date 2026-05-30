@@ -14,6 +14,7 @@ import (
 	"icoo_claw/common/core/agent_sdk/config"
 	"icoo_claw/common/core/agent_sdk/message"
 	"icoo_claw/common/core/agent_sdk/model"
+	"icoo_claw/common/core/agent_sdk/runtime/plugins"
 	"icoo_claw/common/core/agent_sdk/runtime/skills"
 	"icoo_claw/common/core/agent_sdk/runtime/subagents"
 	"icoo_claw/common/core/agent_sdk/sandbox"
@@ -208,6 +209,7 @@ func buildSkillsRegistry(opts Options) (*skills.Registry, []error) {
 		EnableUser:  loader.EnableUser,
 		FS:          config.NewFS(loader.ProjectRoot, nil),
 		EmbedFS:     opts.EmbedFS,
+		SkillDirs:   pluginSkillDirs(opts.plugins),
 	})
 
 	merged := mergeSkillRegistrations(fsRegs, opts.Skills, &errs)
@@ -219,6 +221,26 @@ func buildSkillsRegistry(opts Options) (*skills.Registry, []error) {
 		}
 	}
 	return reg, errs
+}
+
+func pluginSkillDirs(registrations []plugins.Registration) []string {
+	var dirs []string
+	for _, reg := range registrations {
+		for _, dir := range reg.Manifest.Capabilities.Skills {
+			if strings.TrimSpace(dir) == "" {
+				continue
+			}
+			dirs = append(dirs, filepath.Join(reg.Root, filepath.FromSlash(dir)))
+		}
+	}
+	return dirs
+}
+
+func loadPluginRegistrations(opts Options) ([]plugins.Registration, []error) {
+	return plugins.LoadFromFS(plugins.LoaderOptions{
+		ProjectRoot: opts.ProjectRoot,
+		PluginDirs:  opts.PluginDirs,
+	})
 }
 
 func mergeSkillRegistrations(fsRegs []skills.SkillRegistration, manual []SkillRegistration, errs *[]error) []skills.SkillRegistration {
@@ -256,10 +278,11 @@ func mergeSkillRegistrations(fsRegs []skills.SkillRegistration, manual []SkillRe
 func buildSubagentsManager(opts Options) (*subagents.Manager, []error) {
 	loader := buildLoaderOptions(opts)
 	projectRegs, errs := subagents.LoadFromFS(subagents.LoaderOptions{
-		ProjectRoot: loader.ProjectRoot,
-		UserHome:    loader.UserHome,
-		EnableUser:  false,
-		FS:          loader.fs,
+		ProjectRoot:  loader.ProjectRoot,
+		UserHome:     loader.UserHome,
+		EnableUser:   false,
+		FS:           loader.fs,
+		SubagentDirs: pluginSubagentDirs(opts.plugins),
 	})
 
 	merged := mergeSubagentRegistrations(opts.Subagents, projectRegs, &errs)
@@ -275,6 +298,19 @@ func buildSubagentsManager(opts Options) (*subagents.Manager, []error) {
 		}
 	}
 	return mgr, errs
+}
+
+func pluginSubagentDirs(registrations []plugins.Registration) []string {
+	var dirs []string
+	for _, reg := range registrations {
+		for _, dir := range reg.Manifest.Capabilities.Subagents {
+			if strings.TrimSpace(dir) == "" {
+				continue
+			}
+			dirs = append(dirs, filepath.Join(reg.Root, filepath.FromSlash(dir)))
+		}
+	}
+	return dirs
 }
 
 func ensureDefaultRuntimeSubagents(regs []subagents.SubagentRegistration) []subagents.SubagentRegistration {

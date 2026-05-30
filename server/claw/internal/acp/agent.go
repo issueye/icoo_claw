@@ -119,7 +119,11 @@ func (a *Agent) Prompt(ctx context.Context, params acp.PromptRequest) (acp.Promp
 		case agent_sdk.StreamEventSessionCompleted:
 			stopReason = acp.StopReasonEndTurn
 		case agent_sdk.StreamEventSessionError:
-			stopReason = acp.StopReasonCancelled
+			state.cancel = nil
+			if event.Error != nil && strings.TrimSpace(event.Error.Message) != "" {
+				return acp.PromptResponse{}, fmt.Errorf("agent stream error: %s", event.Error.Message)
+			}
+			return acp.PromptResponse{}, fmt.Errorf("agent stream error")
 		}
 	}
 

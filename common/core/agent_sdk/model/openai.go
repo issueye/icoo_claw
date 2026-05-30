@@ -261,6 +261,17 @@ func parseJSONArgs(raw string) map[string]any {
 	return args
 }
 
+func marshalToolCallArguments(args map[string]any) string {
+	if args == nil {
+		return "{}"
+	}
+	data, err := json.Marshal(args)
+	if err != nil {
+		return "{}"
+	}
+	return string(data)
+}
+
 func (m *openaiModel) buildParams(req Request) openai.ChatCompletionNewParams {
 	messages := convertMessagesToOpenAI(req.Messages, m.system, req.System)
 
@@ -330,19 +341,22 @@ func (m *openaiModel) selectModel(override string) string {
 func convertMessagesToOpenAI(msgs []Message, defaults ...string) []openai.ChatCompletionMessageParamUnion {
 	var result []openai.ChatCompletionMessageParamUnion
 
-	// Add system messages from defaults
 	for _, sys := range defaults {
 		if trimmed := strings.TrimSpace(sys); trimmed != "" {
 			result = append(result, openai.SystemMessage(trimmed))
 		}
 	}
 
-	for _, msg := range msgs {
-		role := strings.ToLower(strings.TrimSpace(msg.Role))
-		switch role {
+	conversation := BuildConversation(msgs)
+	for _, msg := range conversation.Messages {
+		switch msg.Role {
 		case "system":
-			if trimmed := strings.TrimSpace(msg.Content); trimmed != "" {
+			if trimmed := strings.TrimSpace(msg.Text); trimmed != "" {
 				result = append(result, openai.SystemMessage(trimmed))
+			}
+		case "developer":
+			if trimmed := strings.TrimSpace(msg.Text); trimmed != "" {
+				result = append(result, openai.DeveloperMessage(trimmed))
 			}
 		case "assistant":
 			result = append(result, buildOpenAIAssistantMessage(msg))
@@ -360,7 +374,7 @@ func convertMessagesToOpenAI(msgs []Message, defaults ...string) []openai.ChatCo
 				})
 				continue
 			}
-			content := msg.Content
+			content := msg.Text
 			if strings.TrimSpace(content) == "" {
 				content = "\u200b"
 			}
@@ -375,9 +389,9 @@ func convertMessagesToOpenAI(msgs []Message, defaults ...string) []openai.ChatCo
 	return result
 }
 
-func buildOpenAIUserContentParts(msg Message) []openai.ChatCompletionContentPartUnionParam {
+func buildOpenAIUserContentParts(msg ConversationMessage) []openai.ChatCompletionContentPartUnionParam {
 	parts := make([]openai.ChatCompletionContentPartUnionParam, 0, len(msg.ContentBlocks)+1)
-	if text := strings.TrimSpace(msg.Content); text != "" {
+	if text := strings.TrimSpace(msg.Text); text != "" {
 		parts = append(parts, openai.TextContentPart(text))
 	}
 	for _, block := range msg.ContentBlocks {
@@ -417,11 +431,10 @@ func openAIImageURL(block ContentBlock) string {
 	return "data:" + mediaType + ";base64," + data
 }
 
-func buildOpenAIAssistantMessage(msg Message) openai.ChatCompletionMessageParamUnion {
+func buildOpenAIAssistantMessage(msg ConversationMessage) openai.ChatCompletionMessageParamUnion {
 	assistantParam := openai.ChatCompletionAssistantMessageParam{}
 
-	// Set content
-	content := msg.Content
+	content := msg.Text
 	if strings.TrimSpace(content) == "" {
 		content = "\u200b"
 	}
@@ -429,7 +442,6 @@ func buildOpenAIAssistantMessage(msg Message) openai.ChatCompletionMessageParamU
 		OfString: openai.String(content),
 	}
 
-	// Add tool calls if present
 	if len(msg.ToolCalls) > 0 {
 		var toolCalls []openai.ChatCompletionMessageToolCallParam
 		for _, call := range msg.ToolCalls {
@@ -439,12 +451,7 @@ func buildOpenAIAssistantMessage(msg Message) openai.ChatCompletionMessageParamU
 				continue
 			}
 
-			args := "{}"
-			if call.Arguments != nil {
-				if argsJSON, err := json.Marshal(call.Arguments); err == nil {
-					args = string(argsJSON)
-				}
-			}
+			args := marshalToolCallArguments(call.Arguments)
 			toolCalls = append(toolCalls, openai.ChatCompletionMessageToolCallParam{
 				ID: id,
 				Function: openai.ChatCompletionMessageToolCallFunctionParam{
@@ -468,28 +475,28 @@ func buildOpenAIAssistantMessage(msg Message) openai.ChatCompletionMessageParamU
 	}
 }
 
-func buildOpenAIToolResults(msg Message) []openai.ChatCompletionMessageParamUnion {
-	if len(msg.ToolCalls) == 0 {
+func buildOpenAIToolResults(msg ConversationMessage) []openai.ChatCompletionMessageParamUnion {
+	if len(msg.ToolResults) == 0 {
 		return []openai.ChatCompletionMessageParamUnion{
-			openai.ToolMessage(msg.Content, ""),
+			openai.ToolMessage(msg.Text, ""),
 		}
 	}
 
 	var results []openai.ChatCompletionMessageParamUnion
-	for _, call := range msg.ToolCalls {
-		id := strings.TrimSpace(call.ID)
+	for _, result := range msg.ToolResults {
+		id := strings.TrimSpace(result.ID)
 		if id == "" {
 			continue
 		}
-		content := call.Result
+		content := result.Content
 		if strings.TrimSpace(content) == "" {
-			content = msg.Content
+			content = msg.Text
 		}
 		results = append(results, openai.ToolMessage(content, id))
 	}
 
 	if len(results) == 0 {
-		results = append(results, openai.ToolMessage(msg.Content, ""))
+		results = append(results, openai.ToolMessage(msg.Text, ""))
 	}
 
 	return results

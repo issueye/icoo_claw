@@ -1,14 +1,10 @@
 package controller
 
 import (
-	"errors"
 	"net/http"
 
-	"icoo_claw/server/gateway/internal/client"
 	"icoo_claw/server/gateway/internal/dto"
-	"icoo_claw/server/gateway/internal/repository"
 	"icoo_claw/server/gateway/internal/service"
-	sessionrepo "icoo_claw/server/gateway/internal/sessionstore/repository"
 
 	"github.com/gin-gonic/gin"
 )
@@ -73,47 +69,4 @@ func (a *AgentController) Delete(c *gin.Context) {
 		return
 	}
 	c.Status(http.StatusNoContent)
-}
-
-func writeGatewayRepositoryError(c *gin.Context, err error) {
-	if errors.Is(err, repository.ErrNotFound) || errors.Is(err, sessionrepo.ErrNotFound) {
-		writeGatewayError(c, http.StatusNotFound, "not_found", err)
-		return
-	}
-	if errors.Is(err, sessionrepo.ErrConflict) {
-		writeGatewayError(c, http.StatusConflict, "revision_conflict", err)
-		return
-	}
-	var downstream *client.HTTPError
-	if errors.As(err, &downstream) {
-		writeGatewayError(c, gatewayStatusForDownstream(downstream), gatewayCodeForDownstream(downstream), downstream)
-		return
-	}
-	writeGatewayError(c, http.StatusBadGateway, "store_error", err)
-}
-
-func writeGatewayError(c *gin.Context, status int, code string, err error) {
-	c.JSON(status, gin.H{"code": code, "error": err.Error()})
-}
-
-func gatewayStatusForDownstream(err *client.HTTPError) int {
-	if err == nil {
-		return http.StatusBadGateway
-	}
-	switch err.StatusCode {
-	case http.StatusBadRequest, http.StatusUnauthorized, http.StatusForbidden, http.StatusNotFound, http.StatusConflict, http.StatusRequestEntityTooLarge:
-		return err.StatusCode
-	default:
-		return http.StatusBadGateway
-	}
-}
-
-func gatewayCodeForDownstream(err *client.HTTPError) string {
-	if err == nil || err.Code == "" {
-		return "dependency_unavailable"
-	}
-	if err.Service == "claw" && err.Code == "agent_error" {
-		return "agent_error"
-	}
-	return err.Code
 }

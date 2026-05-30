@@ -9,7 +9,7 @@ import (
 	"strings"
 	"time"
 
-	"icoo_claw/server/claw/pkg/agent_sdk"
+	"icoo_claw/common/agentproto"
 )
 
 type ClawClient struct {
@@ -149,11 +149,11 @@ func (c *ClawClient) doJSON(ctx context.Context, baseURL, path string, body any,
 	return json.NewDecoder(resp.Body).Decode(out)
 }
 
-type RunRequest = agent_sdk.RunRequest
-type RunResponse = agent_sdk.RunResponse
-type StreamEvent = agent_sdk.StreamEvent
-type SessionUpdate = agent_sdk.SessionUpdate
-type ContentBlock = agent_sdk.ContentBlock
-type ToolCallLocation = agent_sdk.ToolCallLocation
-type UsageUpdate = agent_sdk.UsageUpdate
-type StreamError = agent_sdk.StreamError
+type RunRequest = agentproto.RunRequest
+type RunResponse = agentproto.RunResponse
+type StreamEvent = agentproto.StreamEvent
+type SessionUpdate = agentproto.SessionUpdate
+type ContentBlock = agentproto.ContentBlock
+type ToolCallLocation = agentproto.ToolCallLocation
+type UsageUpdate = agentproto.UsageUpdate
+type StreamError = agentproto.StreamError

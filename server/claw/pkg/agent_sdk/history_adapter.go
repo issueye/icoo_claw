@@ -6,9 +6,8 @@ import (
 	"fmt"
 	"sync"
 
+	sdkmessage "icoo_claw/common/core/agent_sdk/message"
 	"icoo_claw/server/claw/pkg/sessionstore"
-
-	sdkmessage "icoo_claw/server/claw/pkg/agent_sdk/sdk/message"
 )
 
 type HistoryStore interface {

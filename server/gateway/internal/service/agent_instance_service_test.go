@@ -20,7 +20,7 @@ type instanceAgentRepo struct {
 func (r instanceAgentRepo) Create(context.Context, model.AgentProfile) error { return nil }
 func (r instanceAgentRepo) Get(context.Context, string) (*model.AgentProfile, error) {
 	if r.agent.ID == "" {
-		return &model.AgentProfile{ID: "agent_1", Name: "Default"}, nil
+		return &model.AgentProfile{ID: "agent_1", Name: "Default", Enabled: true}, nil
 	}
 	agent := r.agent
 	return &agent, nil
@@ -122,6 +122,21 @@ func (s *stopSupervisor) Stop(context.Context, model.AgentInstance) error {
 }
 func (s *stopSupervisor) Probe(context.Context, model.AgentInstance) error { return nil }
 
+func TestAgentInstanceServiceStartRejectsDisabledAgent(t *testing.T) {
+	svc := NewAgentInstanceService(
+		config.Config{ClawPortStart: 8101, ClawPortEnd: 8101, MaxAgentInstances: 1},
+		instanceAgentRepo{agent: model.AgentProfile{ID: "agent_1", Name: "Disabled", Enabled: false}},
+		nil,
+		&memoryInstanceRepo{},
+		memorySupervisor{},
+	)
+
+	_, err := svc.Start(context.Background(), dto.StartAgentInstanceRequest{AgentID: "agent_1"})
+	if !errors.Is(err, ErrAgentDisabled) {
+		t.Fatalf("error = %v, want ErrAgentDisabled", err)
+	}
+}
+
 func TestAgentInstanceServiceStartAllocatesPort(t *testing.T) {
 	repo := &memoryInstanceRepo{}
 	svc := NewAgentInstanceService(
@@ -172,7 +187,7 @@ func TestAgentInstanceServiceStartUsesAgentTransport(t *testing.T) {
 	supervisor := &captureSupervisor{}
 	svc := NewAgentInstanceService(
 		config.Config{ClawPortStart: 8101, ClawPortEnd: 8101, MaxAgentInstances: 1},
-		instanceAgentRepo{agent: model.AgentProfile{ID: "agent_1", Name: "Default", Transport: "acp"}},
+		instanceAgentRepo{agent: model.AgentProfile{ID: "agent_1", Name: "Default", Enabled: true, Transport: "acp"}},
 		nil,
 		repo,
 		supervisor,
@@ -195,7 +210,7 @@ func TestAgentInstanceServiceStartRequestTransportOverridesAgent(t *testing.T) {
 	supervisor := &captureSupervisor{}
 	svc := NewAgentInstanceService(
 		config.Config{ClawPortStart: 8101, ClawPortEnd: 8101, MaxAgentInstances: 1},
-		instanceAgentRepo{agent: model.AgentProfile{ID: "agent_1", Name: "Default", Transport: "http"}},
+		instanceAgentRepo{agent: model.AgentProfile{ID: "agent_1", Name: "Default", Enabled: true, Transport: "http"}},
 		nil,
 		repo,
 		supervisor,
@@ -221,6 +236,7 @@ func TestAgentInstanceServiceStartUsesAgentCommandArgs(t *testing.T) {
 		instanceAgentRepo{agent: model.AgentProfile{
 			ID:              "agent_1",
 			Name:            "Default",
+			Enabled:         true,
 			CommandArgsJSON: `["--runner-mode","fake"]`,
 		}},
 		nil,
@@ -262,8 +278,9 @@ func TestAgentInstanceServiceStartPublishesBoundSkillRoot(t *testing.T) {
 	svc := NewAgentInstanceService(
 		config.Config{ClawPortStart: 8101, ClawPortEnd: 8101, MaxAgentInstances: 1},
 		instanceAgentRepo{agent: model.AgentProfile{
-			ID:           "agent_1",
-			Name:         "Default",
+			ID:             "agent_1",
+			Name:           "Default",
+			Enabled:        true,
 			SkillNamesJSON: `["doc-writer"]`,
 		}},
 		nil,
@@ -294,7 +311,7 @@ func TestAgentInstanceServiceStartDefaultsToEmptyProjectRootWithoutSkillService(
 	supervisor := &captureSupervisor{}
 	svc := NewAgentInstanceService(
 		config.Config{ClawPortStart: 8101, ClawPortEnd: 8101, MaxAgentInstances: 1, GatewayWorkDir: workDir},
-		instanceAgentRepo{agent: model.AgentProfile{ID: "agent_1", Name: "Default"}},
+		instanceAgentRepo{agent: model.AgentProfile{ID: "agent_1", Name: "Default", Enabled: true}},
 		nil,
 		repo,
 		supervisor,
@@ -316,6 +333,7 @@ func TestAgentInstanceServiceStartRequestCommandArgsOverrideAgent(t *testing.T) 
 		instanceAgentRepo{agent: model.AgentProfile{
 			ID:              "agent_1",
 			Name:            "Default",
+			Enabled:         true,
 			CommandArgsJSON: `["--runner-mode","sdk"]`,
 		}},
 		nil,

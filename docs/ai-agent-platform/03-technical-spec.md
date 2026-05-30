@@ -7,7 +7,7 @@
 | HTTP / Stream | Gin + Gorilla WebSocket | Gateway/Claw REST，Gateway 对外流式使用 WebSocket |
 | ORM | GORM | Gateway 控制面与会话业务数据 |
 | SQLite(no cgo) | `github.com/glebarez/sqlite` | GORM 纯 Go SQLite driver |
-| Agent Runtime | `server/claw/pkg/agent_sdk/sdk` | agentsdk-go 源码已抽取为项目内模块 |
+| Agent Runtime | `common/core/agent_sdk` | agentsdk-go 源码已抽取为共享模块 |
 | Config | TOML | 三服务使用 `--config <file>` |
 | DI | 手动 DI | `internal/di/container.go` 显式组装 |
 

@@ -368,11 +368,11 @@ func convertMessages(msgs []Message, enableCache bool, defaults ...string) ([]an
 	}
 
 	messageParams := make([]anthropicsdk.MessageParam, 0, len(msgs))
-	for _, msg := range msgs {
-		role := strings.ToLower(strings.TrimSpace(msg.Role))
-		switch role {
-		case "system":
-			if trimmed := strings.TrimSpace(msg.Content); trimmed != "" {
+	conversation := BuildConversation(msgs)
+	for _, msg := range conversation.Messages {
+		switch msg.Role {
+		case "system", "developer":
+			if trimmed := strings.TrimSpace(msg.Text); trimmed != "" {
 				systemBlocks = append(systemBlocks, anthropicsdk.TextBlockParam{Text: trimmed})
 			}
 			continue
@@ -391,13 +391,12 @@ func convertMessages(msgs []Message, enableCache bool, defaults ...string) ([]an
 		default:
 			var content []anthropicsdk.ContentBlockParamUnion
 			if len(msg.ContentBlocks) > 0 {
-				// Include text content alongside content blocks when both exist
-				if text := strings.TrimSpace(msg.Content); text != "" {
+				if text := strings.TrimSpace(msg.Text); text != "" {
 					content = append(content, anthropicsdk.NewTextBlock(text))
 				}
 				content = append(content, convertContentBlocks(msg.ContentBlocks)...)
 			} else {
-				text := msg.Content
+				text := msg.Text
 				if strings.TrimSpace(text) == "" {
 					text = "."
 				}
@@ -456,14 +455,13 @@ func convertMessages(msgs []Message, enableCache bool, defaults ...string) ([]an
 	return systemBlocks, messageParams
 }
 
-func buildAssistantContent(msg Message) []anthropicsdk.ContentBlockParamUnion {
+func buildAssistantContent(msg ConversationMessage) []anthropicsdk.ContentBlockParamUnion {
 	blocks := make([]anthropicsdk.ContentBlockParamUnion, 0, 1+len(msg.ToolCalls))
-	// Prepend thinking block if reasoning content is present
 	if msg.ReasoningContent != "" {
 		blocks = append(blocks, anthropicsdk.NewThinkingBlock("", msg.ReasoningContent))
 	}
-	if strings.TrimSpace(msg.Content) != "" {
-		blocks = append(blocks, anthropicsdk.NewTextBlock(msg.Content))
+	if strings.TrimSpace(msg.Text) != "" {
+		blocks = append(blocks, anthropicsdk.NewTextBlock(msg.Text))
 	}
 	for _, call := range msg.ToolCalls {
 		id := strings.TrimSpace(call.ID)
@@ -479,27 +477,27 @@ func buildAssistantContent(msg Message) []anthropicsdk.ContentBlockParamUnion {
 	return blocks
 }
 
-func buildToolResults(msg Message) []anthropicsdk.ContentBlockParamUnion {
-	if len(msg.ToolCalls) == 0 {
+func buildToolResults(msg ConversationMessage) []anthropicsdk.ContentBlockParamUnion {
+	if len(msg.ToolResults) == 0 {
 		return []anthropicsdk.ContentBlockParamUnion{
-			anthropicsdk.NewTextBlock(msg.Content),
+			anthropicsdk.NewTextBlock(msg.Text),
 		}
 	}
 
-	blocks := make([]anthropicsdk.ContentBlockParamUnion, 0, len(msg.ToolCalls))
-	for _, call := range msg.ToolCalls {
-		id := strings.TrimSpace(call.ID)
+	blocks := make([]anthropicsdk.ContentBlockParamUnion, 0, len(msg.ToolResults))
+	for _, result := range msg.ToolResults {
+		id := strings.TrimSpace(result.ID)
 		if id == "" {
 			continue
 		}
-		text := call.Result
+		text := result.Content
 		if strings.TrimSpace(text) == "" {
-			text = msg.Content
+			text = msg.Text
 		}
 		blocks = append(blocks, anthropicsdk.NewToolResultBlock(id, text, toolResultIsError(text)))
 	}
 	if len(blocks) == 0 {
-		blocks = append(blocks, anthropicsdk.NewTextBlock(msg.Content))
+		blocks = append(blocks, anthropicsdk.NewTextBlock(msg.Text))
 	}
 	return blocks
 }

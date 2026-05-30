@@ -6,9 +6,9 @@ import (
 	"os"
 	"strings"
 
-	"icoo_claw/server/claw/pkg/agent_sdk/sdk/api"
-	sdkmessage "icoo_claw/server/claw/pkg/agent_sdk/sdk/message"
-	sdkmodel "icoo_claw/server/claw/pkg/agent_sdk/sdk/model"
+	"icoo_claw/common/core/agent_sdk/api"
+	sdkmessage "icoo_claw/common/core/agent_sdk/message"
+	sdkmodel "icoo_claw/common/core/agent_sdk/model"
 )
 
 type RuntimeFactory struct {
@@ -43,6 +43,13 @@ func (f *RuntimeFactory) New(ctx context.Context, req RunRequest) (*api.Runtime,
 		Sandbox: api.SandboxOptions{
 			NetworkAllow: profile.NetworkAllow,
 		},
+		// Claw runs as the platform service layer, not an interactive CLI. Keep
+		// existing API behavior by approving SDK permission prompts here while
+		// still relying on tool whitelists, enabled tools, sandbox and settings
+		// for the actual policy boundary.
+		PermissionPrompter: api.PermissionPrompterFunc(func(context.Context, api.PermissionRequest) (bool, error) {
+			return true, nil
+		}),
 		HistoryLoader: func(sessionID string) ([]sdkmessage.Message, error) {
 			if f.history == nil {
 				return nil, nil

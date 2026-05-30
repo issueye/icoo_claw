@@ -119,6 +119,12 @@ func New(ctx context.Context, opts Options) (*Runtime, error) {
 	}
 	opts.settingsSnapshot = settings
 
+	pluginRegs, pluginErrs := loadPluginRegistrations(opts)
+	for _, err := range pluginErrs {
+		log.Printf("plugin loader warning: %v", err)
+	}
+	opts.plugins = pluginRegs
+
 	mdl, err := resolveModel(ctx, opts)
 	if err != nil {
 		return nil, err

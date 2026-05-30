@@ -1,7 +1,6 @@
 package controller
 
 import (
-	"errors"
 	"net/http"
 
 	"icoo_claw/server/gateway/internal/dto"
@@ -23,7 +22,7 @@ func NewSessionController(sessions *service.SessionService) *SessionController {
 func (s *SessionController) Create(c *gin.Context) {
 	var req dto.CreateSessionRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		writeError(c, http.StatusBadRequest, "bad_request", err)
+		writeGatewayError(c, http.StatusBadRequest, "bad_request", err)
 		return
 	}
 
@@ -35,7 +34,7 @@ func (s *SessionController) Create(c *gin.Context) {
 		Metadata:  req.Metadata,
 	})
 	if err != nil {
-		writeRepositoryError(c, err)
+		writeGatewayRepositoryError(c, err)
 		return
 	}
 	c.JSON(http.StatusCreated, toSessionDTO(*session))
@@ -51,7 +50,7 @@ func (s *SessionController) List(c *gin.Context) {
 	}
 	list, err := s.sessions.List(c.Request.Context(), filter)
 	if err != nil {
-		writeRepositoryError(c, err)
+		writeGatewayRepositoryError(c, err)
 		return
 	}
 	c.JSON(http.StatusOK, dto.SessionsResponse{Sessions: toSessionDTOs(list.Sessions)})
@@ -60,7 +59,7 @@ func (s *SessionController) List(c *gin.Context) {
 func (s *SessionController) Get(c *gin.Context) {
 	session, err := s.sessions.Get(c.Request.Context(), c.Param("session_id"))
 	if err != nil {
-		writeRepositoryError(c, err)
+		writeGatewayRepositoryError(c, err)
 		return
 	}
 	c.JSON(http.StatusOK, toSessionDTO(*session))
@@ -69,7 +68,7 @@ func (s *SessionController) Get(c *gin.Context) {
 func (s *SessionController) Update(c *gin.Context) {
 	var req dto.UpdateSessionRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		writeError(c, http.StatusBadRequest, "bad_request", err)
+		writeGatewayError(c, http.StatusBadRequest, "bad_request", err)
 		return
 	}
 
@@ -83,7 +82,7 @@ func (s *SessionController) Update(c *gin.Context) {
 
 	updated, err := s.sessions.Update(c.Request.Context(), session)
 	if err != nil {
-		writeRepositoryError(c, err)
+		writeGatewayRepositoryError(c, err)
 		return
 	}
 	c.JSON(http.StatusOK, toSessionDTO(*updated))
@@ -91,7 +90,7 @@ func (s *SessionController) Update(c *gin.Context) {
 
 func (s *SessionController) Delete(c *gin.Context) {
 	if err := s.sessions.Delete(c.Request.Context(), c.Param("session_id")); err != nil {
-		writeRepositoryError(c, err)
+		writeGatewayRepositoryError(c, err)
 		return
 	}
 	c.Status(http.StatusNoContent)
@@ -107,7 +106,7 @@ func (s *SessionController) ListMessages(c *gin.Context) {
 	}
 	list, err := s.sessions.ListMessages(c.Request.Context(), c.Param("session_id"), page)
 	if err != nil {
-		writeRepositoryError(c, err)
+		writeGatewayRepositoryError(c, err)
 		return
 	}
 	c.JSON(http.StatusOK, dto.MessagesResponse{Messages: toMessageDTOs(list.Messages), Revision: list.Revision})
@@ -116,11 +115,11 @@ func (s *SessionController) ListMessages(c *gin.Context) {
 func (s *SessionController) AppendMessages(c *gin.Context) {
 	var req dto.MessagesRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		writeError(c, http.StatusBadRequest, "bad_request", err)
+		writeGatewayError(c, http.StatusBadRequest, "bad_request", err)
 		return
 	}
 	if err := s.sessions.AppendMessages(c.Request.Context(), c.Param("session_id"), toMessageModels(req.Messages)); err != nil {
-		writeRepositoryError(c, err)
+		writeGatewayRepositoryError(c, err)
 		return
 	}
 	c.Status(http.StatusNoContent)
@@ -129,11 +128,11 @@ func (s *SessionController) AppendMessages(c *gin.Context) {
 func (s *SessionController) ReplaceMessages(c *gin.Context) {
 	var req dto.MessagesRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		writeError(c, http.StatusBadRequest, "bad_request", err)
+		writeGatewayError(c, http.StatusBadRequest, "bad_request", err)
 		return
 	}
 	if err := s.sessions.ReplaceMessages(c.Request.Context(), c.Param("session_id"), toMessageModels(req.Messages), req.ExpectedRevision); err != nil {
-		writeRepositoryError(c, err)
+		writeGatewayRepositoryError(c, err)
 		return
 	}
 	c.Status(http.StatusNoContent)
@@ -146,7 +145,7 @@ func (s *SessionController) ListRuns(c *gin.Context) {
 	}
 	runs, err := s.sessions.ListRuns(c.Request.Context(), c.Param("session_id"), page)
 	if err != nil {
-		writeRepositoryError(c, err)
+		writeGatewayRepositoryError(c, err)
 		return
 	}
 	c.JSON(http.StatusOK, dto.RunsResponse{Runs: toRunDTOs(runs)})
@@ -155,11 +154,11 @@ func (s *SessionController) ListRuns(c *gin.Context) {
 func (s *SessionController) AppendRuns(c *gin.Context) {
 	var req dto.RunsRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		writeError(c, http.StatusBadRequest, "bad_request", err)
+		writeGatewayError(c, http.StatusBadRequest, "bad_request", err)
 		return
 	}
 	if err := s.sessions.AppendRuns(c.Request.Context(), c.Param("session_id"), toRunModels(req.Runs)); err != nil {
-		writeRepositoryError(c, err)
+		writeGatewayRepositoryError(c, err)
 		return
 	}
 	c.Status(http.StatusNoContent)
@@ -172,7 +171,7 @@ func (s *SessionController) ListRunEvents(c *gin.Context) {
 	}
 	events, err := s.sessions.ListRunEvents(c.Request.Context(), c.Param("session_id"), c.Param("run_id"), page)
 	if err != nil {
-		writeRepositoryError(c, err)
+		writeGatewayRepositoryError(c, err)
 		return
 	}
 	c.JSON(http.StatusOK, dto.RunEventsResponse{Events: toRunEventDTOs(events)})
@@ -181,11 +180,11 @@ func (s *SessionController) ListRunEvents(c *gin.Context) {
 func (s *SessionController) AppendRunEvents(c *gin.Context) {
 	var req dto.RunEventsRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		writeError(c, http.StatusBadRequest, "bad_request", err)
+		writeGatewayError(c, http.StatusBadRequest, "bad_request", err)
 		return
 	}
 	if err := s.sessions.AppendRunEvents(c.Request.Context(), c.Param("session_id"), c.Param("run_id"), toRunEventModels(req.Events)); err != nil {
-		writeRepositoryError(c, err)
+		writeGatewayRepositoryError(c, err)
 		return
 	}
 	c.Status(http.StatusNoContent)
@@ -311,24 +310,4 @@ func toRunEventModels(events []dto.RunEvent) []model.RunEvent {
 		}
 	}
 	return out
-}
-
-func writeRepositoryError(c *gin.Context, err error) {
-	if errors.Is(err, repository.ErrNotFound) {
-		writeError(c, http.StatusNotFound, "not_found", err)
-		return
-	}
-	if errors.Is(err, repository.ErrConflict) {
-		writeError(c, http.StatusConflict, "revision_conflict", err)
-		return
-	}
-	if errors.Is(err, service.ErrInvalidInput) {
-		writeError(c, http.StatusBadRequest, "bad_request", err)
-		return
-	}
-	writeError(c, http.StatusBadGateway, "store_error", err)
-}
-
-func writeError(c *gin.Context, status int, code string, err error) {
-	c.JSON(status, gin.H{"code": code, "error": err.Error()})
 }

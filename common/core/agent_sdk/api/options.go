@@ -18,6 +18,7 @@ import (
 	"icoo_claw/common/core/agent_sdk/message"
 	"icoo_claw/common/core/agent_sdk/middleware"
 	"icoo_claw/common/core/agent_sdk/model"
+	"icoo_claw/common/core/agent_sdk/runtime/plugins"
 	"icoo_claw/common/core/agent_sdk/runtime/skills"
 	"icoo_claw/common/core/agent_sdk/runtime/subagents"
 	"icoo_claw/common/core/agent_sdk/sandbox"
@@ -193,12 +194,13 @@ type Options struct {
 
 	// HistorySaverMode 控制 SessionStore/HistorySaver 的写入策略。
 	// HistorySaverModeAppend 为增量追加（默认）；HistorySaverModeFull 为全量覆写。
-	HistorySaverMode HistorySaverMode
-	Tools                  []tool.Tool
-	EnabledBuiltinTools    []string
-	DisallowedTools        []string
-	CustomTools            []tool.Tool
-	MCPServers             []string
+	HistorySaverMode    HistorySaverMode
+	Tools               []tool.Tool
+	EnabledBuiltinTools []string
+	DisallowedTools     []string
+	CustomTools         []tool.Tool
+	MCPServers          []string
+	PluginDirs          []string
 
 	TypedHooks             []hooks.ShellHook
 	HookMiddleware         []hooks.Middleware
@@ -214,6 +216,7 @@ type Options struct {
 	OTEL             OTELConfig
 	fsLayer          *config.FS
 	settingsSnapshot *config.Settings
+	plugins          []plugins.Registration
 	skReg            *skills.Registry
 	subMgr           *subagents.Manager
 	tracer           Tracer
@@ -395,6 +398,9 @@ func (o Options) frozen() Options {
 	}
 	if len(o.MCPServers) > 0 {
 		o.MCPServers = append([]string(nil), o.MCPServers...)
+	}
+	if len(o.PluginDirs) > 0 {
+		o.PluginDirs = append([]string(nil), o.PluginDirs...)
 	}
 	if len(o.TypedHooks) > 0 {
 		hooks := make([]hooks.ShellHook, len(o.TypedHooks))

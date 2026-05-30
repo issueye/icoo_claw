@@ -2,6 +2,8 @@ package api
 
 import (
 	"context"
+	"os"
+	"path/filepath"
 	"testing"
 
 	"icoo_claw/common/core/agent_sdk/model"
@@ -81,6 +83,138 @@ func TestRuntimeBuilderToolOnlyAgent(t *testing.T) {
 	if len(opts.EnabledBuiltinTools) != 0 {
 		t.Fatalf("enabled builtins = %#v, want none", opts.EnabledBuiltinTools)
 	}
+}
+
+func TestRuntimeLoadsPluginManifestsWithoutEnablingCapabilities(t *testing.T) {
+	root := t.TempDir()
+	pluginRoot := filepath.Join(root, "external-plugin")
+	manifestDir := filepath.Join(pluginRoot, ".codex-plugin")
+	if err := os.MkdirAll(manifestDir, 0o755); err != nil {
+		t.Fatalf("mkdir manifest dir: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(manifestDir, "plugin.json"), []byte(`{
+  "name": "external-plugin",
+  "version": "0.1.0",
+  "capabilities": {"skills": ["skills/review"]}
+}`), 0o644); err != nil {
+		t.Fatalf("write manifest: %v", err)
+	}
+
+	dirs := []string{pluginRoot}
+	rt, err := NewRuntimeBuilder(root).
+		WithModel(builderModel{}).
+		WithBuiltinTools("read").
+		WithPluginDirs(dirs...).
+		Build(context.Background())
+	if err != nil {
+		t.Fatalf("Build: %v", err)
+	}
+	defer rt.Close()
+
+	dirs[0] = "changed"
+	if len(rt.opts.PluginDirs) != 1 || rt.opts.PluginDirs[0] != pluginRoot {
+		t.Fatalf("plugin dirs = %#v, want frozen original", rt.opts.PluginDirs)
+	}
+	if len(rt.opts.plugins) != 1 || rt.opts.plugins[0].Manifest.Name != "external-plugin" {
+		t.Fatalf("plugins = %#v, want loaded manifest", rt.opts.plugins)
+	}
+	if _, ok := rt.opts.skReg.Get("review"); ok {
+		t.Fatalf("plugin skill should not be registered without a SKILL.md")
+	}
+}
+
+func TestRuntimeLoadsPluginSkillCapability(t *testing.T) {
+	root := t.TempDir()
+	pluginRoot := filepath.Join(root, ".agents", "plugins", "reviewer")
+	manifestDir := filepath.Join(pluginRoot, ".codex-plugin")
+	if err := os.MkdirAll(manifestDir, 0o755); err != nil {
+		t.Fatalf("mkdir manifest dir: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(manifestDir, "plugin.json"), []byte(`{
+  "name": "reviewer",
+  "version": "0.1.0",
+  "capabilities": {"skills": ["skills"]}
+}`), 0o644); err != nil {
+		t.Fatalf("write manifest: %v", err)
+	}
+	skillDir := filepath.Join(pluginRoot, "skills", "review")
+	if err := os.MkdirAll(skillDir, 0o755); err != nil {
+		t.Fatalf("mkdir skill dir: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(skillDir, "SKILL.md"), []byte(`---
+name: review
+description: Review current changes
+---
+Review the current change set.`), 0o644); err != nil {
+		t.Fatalf("write skill: %v", err)
+	}
+
+	rt, err := NewRuntimeBuilder(root).
+		WithModel(builderModel{}).
+		WithBuiltinTools("read").
+		Build(context.Background())
+	if err != nil {
+		t.Fatalf("Build: %v", err)
+	}
+	defer rt.Close()
+
+	skill, ok := rt.opts.skReg.Get("review")
+	if !ok {
+		t.Fatalf("plugin skill was not registered")
+	}
+	source := skill.Definition().Metadata["source"]
+	if source == "" || filepath.Base(filepath.Dir(source)) != "review" {
+		t.Fatalf("source = %q, want plugin review skill", source)
+	}
+}
+
+func TestRuntimeLoadsPluginSubagentCapability(t *testing.T) {
+	root := t.TempDir()
+	pluginRoot := filepath.Join(root, ".agents", "plugins", "reviewer")
+	manifestDir := filepath.Join(pluginRoot, ".codex-plugin")
+	if err := os.MkdirAll(manifestDir, 0o755); err != nil {
+		t.Fatalf("mkdir manifest dir: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(manifestDir, "plugin.json"), []byte(`{
+  "name": "reviewer",
+  "version": "0.1.0",
+  "capabilities": {"subagents": ["subagents"]}
+}`), 0o644); err != nil {
+		t.Fatalf("write manifest: %v", err)
+	}
+	subagentDir := filepath.Join(pluginRoot, "subagents")
+	if err := os.MkdirAll(subagentDir, 0o755); err != nil {
+		t.Fatalf("mkdir subagent dir: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(subagentDir, "reviewer.md"), []byte(`---
+name: reviewer
+description: Review current changes
+tools: read,grep
+model: haiku
+---
+Review the current change set.`), 0o644); err != nil {
+		t.Fatalf("write subagent: %v", err)
+	}
+
+	rt, err := NewRuntimeBuilder(root).
+		WithModel(builderModel{}).
+		WithBuiltinTools("read").
+		Build(context.Background())
+	if err != nil {
+		t.Fatalf("Build: %v", err)
+	}
+	defer rt.Close()
+
+	defs := rt.opts.subMgr.List()
+	for _, def := range defs {
+		if def.Name == "reviewer" {
+			if def.DefaultModel != "haiku" {
+				t.Fatalf("reviewer model = %q, want haiku", def.DefaultModel)
+			}
+			return
+		}
+	}
+	t.Fatalf("plugin subagent was not registered: %#v", defs)
 }
 
 func containsString(values []string, target string) bool {

@@ -59,6 +59,7 @@ type LoaderOptions struct {
 	EnableUser  bool
 	FS          *config.FS
 	EmbedFS     fs.FS
+	SkillDirs   []string
 }
 
 type SkillFile struct {
@@ -168,6 +169,14 @@ func LoadFromFS(opts LoaderOptions) ([]SkillRegistration, []error) {
 	files, loadErrs := loadSkillDirFn(agentsDir, projectFS)
 	errs = append(errs, loadErrs...)
 	allFiles = append(allFiles, files...)
+	for _, dir := range opts.SkillDirs {
+		if strings.TrimSpace(dir) == "" {
+			continue
+		}
+		files, loadErrs := loadSkillDirFn(dir, projectFS)
+		errs = append(errs, loadErrs...)
+		allFiles = append(allFiles, files...)
+	}
 	if opts.EmbedFS != nil {
 		embedFiles, embedErrs := loadEmbeddedSkillDir(opts.ProjectRoot, opts.EmbedFS)
 		errs = append(errs, embedErrs...)

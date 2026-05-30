@@ -1,6 +1,6 @@
 package dto
 
-import "icoo_claw/server/claw/pkg/agent_sdk"
+import "icoo_claw/common/agentproto"
 
 type ChatWSRequest struct {
 	Type           string         `json:"type"`
@@ -23,7 +23,7 @@ type ChatWSResponse struct {
 	Metadata       map[string]any `json:"metadata,omitempty"`
 }
 
-type SessionUpdate = agent_sdk.SessionUpdate
-type ContentBlock = agent_sdk.ContentBlock
-type ToolCallLocation = agent_sdk.ToolCallLocation
-type UsageUpdate = agent_sdk.UsageUpdate
+type SessionUpdate = agentproto.SessionUpdate
+type ContentBlock = agentproto.ContentBlock
+type ToolCallLocation = agentproto.ToolCallLocation
+type UsageUpdate = agentproto.UsageUpdate

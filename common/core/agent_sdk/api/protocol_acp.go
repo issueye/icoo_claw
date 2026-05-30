@@ -1,5 +1,7 @@
 package api
 
+import "strings"
+
 // ACPProtocol encodes AgentEvents into structures compatible with the Agent
 // Communication Protocol (ACP). The encoded output maps to the session-level
 // event format that downstream consumers (e.g. claw's ACP agent, gateway's
@@ -18,12 +20,12 @@ func NewACPProtocol() *ACPProtocol {
 // ACPEvent is the wire-format representation for ACP-compatible consumers.
 // It mirrors the session-level protocol used between claw and gateway.
 type ACPEvent struct {
-	Type       string        `json:"type"`
-	SessionID  string        `json:"session_id"`
-	RequestID  string        `json:"request_id,omitempty"`
-	StopReason string        `json:"stop_reason,omitempty"`
-	Error      *ACPError     `json:"error,omitempty"`
-	Update     *ACPUpdate    `json:"update,omitempty"`
+	Type       string     `json:"type"`
+	SessionID  string     `json:"session_id"`
+	RequestID  string     `json:"request_id,omitempty"`
+	StopReason string     `json:"stop_reason,omitempty"`
+	Error      *ACPError  `json:"error,omitempty"`
+	Update     *ACPUpdate `json:"update,omitempty"`
 }
 
 // ACPError represents an error in the ACP session protocol.
@@ -34,15 +36,15 @@ type ACPError struct {
 
 // ACPUpdate carries the session update payload for ACP consumers.
 type ACPUpdate struct {
-	SessionUpdate string        `json:"sessionUpdate"`
-	Content       *ACPContent   `json:"content,omitempty"`
-	ToolCallID    string        `json:"toolCallId,omitempty"`
-	Title         string        `json:"title,omitempty"`
-	Kind          string        `json:"kind,omitempty"`
-	Status        string        `json:"status,omitempty"`
-	RawInput      interface{}   `json:"rawInput,omitempty"`
-	RawOutput     interface{}   `json:"rawOutput,omitempty"`
-	Usage         *ACPUsage     `json:"usage,omitempty"`
+	SessionUpdate string      `json:"sessionUpdate"`
+	Content       *ACPContent `json:"content,omitempty"`
+	ToolCallID    string      `json:"toolCallId,omitempty"`
+	Title         string      `json:"title,omitempty"`
+	Kind          string      `json:"kind,omitempty"`
+	Status        string      `json:"status,omitempty"`
+	RawInput      interface{} `json:"rawInput,omitempty"`
+	RawOutput     interface{} `json:"rawOutput,omitempty"`
+	Usage         *ACPUsage   `json:"usage,omitempty"`
 }
 
 // ACPContent represents a content block in the ACP format.
@@ -194,7 +196,8 @@ func (p *ACPProtocol) Encode(event AgentEvent) interface{} {
 
 // classifyToolKind maps a tool name to an ACP tool kind string.
 func classifyToolKind(name string) string {
-	switch name {
+	canonical := strings.ToLower(strings.TrimSpace(name))
+	switch canonical {
 	case "read", "list", "view":
 		return "read"
 	case "edit", "write", "patch":
@@ -210,11 +213,15 @@ func classifyToolKind(name string) string {
 	case "fetch", "http", "web_fetch", "web_search":
 		return "fetch"
 	default:
+		if strings.Contains(canonical, "search") {
+			return "search"
+		}
 		return "other"
 	}
 }
 
 func toolDisplayName(name string) string {
+	name = strings.TrimSpace(name)
 	if name == "" {
 		return "Tool call"
 	}

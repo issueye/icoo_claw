@@ -423,7 +423,7 @@ if s.skillService != nil {
 
 ### Task 5.1: Claw 暴露技能执行指标
 
-**File:** `server/claw/pkg/agent_sdk/sdk/tool/builtin/skill.go`
+**File:** `common/core/agent_sdk/tool/builtin/skill.go`
 
 `SkillTool.Execute()` 中记录执行结果（成功/失败、耗时），写入 session metadata 或返回给 Gateway：
 
@@ -487,5 +487,5 @@ Phase 1 (P0) ──→ Phase 2 (P1) ──→ Phase 3 (P1) ──→ Phase 4 (P2
 | `server/claw/pkg/agent_sdk/runtime_factory.go` | 1, 2 | 修改 |
 | `server/claw/internal/di/container.go` | 2 | 修改 |
 | `server/claw/internal/config/config.go` | 2 | 修改 |
-| `server/claw/pkg/agent_sdk/sdk/tool/builtin/skill.go` | 5 | 修改 |
+| `common/core/agent_sdk/tool/builtin/skill.go` | 5 | 修改 |
 | `server/gateway/internal/model/agent.go` | 4 | 不变 |

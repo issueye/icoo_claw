@@ -9,6 +9,7 @@ import (
 	"sync"
 
 	acp "github.com/coder/acp-go-sdk"
+	"icoo_claw/common/agentproto"
 )
 
 const acpBaseURLPrefix = "acp://"
@@ -105,33 +106,16 @@ func (r *ACPRegistry) Run(ctx context.Context, baseURL string, req RunRequest) (
 	if err != nil {
 		return nil, err
 	}
-
-	var output strings.Builder
-	stopReason := "stream_closed"
-	for event := range events {
-		switch event.Type {
-		case "session/update":
-			if event.Update != nil && event.Update.SessionUpdate == "agent_message_chunk" && event.Update.Content != nil {
-				output.WriteString(event.Update.Content.Text)
-			}
-		case "session/completed":
-			stopReason = defaultString(event.StopReason, "end_turn")
-			return &RunResponse{
-				SessionID:  defaultString(event.SessionID, req.SessionID),
-				RequestID:  defaultString(event.RequestID, req.RequestID),
-				Output:     output.String(),
-				StopReason: stopReason,
-			}, nil
-		case "session/error":
-			message := "acp stream error"
-			if event.Error != nil && strings.TrimSpace(event.Error.Message) != "" {
-				message = event.Error.Message
-			}
-			return nil, errors.New(message)
-		}
+	collected, err := agentproto.CollectTextStream(events, req.SessionID, req.RequestID)
+	if err != nil {
+		return nil, err
 	}
-
-	return nil, errors.New("acp stream closed before completion")
+	return &RunResponse{
+		SessionID:  collected.SessionID,
+		RequestID:  collected.RequestID,
+		Output:     collected.Output,
+		StopReason: collected.StopReason,
+	}, nil
 }
 
 func (r *ACPRegistry) Stream(ctx context.Context, baseURL string, req RunRequest) (<-chan StreamEvent, error) {
@@ -397,14 +381,6 @@ func stringValuePtr(value *string) string {
 		return ""
 	}
 	return *value
-}
-
-func defaultString(value string, fallback string) string {
-	value = strings.TrimSpace(value)
-	if value == "" {
-		return fallback
-	}
-	return value
 }
 
 type acpCallbacks struct {

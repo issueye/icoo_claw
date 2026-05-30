@@ -323,7 +323,7 @@ ACP `session/new` 请求包含 `mcpServers`。第一阶段有两种处理方式�
 1. 如果 `claw` runtime 已能直接连接对应 MCP server，则转换为 `Agent.mcp_servers`。
 2. 如果 ACP client 提供的是只适合 client 侧代理的 MCP 能力，则暂存到 session metadata，后续通过 ACP unstable MCP connect 能力桥接。
 
-优先保持当前 `server/claw/pkg/agent_sdk/sdk/mcp` 的执行模型，避免引入第二套 MCP 生命周期管理。
+优先保持当前 `common/core/agent_sdk/mcp` 的执行模型，避免引入第二套 MCP 生命周期管理。
 
 ## Gateway 与桌面端关系
 

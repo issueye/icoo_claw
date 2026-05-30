@@ -18,9 +18,9 @@
 
 ## agentsdk-go 能力分析
 
-`server/claw/pkg/agent_sdk/sdk` 已提供 Runtime、MCP、Skills、Subagents、Hooks、Middleware、Sandbox、同步与流式运行能力。
+`common/core/agent_sdk` 已提供 Runtime、MCP、Skills、Subagents、Hooks、Middleware、Sandbox、同步与流式运行能力。
 
-平台层的重点不是重写 runtime，而是在 `server/claw/pkg/agent_sdk` 做封装：
+平台层的重点不是重写 runtime，而是在 `server/claw/pkg/agent_sdk` 做对 `common/core/agent_sdk` 的薄封装：
 
 - Gateway 下发受控的 AgentProfile 和请求参数。
 - Claw 在运行前从网关会话 API 加载历史。

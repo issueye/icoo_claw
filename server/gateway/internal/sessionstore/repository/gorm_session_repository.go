@@ -8,8 +8,8 @@ import (
 	"strings"
 	"time"
 
+	sharedErrors "icoo_claw/common/errors"
 	"icoo_claw/server/gateway/internal/sessionstore/model"
-	sharedErrors "icoo_claw/server/shared/errors"
 
 	"gorm.io/gorm"
 )

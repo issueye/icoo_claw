@@ -12,7 +12,7 @@ import (
 
 	"icoo_claw/server/claw/pkg/sessionstore"
 
-	sdkmodel "icoo_claw/server/claw/pkg/agent_sdk/sdk/model"
+	sdkmodel "icoo_claw/common/core/agent_sdk/model"
 )
 
 type memoryHistoryStore struct {

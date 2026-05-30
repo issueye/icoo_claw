@@ -2,9 +2,9 @@ package agent_sdk
 
 import (
 	"context"
-	"fmt"
 
-	sdkmessage "icoo_claw/server/claw/pkg/agent_sdk/sdk/message"
+	"icoo_claw/common/agentproto"
+	sdkmessage "icoo_claw/common/core/agent_sdk/message"
 )
 
 type FakeRunner struct {
@@ -20,18 +20,19 @@ func NewFakeRunner(history ...*HistoryAdapter) *FakeRunner {
 }
 
 func (r *FakeRunner) Run(ctx context.Context, req RunRequest) (*RunResponse, error) {
-	if err := ctx.Err(); err != nil {
+	events, err := r.RunStream(ctx, req)
+	if err != nil {
 		return nil, err
 	}
-	output := fmt.Sprintf("fake agent response: %s", req.Prompt)
-	if err := r.save(ctx, req.SessionID, req.Prompt, output); err != nil {
+	collected, err := agentproto.CollectTextStream(events, req.SessionID, req.RequestID)
+	if err != nil {
 		return nil, err
 	}
 	return &RunResponse{
-		SessionID:  req.SessionID,
-		RequestID:  req.RequestID,
-		Output:     output,
-		StopReason: "end_turn",
+		SessionID:  collected.SessionID,
+		RequestID:  collected.RequestID,
+		Output:     collected.Output,
+		StopReason: collected.StopReason,
 	}, nil
 }
 

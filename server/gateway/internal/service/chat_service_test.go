@@ -24,7 +24,7 @@ func (r chatAgentRepo) Get(context.Context, string) (*model.AgentProfile, error)
 		ToolWhitelistJSON: `["read"]`,
 		NetworkAllowJSON:  `["example.com"]`,
 		MCPServerIDsJSON:  `[]`,
-		SkillNamesJSON:      `[]`,
+		SkillNamesJSON:    `[]`,
 		Enabled:           true,
 	}, nil
 }
@@ -131,6 +131,27 @@ func (c *chatClaw) Stream(_ context.Context, baseURL string, req client.RunReque
 	out <- client.StreamEvent{Type: "session/completed", SessionID: req.SessionID, RequestID: req.RequestID, StopReason: "end_turn"}
 	close(out)
 	return out, nil
+}
+
+func TestChatServiceRejectsDisabledAgentOnCreateConversation(t *testing.T) {
+	svc := NewChatService(&chatConversationRepo{}, chatAgentRepoWithAgent{agent: model.AgentProfile{ID: "agent_1", Name: "Disabled", Enabled: false}}, nil, nil, &chatSessionBackend{}, &chatClaw{})
+
+	_, err := svc.CreateConversation(context.Background(), dto.CreateConversationRequest{AgentID: "agent_1", Title: "Test"})
+	if !errors.Is(err, ErrAgentDisabled) {
+		t.Fatalf("error = %v, want ErrAgentDisabled", err)
+	}
+}
+
+func TestChatServiceRejectsDisabledAgentOnSendMessage(t *testing.T) {
+	conversations := &chatConversationRepo{conversation: &model.Conversation{ID: "conv_1", SessionID: "sess_1", AgentID: "agent_1", Status: "active"}}
+	instances := &chatInstanceRepo{instance: model.AgentInstance{ID: "inst_1", AgentID: "agent_1", Status: "ready", BaseURL: "http://127.0.0.1:8101"}}
+	router := NewDefaultRouterPolicy(conversations, instances, nil)
+	svc := NewChatService(conversations, chatAgentRepoWithAgent{agent: model.AgentProfile{ID: "agent_1", Name: "Disabled", Enabled: false}}, nil, router, &chatSessionBackend{}, &chatClaw{})
+
+	_, err := svc.SendMessage(context.Background(), "conv_1", dto.SendMessageRequest{Prompt: "hello"})
+	if !errors.Is(err, ErrAgentDisabled) {
+		t.Fatalf("error = %v, want ErrAgentDisabled", err)
+	}
 }
 
 func TestChatServiceCreateAndSendMessage(t *testing.T) {
@@ -305,7 +326,7 @@ func TestChatServiceDefaultsToBuiltinToolsWhenWhitelistEmpty(t *testing.T) {
 		ToolWhitelistJSON: `[]`,
 		NetworkAllowJSON:  `[]`,
 		MCPServerIDsJSON:  `[]`,
-		SkillNamesJSON:      `[]`,
+		SkillNamesJSON:    `[]`,
 		Enabled:           true,
 	}}
 	svc := NewChatService(conversations, agents, nil, router, &chatSessionBackend{}, claw)
@@ -331,7 +352,7 @@ func TestChatServiceDefaultsToBuiltinToolsWhenWhitelistEmpty(t *testing.T) {
 }
 
 func TestChatServiceAppliesMinimumMaxIterations(t *testing.T) {
-	payload := agentProfileMap(model.AgentProfile{
+	payload := NewAgentRuntimeProfileBuilder(nil).BuildPayload(model.AgentProfile{
 		ID:                "agent_1",
 		ModelProvider:     "openai",
 		MaxIterations:     1,

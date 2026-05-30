@@ -38,6 +38,9 @@ func (s *AgentInstanceService) Start(ctx context.Context, req dto.StartAgentInst
 	if err != nil {
 		return nil, err
 	}
+	if err := EnsureAgentRunnable(agent); err != nil {
+		return nil, err
+	}
 	launch, err := s.resolveLaunchConfig(ctx, agent)
 	if err != nil {
 		return nil, err
@@ -196,6 +199,9 @@ func (s *AgentInstanceService) Restart(ctx context.Context, id string) (*dto.Age
 	if err != nil {
 		return nil, err
 	}
+	if err := EnsureAgentRunnable(agent); err != nil {
+		return nil, err
+	}
 	launch, err := s.resolveLaunchConfig(ctx, agent)
 	if err != nil {
 		return nil, err
@@ -272,46 +278,12 @@ func (s *AgentInstanceService) resolveLaunchConfig(ctx context.Context, agent *m
 		return AgentLaunchConfig{}, nil
 	}
 
-	launch := AgentLaunchConfig{
-		ProviderID:    agent.ProviderID,
-		ModelProvider: agent.ModelProvider,
-		ModelName:     agent.ModelName,
-		BaseURL:       agent.BaseURL,
-	}
-
-	if s.providers == nil {
-		return launch, nil
-	}
-
-	var provider *model.ProviderProfile
-	var err error
-	if agent.ProviderID != "" {
-		provider, err = s.providers.Get(ctx, agent.ProviderID)
-	} else if agent.ModelProvider != "" {
-		provider, err = s.providers.GetEnabledByType(ctx, agent.ModelProvider)
-		if errors.Is(err, repository.ErrNotFound) {
-			err = nil
-		}
-	}
+	builder := NewAgentRuntimeProfileBuilder(s.providers)
+	provider, err := builder.ResolveProvider(ctx, agent)
 	if err != nil {
 		return AgentLaunchConfig{}, err
 	}
-	if provider == nil {
-		return launch, nil
-	}
-
-	launch.ProviderID = provider.ID
-	if provider.Type != "" {
-		launch.ModelProvider = provider.Type
-	}
-	if launch.ModelName == "" {
-		launch.ModelName = provider.DefaultModel
-	}
-	if launch.BaseURL == "" {
-		launch.BaseURL = provider.BaseURL
-	}
-	launch.APIKey = provider.APIKey
-	return launch, nil
+	return builder.BuildLaunchConfig(*agent, provider), nil
 }
 
 func (s *AgentInstanceService) Drain(ctx context.Context, id string) (*dto.AgentInstance, error) {

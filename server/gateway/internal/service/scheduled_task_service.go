@@ -3,9 +3,9 @@ package service
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"log"
+	"maps"
 	"strings"
 	"time"
 
@@ -432,18 +432,6 @@ func (s *ScheduledTaskService) executeAgentTask(ctx context.Context, task model.
 	if agentID == "" {
 		return "", fmt.Errorf("agent_id is required for agent_prompt tasks")
 	}
-	agent, err := s.agents.Get(ctx, agentID)
-	if err != nil {
-		return "", err
-	}
-	provider, err := s.resolveProvider(ctx, agent)
-	if err != nil {
-		return "", err
-	}
-	instance, err := s.selectAgentInstance(ctx, task, agent)
-	if err != nil {
-		return "", err
-	}
 
 	payload := decodePayload(task.PayloadJSON)
 	prompt := firstTaskPrompt(payload)
@@ -464,27 +452,35 @@ func (s *ScheduledTaskService) executeAgentTask(ctx context.Context, task model.
 		"scheduled_action":    task.ActionType,
 	}
 	if extra := payloadMetadata(payload); len(extra) > 0 {
-		for k, v := range extra {
-			metadata[k] = v
-		}
+		maps.Copy(metadata, extra)
 	}
 	if projectRoot := firstTaskString(payload, "project_root"); projectRoot != "" {
 		metadata["project_root"] = projectRoot
 	}
 
-	agentPayload, err := s.agentProfilePayload(ctx, *agent, provider, metadata)
+	executor := NewGatewayAgentExecutor(GatewayAgentExecutorConfig{
+		Agents:    s.agents,
+		Providers: s.providers,
+		Instances: s.instances,
+		Starter:   s.starter,
+	})
+	execCtx, err := executor.Prepare(ctx, AgentExecutionRequest{
+		AgentID:      agentID,
+		SessionID:    taskSessionID(task.ID, now),
+		Prompt:       prompt,
+		RequestID:    "req_" + randomID(),
+		ForceSkills:  payloadForceSkills(payload),
+		Metadata:     metadata,
+		InstanceName: task.Name,
+	})
 	if err != nil {
 		return "", err
 	}
-	resp, err := s.claw.Run(ctx, instance.BaseURL, client.RunRequest{
-		SessionID:     taskSessionID(task.ID, now),
-		RequestID:     "req_" + randomID(),
-		Prompt:        prompt,
-		Agent:         agentPayload,
-		ToolWhitelist: parseStringSlice(agent.ToolWhitelistJSON),
-		ForceSkills:   payloadForceSkills(payload),
-		Metadata:      metadata,
-	})
+	if err := executor.markInflight(ctx, execCtx.Instance.ID, 1); err != nil {
+		return "", err
+	}
+	defer func() { _ = executor.markInflight(context.Background(), execCtx.Instance.ID, -1) }()
+	resp, err := s.claw.Run(ctx, execCtx.Instance.BaseURL, execCtx.Request)
 	if err != nil {
 		return "", err
 	}
@@ -496,85 +492,6 @@ func (s *ScheduledTaskService) executeAgentTask(ctx context.Context, task model.
 		summary = prompt
 	}
 	return summary, nil
-}
-
-func (s *ScheduledTaskService) agentProfilePayload(ctx context.Context, agent model.AgentProfile, provider *model.ProviderProfile, metadata map[string]any) (map[string]any, error) {
-	profile := agentProfileMap(agent, provider, metadata)
-	return profile, nil
-}
-
-func (s *ScheduledTaskService) selectAgentInstance(ctx context.Context, task model.ScheduledTask, agent *model.AgentProfile) (*model.AgentInstance, error) {
-	if s.instances != nil {
-		instances, err := s.instances.List(ctx)
-		if err != nil {
-			return nil, err
-		}
-		var selected *model.AgentInstance
-		for i := range instances {
-			instance := instances[i]
-			if instance.AgentID != agent.ID || instance.Status != "ready" {
-				continue
-			}
-			if selected == nil || instance.Inflight < selected.Inflight {
-				copy := instance
-				selected = &copy
-			}
-		}
-		if selected != nil {
-			return selected, nil
-		}
-	}
-	if s.starter == nil {
-		return nil, fmt.Errorf("no ready agent instance for agent %s", agent.ID)
-	}
-	started, err := s.starter.Start(ctx, dto.StartAgentInstanceRequest{
-		AgentID: agent.ID,
-		Name:    task.Name,
-	})
-	if err != nil {
-		return nil, err
-	}
-	return &model.AgentInstance{
-		ID:              started.ID,
-		AgentID:         started.AgentID,
-		Name:            started.Name,
-		Status:          started.Status,
-		PID:             started.PID,
-		Host:            started.Host,
-		Port:            started.Port,
-		BaseURL:         started.BaseURL,
-		Transport:       started.Transport,
-		ProviderID:      started.ProviderID,
-		ModelProvider:   started.ModelProvider,
-		ModelName:       started.ModelName,
-		ModelBaseURL:    started.ModelBaseURL,
-		APIKeySet:       started.APIKeySet,
-		LastHeartbeatAt: started.LastHeartbeatAt,
-		LastError:       started.LastError,
-		Inflight:        started.Inflight,
-		CreatedAt:       started.CreatedAt,
-		UpdatedAt:       started.UpdatedAt,
-	}, nil
-}
-
-func (s *ScheduledTaskService) resolveProvider(ctx context.Context, agent *model.AgentProfile) (*model.ProviderProfile, error) {
-	if s.providers == nil || agent == nil {
-		return nil, nil
-	}
-	if agent.ProviderID != "" {
-		return s.providers.Get(ctx, agent.ProviderID)
-	}
-	if agent.ModelProvider == "" {
-		return nil, nil
-	}
-	provider, err := s.providers.GetEnabledByType(ctx, agent.ModelProvider)
-	if err != nil {
-		if errors.Is(err, repository.ErrNotFound) {
-			return nil, nil
-		}
-		return nil, err
-	}
-	return provider, nil
 }
 
 func firstTaskPrompt(payload map[string]any) string {
@@ -606,9 +523,7 @@ func payloadMetadata(payload map[string]any) map[string]any {
 	}
 	if raw, ok := payload["metadata"].(map[string]any); ok {
 		out := make(map[string]any, len(raw))
-		for k, v := range raw {
-			out[k] = v
-		}
+		maps.Copy(out, raw)
 		return out
 	}
 	return nil
@@ -616,9 +531,7 @@ func payloadMetadata(payload map[string]any) map[string]any {
 
 func clonePayload(payload map[string]any) map[string]any {
 	out := make(map[string]any, len(payload)+1)
-	for k, v := range payload {
-		out[k] = v
-	}
+	maps.Copy(out, payload)
 	return out
 }
 

@@ -5,6 +5,7 @@ import (
 	"testing"
 	"time"
 
+	"icoo_claw/server/gateway/internal/client"
 	"icoo_claw/server/gateway/internal/dto"
 	"icoo_claw/server/gateway/internal/model"
 	"icoo_claw/server/gateway/internal/repository"
@@ -77,6 +78,28 @@ func (r *memoryScheduledTaskRunRepo) ListByTaskID(_ context.Context, taskID stri
 		runs = runs[:limit]
 	}
 	return runs, nil
+}
+
+type scheduledTaskAgentRepo struct {
+	agent model.AgentProfile
+}
+
+func (r scheduledTaskAgentRepo) Create(context.Context, model.AgentProfile) error { return nil }
+func (r scheduledTaskAgentRepo) Get(context.Context, string) (*model.AgentProfile, error) {
+	agent := r.agent
+	return &agent, nil
+}
+func (r scheduledTaskAgentRepo) List(context.Context) ([]model.AgentProfile, error) { return nil, nil }
+func (r scheduledTaskAgentRepo) Update(context.Context, model.AgentProfile) error   { return nil }
+func (r scheduledTaskAgentRepo) Delete(context.Context, string) error               { return nil }
+
+type scheduledTaskClaw struct {
+	req client.RunRequest
+}
+
+func (c *scheduledTaskClaw) Run(_ context.Context, _ string, req client.RunRequest) (*client.RunResponse, error) {
+	c.req = req
+	return &client.RunResponse{SessionID: req.SessionID, RequestID: req.RequestID, Output: "task output", StopReason: "end_turn"}, nil
 }
 
 func TestScheduledTaskServiceCreateInterval(t *testing.T) {
@@ -165,5 +188,103 @@ func TestScheduledTaskServiceRejectsInvalidSchedule(t *testing.T) {
 	})
 	if err == nil {
 		t.Fatal("expected invalid schedule error")
+	}
+}
+
+func TestScheduledTaskServiceRejectsDisabledAgentTask(t *testing.T) {
+	now := time.Now().UTC()
+	task := model.ScheduledTask{
+		ID:            "task_1",
+		Name:          "Disabled agent task",
+		ScheduleType:  "once",
+		ScheduleValue: now.Add(time.Hour).Format(time.RFC3339),
+		ActionType:    "agent_prompt",
+		AgentID:       "agent_1",
+		PayloadJSON:   `{"prompt":"hello"}`,
+		Enabled:       true,
+		Status:        "active",
+		NextRunAt:     &now,
+		CreatedAt:     now,
+		UpdatedAt:     now,
+	}
+	repo := &memoryScheduledTaskRepo{tasks: []model.ScheduledTask{task}}
+	runRepo := &memoryScheduledTaskRunRepo{}
+	svc := NewScheduledTaskService(
+		repo,
+		runRepo,
+		scheduledTaskAgentRepo{agent: model.AgentProfile{ID: "agent_1", Name: "Disabled", Enabled: false}},
+		nil,
+		&memoryInstanceRepo{instances: []model.AgentInstance{{ID: "inst_1", AgentID: "agent_1", Status: "ready", BaseURL: "http://127.0.0.1:8101"}}},
+		nil,
+		&scheduledTaskClaw{},
+	)
+
+	if err := svc.RunDue(context.Background(), now); err != nil {
+		t.Fatalf("run due: %v", err)
+	}
+	if repo.tasks[0].Status != "completed" || repo.tasks[0].LastError != ErrAgentDisabled.Error() {
+		t.Fatalf("task after run = %+v, want completed with disabled error", repo.tasks[0])
+	}
+	if len(runRepo.runs) != 1 || runRepo.runs[0].Status != "error" || runRepo.runs[0].Error != ErrAgentDisabled.Error() {
+		t.Fatalf("runs = %+v, want disabled agent error run", runRepo.runs)
+	}
+}
+
+func TestScheduledTaskServiceAgentTaskBuildsRuntimePayload(t *testing.T) {
+	now := time.Now().UTC()
+	task := model.ScheduledTask{
+		ID:            "task_1",
+		Name:          "Agent task",
+		ScheduleType:  "once",
+		ScheduleValue: now.Add(time.Hour).Format(time.RFC3339),
+		ActionType:    "agent_prompt",
+		AgentID:       "agent_1",
+		PayloadJSON:   `{"prompt":"hello","project_root":"E:/project","force_skills":[" doc-writer ",""]}`,
+		Enabled:       true,
+		Status:        "active",
+		NextRunAt:     &now,
+		CreatedAt:     now,
+		UpdatedAt:     now,
+	}
+	repo := &memoryScheduledTaskRepo{tasks: []model.ScheduledTask{task}}
+	claw := &scheduledTaskClaw{}
+	svc := NewScheduledTaskService(
+		repo,
+		&memoryScheduledTaskRunRepo{},
+		scheduledTaskAgentRepo{agent: model.AgentProfile{
+			ID:                "agent_1",
+			Name:              "Agent",
+			ModelProvider:     "openai",
+			ToolWhitelistJSON: `[]`,
+			NetworkAllowJSON:  `["example.com"]`,
+			MCPServerIDsJSON:  `["mcp_1"]`,
+			Enabled:           true,
+		}},
+		nil,
+		&memoryInstanceRepo{instances: []model.AgentInstance{{ID: "inst_1", AgentID: "agent_1", Status: "ready", BaseURL: "http://127.0.0.1:8101"}}},
+		nil,
+		claw,
+	)
+
+	if err := svc.RunDue(context.Background(), now); err != nil {
+		t.Fatalf("run due: %v", err)
+	}
+	if claw.req.Prompt != "hello" {
+		t.Fatalf("prompt = %q, want hello", claw.req.Prompt)
+	}
+	if got := claw.req.Agent["project_root"]; got != "E:/project" {
+		t.Fatalf("project_root = %q", got)
+	}
+	if got := claw.req.Agent["network_allow"].([]string); len(got) != 1 || got[0] != "example.com" {
+		t.Fatalf("network_allow = %+v", claw.req.Agent["network_allow"])
+	}
+	if got := claw.req.Agent["mcp_servers"].([]string); len(got) != 1 || got[0] != "mcp_1" {
+		t.Fatalf("mcp_servers = %+v", claw.req.Agent["mcp_servers"])
+	}
+	if _, ok := claw.req.Agent["enabled_builtin_tools"]; ok {
+		t.Fatalf("enabled_builtin_tools should be omitted when whitelist is empty: %+v", claw.req.Agent)
+	}
+	if len(claw.req.ForceSkills) != 1 || claw.req.ForceSkills[0] != "doc-writer" {
+		t.Fatalf("force skills = %+v", claw.req.ForceSkills)
 	}
 }

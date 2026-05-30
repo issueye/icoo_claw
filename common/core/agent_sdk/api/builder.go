@@ -67,6 +67,11 @@ func (b *RuntimeBuilder) WithoutTools(names ...string) *RuntimeBuilder {
 	return b
 }
 
+func (b *RuntimeBuilder) WithPluginDirs(dirs ...string) *RuntimeBuilder {
+	b.opts.PluginDirs = append([]string(nil), dirs...)
+	return b
+}
+
 func (b *RuntimeBuilder) WithPermissionPrompter(prompter PermissionPrompter) *RuntimeBuilder {
 	b.opts.PermissionPrompter = prompter
 	return b
