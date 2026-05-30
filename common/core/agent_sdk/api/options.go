@@ -240,14 +240,12 @@ type Request struct {
 	Metadata          map[string]any
 	TargetSubagent    string
 	ToolWhitelist     []string
-	ForceSkills       []string
 }
 
 type Response struct {
 	Mode            ModeContext
 	RequestID       string `json:"request_id,omitempty"` // UUID for distributed tracing
 	Result          *Result
-	SkillResults    []SkillExecution
 	Subagent        *subagents.Result
 	HookEvents      []hooks.Event
 	ProjectConfig   *config.Settings
@@ -261,12 +259,6 @@ type Result struct {
 	StopReason string
 	Usage      model.Usage
 	ToolCalls  []model.ToolCall
-}
-
-type SkillExecution struct {
-	Definition skills.Definition
-	Result     skills.Result
-	Err        error
 }
 
 type SandboxReport struct {

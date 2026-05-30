@@ -16,7 +16,8 @@ import (
 const skillToolDescriptionHeader = `Execute a skill.
 
 <skills_instructions>
-Call this tool with {"command":"<skill-name>"} (no arguments).
+Call this tool with {"command":"<skill-name>"}.
+Use {"mode":"async"} for long-running skills; omit mode or use {"mode":"sync"} when the result is needed immediately.
 Only use skills listed in <available_skills>. Do not invoke a skill that is already running.
 </skills_instructions>
 
@@ -30,6 +31,11 @@ var skillSchema = &tool.JSONSchema{
 			"type":        "string",
 			"description": "The skill name (no arguments). E.g., \"pdf\" or \"xlsx\"",
 		},
+		"mode": map[string]interface{}{
+			"type":        "string",
+			"enum":        []string{"sync", "async"},
+			"description": "Run synchronously and return the summary, or asynchronously and return a task id.",
+		},
 	},
 	Required: []string{"command"},
 }
@@ -42,22 +48,15 @@ type SkillSubagentDispatcher interface {
 	Dispatch(context.Context, subagents.Request) (subagents.Result, error)
 }
 
+type SkillAsyncSubagentDispatcher interface {
+	DispatchAsyncRequest(context.Context, subagents.Request) (string, error)
+}
+
 // SkillTool adapts the runtime skills registry into a tool.
 type SkillTool struct {
-	name     string
 	registry *skills.Registry
 	provider ActivationContextProvider
 	dispatch SkillSubagentDispatcher
-}
-
-// NewSkillTool wires the registry with an optional activation provider.
-func NewSkillTool(reg *skills.Registry, provider ActivationContextProvider) *SkillTool {
-	return NewSkillToolWithSubagent(reg, provider, nil)
-}
-
-// NewSkillToolWithSubagent wires the registry to subagent-backed execution.
-func NewSkillToolWithSubagent(reg *skills.Registry, provider ActivationContextProvider, dispatcher SkillSubagentDispatcher) *SkillTool {
-	return newSkillToolWithName("skill", reg, provider, dispatcher)
 }
 
 // NewSkillExecuteTool wires the registry as the explicit skill execution tool.
@@ -67,25 +66,14 @@ func NewSkillExecuteTool(reg *skills.Registry, provider ActivationContextProvide
 
 // NewSkillExecuteToolWithSubagent wires skill_execute to subagent-backed execution.
 func NewSkillExecuteToolWithSubagent(reg *skills.Registry, provider ActivationContextProvider, dispatcher SkillSubagentDispatcher) *SkillTool {
-	return newSkillToolWithName("skill_execute", reg, provider, dispatcher)
-}
-
-func newSkillToolWithName(name string, reg *skills.Registry, provider ActivationContextProvider, dispatcher SkillSubagentDispatcher) *SkillTool {
 	if provider == nil {
 		provider = defaultActivationProvider
 	}
-	name = strings.TrimSpace(name)
-	if name == "" {
-		name = "skill_execute"
-	}
-	return &SkillTool{name: name, registry: reg, provider: provider, dispatch: dispatcher}
+	return &SkillTool{registry: reg, provider: provider, dispatch: dispatcher}
 }
 
 func (s *SkillTool) Name() string {
-	if s == nil || strings.TrimSpace(s.name) == "" {
-		return "skill_execute"
-	}
-	return s.name
+	return "skill_execute"
 }
 
 func (s *SkillTool) Description() string {
@@ -166,6 +154,30 @@ func (s *SkillTool) Execute(ctx context.Context, params map[string]interface{}) 
 	if strings.TrimSpace(request.Instruction) == "" {
 		return nil, errors.New("skill instruction is empty")
 	}
+	if mode, err := parseSkillExecutionMode(params); err != nil {
+		return nil, err
+	} else if mode == "async" {
+		async, ok := s.dispatch.(SkillAsyncSubagentDispatcher)
+		if !ok {
+			return nil, errors.New("skill async execution requires an async subagent dispatcher")
+		}
+		taskID, err := async.DispatchAsyncRequest(ctx, request)
+		if err != nil {
+			return nil, err
+		}
+		output := fmt.Sprintf("skill %s queued as %s", result.Skill, taskID)
+		return &tool.ToolResult{
+			Success: true,
+			Output:  output,
+			Data: map[string]any{
+				"skill":          result.Skill,
+				"mode":           mode,
+				"task_id":        taskID,
+				"subagent":       request.Target,
+				"skill_metadata": result.Metadata,
+			},
+		}, nil
+	}
 	subResult, err := s.dispatch.Dispatch(ctx, request)
 	if err != nil {
 		return nil, err
@@ -173,6 +185,7 @@ func (s *SkillTool) Execute(ctx context.Context, params map[string]interface{}) 
 	output := FormatSubagentOutput(subResult)
 	data := map[string]interface{}{
 		"skill":             result.Skill,
+		"mode":              "sync",
 		"subagent":          subResult.Subagent,
 		"summary":           output,
 		"skill_metadata":    result.Metadata,
@@ -204,6 +217,26 @@ func parseSkillName(params map[string]interface{}) (string, error) {
 	return name, nil
 }
 
+func parseSkillExecutionMode(params map[string]interface{}) (string, error) {
+	raw, ok := params["mode"]
+	if !ok || raw == nil {
+		return "sync", nil
+	}
+	mode, err := coerceString(raw)
+	if err != nil {
+		return "", fmt.Errorf("mode must be string: %w", err)
+	}
+	mode = strings.ToLower(strings.TrimSpace(mode))
+	switch mode {
+	case "", "sync":
+		return "sync", nil
+	case "async":
+		return "async", nil
+	default:
+		return "", fmt.Errorf("unsupported skill execution mode %q", mode)
+	}
+}
+
 func formatSkillOutput(result skills.Result) string {
 	switch v := result.Output.(type) {
 	case string:
@@ -232,14 +265,16 @@ func formatSkillOutput(result skills.Result) string {
 // SkillSubagentRequest builds the delegated execution request for a loaded skill.
 func SkillSubagentRequest(result skills.Result, act skills.ActivationContext) subagents.Request {
 	return subagents.Request{
-		Target:        subagents.TypeSkillExecutor,
+		Target:        subagents.TypeGeneralPurpose,
 		Instruction:   BuildSkillSubagentInstruction(result, act),
 		Activation:    act,
 		ToolWhitelist: SkillToolWhitelist(result),
 		Metadata: map[string]any{
-			"skill":          result.Skill,
-			"skill_metadata": result.Metadata,
-			"source":         result.Metadata["source"],
+			"skill":               result.Skill,
+			"skill_execution":     true,
+			"skill_metadata":      result.Metadata,
+			"source":              result.Metadata["source"],
+			"subagent.summary_to": "parent",
 		},
 	}
 }

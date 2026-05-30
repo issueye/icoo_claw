@@ -89,7 +89,6 @@ func (a *Agent) Prompt(ctx context.Context, params acp.PromptRequest) (acp.Promp
 		Prompt:        promptText(params.Prompt),
 		Agent:         metaAgentProfile(params.Meta, "agent"),
 		ToolWhitelist: metaStringSlice(params.Meta, "tool_whitelist"),
-		ForceSkills:   metaStringSlice(params.Meta, "force_skills"),
 		Metadata:      metaMap(params.Meta, "metadata"),
 	}
 	events, err := a.runner.RunStream(runCtx, req)

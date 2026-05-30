@@ -8,7 +8,6 @@ type RunRequest struct {
 	Prompt        string               `json:"prompt"`
 	Agent         *AgentRuntimeProfile `json:"agent,omitempty"`
 	ToolWhitelist []string             `json:"tool_whitelist,omitempty"`
-	ForceSkills   []string             `json:"force_skills,omitempty"`
 	Metadata      map[string]any       `json:"metadata,omitempty"`
 }
 

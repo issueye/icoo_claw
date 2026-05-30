@@ -124,30 +124,6 @@ func TestScheduledTaskServiceCreateInterval(t *testing.T) {
 	}
 }
 
-func TestScheduledTaskServiceCreateStoresForceSkills(t *testing.T) {
-	repo := &memoryScheduledTaskRepo{}
-	svc := NewScheduledTaskService(repo, nil, nil, nil, nil, nil, nil)
-
-	task, err := svc.Create(context.Background(), dto.CreateScheduledTaskRequest{
-		Name:          "Skill task",
-		ScheduleType:  "interval",
-		ScheduleValue: "5m",
-		ActionType:    "agent_prompt",
-		AgentID:       "agent_1",
-		Payload:       map[string]any{"prompt": "hello"},
-		ForceSkills:   []string{" doc-writer ", ""},
-	})
-	if err != nil {
-		t.Fatalf("create: %v", err)
-	}
-	if len(task.ForceSkills) != 1 || task.ForceSkills[0] != "doc-writer" {
-		t.Fatalf("force skills = %+v", task.ForceSkills)
-	}
-	if raw := task.Payload["force_skills"]; raw == nil {
-		t.Fatalf("payload force_skills missing: %+v", task.Payload)
-	}
-}
-
 func TestScheduledTaskServiceRunDueCompletesOnce(t *testing.T) {
 	now := time.Now().UTC()
 	repo := &memoryScheduledTaskRepo{tasks: []model.ScheduledTask{
@@ -239,7 +215,7 @@ func TestScheduledTaskServiceAgentTaskBuildsRuntimePayload(t *testing.T) {
 		ScheduleValue: now.Add(time.Hour).Format(time.RFC3339),
 		ActionType:    "agent_prompt",
 		AgentID:       "agent_1",
-		PayloadJSON:   `{"prompt":"hello","project_root":"E:/project","force_skills":[" doc-writer ",""]}`,
+		PayloadJSON:   `{"prompt":"hello","project_root":"E:/project"}`,
 		Enabled:       true,
 		Status:        "active",
 		NextRunAt:     &now,
@@ -283,8 +259,5 @@ func TestScheduledTaskServiceAgentTaskBuildsRuntimePayload(t *testing.T) {
 	}
 	if len(claw.req.Agent.EnabledBuiltinTools) != 0 {
 		t.Fatalf("enabled_builtin_tools should be omitted when whitelist is empty: %+v", claw.req.Agent)
-	}
-	if len(claw.req.ForceSkills) != 1 || claw.req.ForceSkills[0] != "doc-writer" {
-		t.Fatalf("force skills = %+v", claw.req.ForceSkills)
 	}
 }

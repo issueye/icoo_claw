@@ -11,7 +11,6 @@ type ScheduledTask struct {
 	ScheduleValue string         `json:"schedule_value"`
 	ActionType    string         `json:"action_type"`
 	Payload       map[string]any `json:"payload,omitempty"`
-	ForceSkills   []string       `json:"force_skills,omitempty"`
 	Enabled       bool           `json:"enabled"`
 	Status        string         `json:"status"`
 	LastRunAt     *time.Time     `json:"last_run_at,omitempty"`
@@ -31,7 +30,6 @@ type CreateScheduledTaskRequest struct {
 	ScheduleValue string         `json:"schedule_value" binding:"required"`
 	ActionType    string         `json:"action_type" binding:"required"`
 	Payload       map[string]any `json:"payload"`
-	ForceSkills   []string       `json:"force_skills"`
 	Enabled       *bool          `json:"enabled"`
 }
 
@@ -43,6 +41,5 @@ type UpdateScheduledTaskRequest struct {
 	ScheduleValue *string         `json:"schedule_value"`
 	ActionType    *string         `json:"action_type"`
 	Payload       *map[string]any `json:"payload"`
-	ForceSkills   []string        `json:"force_skills"`
 	Enabled       *bool           `json:"enabled"`
 }

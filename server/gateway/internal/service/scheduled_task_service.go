@@ -10,7 +10,6 @@ import (
 	"time"
 
 	"icoo_claw/common/id"
-	"icoo_claw/common/jsonutil"
 	"icoo_claw/server/gateway/internal/client"
 	"icoo_claw/server/gateway/internal/dto"
 	"icoo_claw/server/gateway/internal/model"
@@ -79,12 +78,7 @@ func (s *ScheduledTaskService) Create(ctx context.Context, req dto.CreateSchedul
 	if task.ID == "" {
 		task.ID = "task_" + id.Random()
 	}
-	payload := req.Payload
-	if len(req.ForceSkills) > 0 {
-		payload = clonePayload(payload)
-		payload["force_skills"] = jsonutil.CleanStringSlice(req.ForceSkills)
-	}
-	payloadJSON, err := encodePayload(payload)
+	payloadJSON, err := encodePayload(req.Payload)
 	if err != nil {
 		return nil, err
 	}
@@ -150,15 +144,6 @@ func (s *ScheduledTaskService) Update(ctx context.Context, id string, req dto.Up
 	}
 	if req.Enabled != nil {
 		task.Enabled = *req.Enabled
-	}
-	if req.ForceSkills != nil {
-		payload := decodePayload(task.PayloadJSON)
-		payload["force_skills"] = jsonutil.CleanStringSlice(req.ForceSkills)
-		encoded, err := encodePayload(payload)
-		if err != nil {
-			return nil, err
-		}
-		task.PayloadJSON = encoded
 	}
 	task.UpdatedAt = time.Now().UTC()
 	if err := s.applySchedule(task, task.UpdatedAt); err != nil {
@@ -374,7 +359,6 @@ func toScheduledTaskDTO(task model.ScheduledTask) *dto.ScheduledTask {
 		ScheduleValue: task.ScheduleValue,
 		ActionType:    task.ActionType,
 		Payload:       decodePayload(task.PayloadJSON),
-		ForceSkills:   payloadForceSkills(decodePayload(task.PayloadJSON)),
 		Enabled:       task.Enabled,
 		Status:        task.Status,
 		LastRunAt:     task.LastRunAt,
@@ -471,7 +455,6 @@ func (s *ScheduledTaskService) executeAgentTask(ctx context.Context, task model.
 		SessionID:    taskSessionID(task.ID, now),
 		Prompt:       prompt,
 		RequestID:    "req_" + id.Random(),
-		ForceSkills:  payloadForceSkills(payload),
 		Metadata:     metadata,
 		InstanceName: task.Name,
 	})
@@ -529,32 +512,6 @@ func payloadMetadata(payload map[string]any) map[string]any {
 		return out
 	}
 	return nil
-}
-
-func clonePayload(payload map[string]any) map[string]any {
-	out := make(map[string]any, len(payload)+1)
-	maps.Copy(out, payload)
-	return out
-}
-
-func payloadForceSkills(payload map[string]any) []string {
-	if payload == nil {
-		return nil
-	}
-	switch raw := payload["force_skills"].(type) {
-	case []string:
-		return jsonutil.CleanStringSlice(raw)
-	case []any:
-		values := make([]string, 0, len(raw))
-		for _, item := range raw {
-			if text, ok := item.(string); ok {
-				values = append(values, text)
-			}
-		}
-		return jsonutil.CleanStringSlice(values)
-	default:
-		return nil
-	}
 }
 
 func taskSessionID(taskID string, now time.Time) string {

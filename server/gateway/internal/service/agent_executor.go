@@ -36,7 +36,6 @@ type AgentExecutionRequest struct {
 	SessionID    string
 	Prompt       string
 	RequestID    string
-	ForceSkills  []string
 	Metadata     map[string]any
 	InstanceName string
 }
@@ -98,7 +97,6 @@ func (e *GatewayAgentExecutor) Prepare(ctx context.Context, req AgentExecutionRe
 			Prompt:        req.Prompt,
 			Agent:         payload,
 			ToolWhitelist: jsonutil.UnmarshalStringSlice(agent.ToolWhitelistJSON),
-			ForceSkills:   jsonutil.CleanStringSlice(req.ForceSkills),
 			Metadata:      req.Metadata,
 		},
 	}, nil

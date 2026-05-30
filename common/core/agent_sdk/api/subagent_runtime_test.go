@@ -10,11 +10,10 @@ import (
 	toolbuiltin "icoo_claw/common/core/agent_sdk/tool/builtin"
 )
 
-func TestSubagentToolAllowExcludesSkillForSkillExecutor(t *testing.T) {
+func TestSubagentToolAllowExcludesSkillExecuteForSkillExecution(t *testing.T) {
 	registry := tool.NewRegistry()
 	for _, impl := range []tool.Tool{
 		toolbuiltin.NewBashToolWithRoot(t.TempDir()),
-		toolbuiltin.NewSkillTool(nil, nil),
 		toolbuiltin.NewSkillExecuteTool(nil, nil),
 	} {
 		if err := registry.Register(impl); err != nil {
@@ -23,15 +22,12 @@ func TestSubagentToolAllowExcludesSkillForSkillExecutor(t *testing.T) {
 	}
 
 	rt := &Runtime{registry: registry}
-	allow := subagentToolAllow(rt, nil, subagents.TypeSkillExecutor)
-	if _, ok := allow["skill"]; ok {
-		t.Fatalf("skill-executor should not expose skill tool")
-	}
+	allow := subagentToolAllow(rt, nil, subagents.Request{Metadata: map[string]any{"skill_execution": true}})
 	if _, ok := allow["skill_execute"]; ok {
-		t.Fatalf("skill-executor should not expose skill_execute tool")
+		t.Fatalf("skill execution subagent should not expose skill_execute tool")
 	}
 	if _, ok := allow["bash"]; !ok {
-		t.Fatalf("skill-executor should keep non-skill tools")
+		t.Fatalf("skill execution subagent should keep non-skill tools")
 	}
 }
 
@@ -56,7 +52,7 @@ func TestRuntimeSubagentRunsModelLoop(t *testing.T) {
 	}
 
 	res, err := rt.runSubagent(context.Background(), subagents.Context{}, subagents.Request{
-		Target:      subagents.TypeSkillExecutor,
+		Target:      subagents.TypeGeneralPurpose,
 		Instruction: "今天成都的天气",
 	})
 	if err != nil {

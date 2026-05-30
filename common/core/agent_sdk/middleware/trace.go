@@ -49,16 +49,16 @@ const (
 	// SessionIDContextKey stores the generic session identifier fallback.
 	SessionIDContextKey TraceContextKey = "session_id"
 
-	traceSkillBeforeKey = "trace.skills.before"
-	traceSkillNamesKey  = "trace.skills.names"
-	skillsRegistryValue = "skills.registry"
-	forceSkillsValue    = "request.force_skills"
+	traceSkillBeforeKey  = "trace.skills.before"
+	traceSkillNamesKey   = "trace.skills.names"
+	skillsRegistryValue  = "skills.registry"
+	skillTraceNamesValue = "request.skills"
 )
 
 // TraceOption customizes optional TraceMiddleware behavior.
 type TraceOption func(*TraceMiddleware)
 
-// WithSkillTracing enables ForceSkills body-size logging.
+// WithSkillTracing enables skill body-size logging when request skill names are present in middleware state.
 func WithSkillTracing(enabled bool) TraceOption {
 	return func(tm *TraceMiddleware) {
 		tm.traceSkills = enabled
@@ -486,7 +486,7 @@ func (m *TraceMiddleware) traceSkillsSnapshot(ctx context.Context, st *State, be
 		return
 	}
 	ensureStateValues(st)
-	names := forceSkillsFromState(st.Values)
+	names := skillTraceNamesFromState(st.Values)
 	if len(names) == 0 {
 		return
 	}
@@ -512,11 +512,11 @@ func (m *TraceMiddleware) traceSkillsSnapshot(ctx context.Context, st *State, be
 	}
 }
 
-func forceSkillsFromState(values map[string]any) []string {
+func skillTraceNamesFromState(values map[string]any) []string {
 	if len(values) == 0 {
 		return nil
 	}
-	if names := stringList(values[forceSkillsValue]); len(names) > 0 {
+	if names := stringList(values[skillTraceNamesValue]); len(names) > 0 {
 		return names
 	}
 	return stringList(values[traceSkillNamesKey])

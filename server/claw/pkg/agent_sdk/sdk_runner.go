@@ -33,7 +33,6 @@ func (r *SDKRunner) Run(ctx context.Context, req RunRequest) (*RunResponse, erro
 		RequestID:     req.RequestID,
 		Prompt:        req.Prompt,
 		ToolWhitelist: req.ToolWhitelist,
-		ForceSkills:   req.ForceSkills,
 		Metadata:      req.Metadata,
 	})
 	if err != nil {
@@ -69,7 +68,6 @@ func (r *SDKRunner) RunStream(ctx context.Context, req RunRequest) (<-chan Strea
 		RequestID:     req.RequestID,
 		Prompt:        req.Prompt,
 		ToolWhitelist: req.ToolWhitelist,
-		ForceSkills:   req.ForceSkills,
 		Metadata:      req.Metadata,
 	})
 	if err != nil {

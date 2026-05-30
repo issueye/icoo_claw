@@ -7,7 +7,6 @@ type ChatWSRequest struct {
 	ConversationID string         `json:"conversation_id,omitempty"`
 	Prompt         string         `json:"prompt,omitempty"`
 	RequestID      string         `json:"request_id,omitempty"`
-	ForceSkills    []string       `json:"force_skills,omitempty"`
 	Metadata       map[string]any `json:"metadata,omitempty"`
 }
 

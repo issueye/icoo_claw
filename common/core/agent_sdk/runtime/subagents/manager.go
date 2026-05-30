@@ -18,7 +18,6 @@ const (
 	TypeGeneralPurpose = "general-purpose"
 	TypeExplore        = "explore"
 	TypePlan           = "plan"
-	TypeSkillExecutor  = "skill-executor"
 
 	ModelSonnet                    = "sonnet"
 	ModelHaiku                     = "haiku"
@@ -63,14 +62,6 @@ var builtinSubagentTypes = map[string]Definition{
 	TypePlan: {
 		Name:         TypePlan,
 		Description:  "Planning agent focused on outlining multi-step strategies with full tool access.",
-		DefaultModel: ModelSonnet,
-		BaseContext: Context{
-			Model: ModelSonnet,
-		},
-	},
-	TypeSkillExecutor: {
-		Name:         TypeSkillExecutor,
-		Description:  "Runtime agent for executing a single loaded skill and returning a concise result.",
 		DefaultModel: ModelSonnet,
 		BaseContext: Context{
 			Model: ModelSonnet,
@@ -332,7 +323,11 @@ func (m *Manager) SetMaxConcurrentBackground(n int) {
 }
 
 func (m *Manager) DispatchAsync(ctx context.Context, name, instruction string) (string, error) {
-	return m.dispatchAsync(ctx, Request{Target: name, Instruction: instruction})
+	return m.DispatchAsyncRequest(ctx, Request{Target: name, Instruction: instruction})
+}
+
+func (m *Manager) DispatchAsyncRequest(ctx context.Context, req Request) (string, error) {
+	return m.dispatchAsync(ctx, req)
 }
 
 func (m *Manager) TaskStatus(taskID string) (Status, error) {

@@ -45,7 +45,7 @@ func (rt *Runtime) runSubagent(ctx context.Context, subCtx subagents.Context, re
 	history := message.NewHistory()
 	history.Append(message.Message{Role: "user", Content: strings.TrimSpace(req.Instruction)})
 
-	allow := subagentToolAllow(rt, subCtx.ToolWhitelist, req.Target)
+	allow := subagentToolAllow(rt, subCtx.ToolWhitelist, req)
 	toolExec := &runtimeToolExecutor{
 		executor:  rt.executor,
 		hooks:     &runtimeHookAdapter{executor: rt.hooks, recorder: defaultHookRecorder(), disableSafetyHook: rt.opts.DisableSafetyHook},
@@ -167,9 +167,7 @@ func subagentModelAliasTier(value string) (ModelTier, bool) {
 
 func subagentSystemPrompt(base, target string) string {
 	extra := "You are running as a subagent. Complete the delegated task independently. Return only a concise final result for the parent agent."
-	if strings.TrimSpace(target) == subagents.TypeSkillExecutor {
-		extra = "You are running as the skill execution subagent. Execute the provided skill instructions for the user's request. Use tools when needed. Return only the final user-facing result or a concise summary."
-	}
+	_ = target
 	base = strings.TrimSpace(base)
 	if base == "" {
 		return extra
@@ -187,9 +185,9 @@ func normalizedSubagentModel(value string) string {
 	}
 }
 
-func subagentToolAllow(rt *Runtime, whitelist []string, target string) map[string]struct{} {
+func subagentToolAllow(rt *Runtime, whitelist []string, req subagents.Request) map[string]struct{} {
 	allow := toLowerSet(whitelist)
-	if strings.TrimSpace(target) != subagents.TypeSkillExecutor {
+	if !isSkillExecutionRequest(req) {
 		return allow
 	}
 	if len(allow) == 0 {
@@ -243,6 +241,20 @@ func isSkillExecutionTool(name string) bool {
 	switch canonicalToolName(name) {
 	case "skill", "skill_execute":
 		return true
+	default:
+		return false
+	}
+}
+
+func isSkillExecutionRequest(req subagents.Request) bool {
+	if len(req.Metadata) == 0 {
+		return false
+	}
+	switch v := req.Metadata["skill_execution"].(type) {
+	case bool:
+		return v
+	case string:
+		return strings.EqualFold(strings.TrimSpace(v), "true")
 	default:
 		return false
 	}

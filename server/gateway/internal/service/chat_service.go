@@ -123,7 +123,6 @@ func (s *ChatService) SendMessage(ctx context.Context, conversationID string, re
 		Conversation: conversation,
 		Prompt:       req.Prompt,
 		RequestID:    req.RequestID,
-		ForceSkills:  req.ForceSkills,
 		Metadata:     req.Metadata,
 	})
 	if err != nil {
@@ -168,7 +167,6 @@ func (s *ChatService) StreamMessage(ctx context.Context, conversationID string, 
 		Conversation: conversation,
 		Prompt:       req.Prompt,
 		RequestID:    req.RequestID,
-		ForceSkills:  req.ForceSkills,
 		Metadata:     req.Metadata,
 	})
 	if err != nil {

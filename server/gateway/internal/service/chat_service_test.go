@@ -193,31 +193,6 @@ func TestChatServiceCreateAndSendMessage(t *testing.T) {
 	}
 }
 
-func TestChatServicePassesForceSkills(t *testing.T) {
-	conversations := &chatConversationRepo{conversation: &model.Conversation{
-		ID:        "conv_1",
-		SessionID: "sess_1",
-		AgentID:   "agent_1",
-		Status:    "active",
-	}}
-	instances := &chatInstanceRepo{instance: model.AgentInstance{
-		ID:      "inst_1",
-		AgentID: "agent_1",
-		Status:  "ready",
-		BaseURL: "http://127.0.0.1:8101",
-	}}
-	claw := &chatClaw{}
-	router := NewDefaultRouterPolicy(conversations, instances, nil)
-	svc := NewChatService(conversations, chatAgentRepo{}, nil, router, &chatSessionBackend{}, claw)
-
-	if _, err := svc.SendMessage(context.Background(), "conv_1", dto.SendMessageRequest{Prompt: "hello", ForceSkills: []string{" doc-writer ", ""}}); err != nil {
-		t.Fatalf("send message: %v", err)
-	}
-	if len(claw.req.ForceSkills) != 1 || claw.req.ForceSkills[0] != "doc-writer" {
-		t.Fatalf("force skills = %+v", claw.req.ForceSkills)
-	}
-}
-
 func TestCollectClawStreamErrorsWhenClosedBeforeCompletion(t *testing.T) {
 	events := make(chan client.StreamEvent, 1)
 	events <- client.StreamEvent{

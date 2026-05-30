@@ -208,7 +208,6 @@ func (c *ACPConnection) Stream(ctx context.Context, req RunRequest) (<-chan Stre
 				"request_id":     req.RequestID,
 				"agent":          req.Agent,
 				"tool_whitelist": req.ToolWhitelist,
-				"force_skills":   req.ForceSkills,
 				"metadata":       req.Metadata,
 			},
 		}

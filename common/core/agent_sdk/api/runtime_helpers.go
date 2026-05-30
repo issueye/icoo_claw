@@ -315,21 +315,12 @@ func pluginSubagentDirs(registrations []plugins.Registration) []string {
 
 func ensureDefaultRuntimeSubagents(regs []subagents.SubagentRegistration) []subagents.SubagentRegistration {
 	existing := map[string]struct{}{}
-	for i, reg := range regs {
+	for _, reg := range regs {
 		if name := canonicalToolName(reg.Definition.Name); name != "" {
 			existing[name] = struct{}{}
-			if name == subagents.TypeSkillExecutor {
-				if def, ok := subagents.BuiltinDefinition(subagents.TypeSkillExecutor); ok {
-					def.Matchers = runtimeOnlySubagentMatchers()
-					regs[i] = subagents.SubagentRegistration{
-						Definition: def,
-						Handler:    newRuntimeSubagentHandler(),
-					}
-				}
-			}
 		}
 	}
-	for _, name := range []string{subagents.TypeGeneralPurpose, subagents.TypeSkillExecutor} {
+	for _, name := range []string{subagents.TypeGeneralPurpose} {
 		if _, ok := existing[name]; ok {
 			continue
 		}
