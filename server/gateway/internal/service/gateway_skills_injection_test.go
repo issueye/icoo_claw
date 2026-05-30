@@ -31,10 +31,7 @@ func TestChatServiceDoesNotInjectGatewaySkillsSummary(t *testing.T) {
 	if _, err := svc.SendMessage(context.Background(), "conv_1", dto.SendMessageRequest{Prompt: "hello"}); err != nil {
 		t.Fatalf("send message: %v", err)
 	}
-	if _, ok := claw.req.Agent["gateway_skills"]; ok {
-		t.Fatalf("gateway_skills should not be injected per request: %+v", claw.req.Agent)
-	}
-	if _, ok := claw.req.Agent["project_root"]; ok {
+	if claw.req.Agent.ProjectRoot != "" {
 		t.Fatalf("project_root should be omitted unless supplied by request metadata: %+v", claw.req.Agent)
 	}
 }

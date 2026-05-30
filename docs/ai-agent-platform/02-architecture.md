@@ -24,6 +24,15 @@ flowchart LR
 ## 目录结构
 
 ```text
+common/
+  agentproto/      # Gateway <-> Claw run/stream 协议、HTTP client、runtime profile
+  sessionproto/    # Gateway Session API 协议与共享 client
+  httperr/         # 跨服务 HTTP 错误结构
+  id/
+  jsonutil/
+  stringutil/
+  core/agent_sdk/  # Agent runtime 共享实现
+
 server/
   gateway/
     cmd/gateway/main.go
@@ -62,23 +71,25 @@ server/
 - `di`: 手动组装 config、DB、repository、service、controller、router。
 - `model`: GORM 或业务实体，不直接暴露到 HTTP。
 - `dto`: 对外 API request/response。
+- `common/*proto`: 跨进程、跨模块的稳定协议与 client。新代码优先引用 `common/agentproto`、`common/sessionproto`，旧的 `server/*/pkg` 或 `internal/client` 中同名类型多为兼容壳。
 
 ## Claw 内部架构
 
 ```mermaid
 flowchart TB
   Router["Gin Router"] --> Controller["Agent Controller"]
-  Controller --> AgentService["Agent Service"]
-  AgentService --> Runner["pkg/agent_sdk Runner"]
-  Runner --> RuntimeFactory["Runtime Factory"]
-  Runner --> HistoryAdapter["History Adapter"]
-  HistoryAdapter --> SessionClient["Session API Client"]
+ Controller --> AgentService["Agent Service"]
+ AgentService --> Runner["pkg/agent_sdk Runner"]
+ Runner --> RuntimeFactory["Runtime Factory"]
+ Runner --> HistoryAdapter["History Adapter"]
+  HistoryAdapter --> SessionClient["common/sessionproto Client"]
   RuntimeFactory --> SDK["agentsdk-go Runtime"]
 ```
 
 关键设计：
 
 - `pkg/agent_sdk` 是平台封装层。
+- `pkg/sessionstore` 仅保留历史兼容入口；共享 Session API 类型和 client 位于 `common/sessionproto`。
 - `HistoryAdapter` 将会话 API 的消息格式转换为 SDK message。
 - 同步执行后保存完整 history snapshot。
 - 流式执行结束后保存完整 history snapshot。
@@ -91,10 +102,10 @@ flowchart TB
   API["External REST/WebSocket API"] --> Controllers["Controllers"]
   Controllers --> Services["Services"]
   Services --> Repos["GORM Repositories"]
-  Services --> InstanceSvc["Agent Instance Service"]
-  InstanceSvc --> Supervisor["Local Process Supervisor"]
-  Services --> RouterPolicy["Router Policy"]
-  RouterPolicy --> ClawClient["Claw Client"]
+ Services --> InstanceSvc["Agent Instance Service"]
+ InstanceSvc --> Supervisor["Local Process Supervisor"]
+ Services --> RouterPolicy["Router Policy"]
+  RouterPolicy --> AgentHTTPClient["common/agentproto HTTP Client"]
   Repos --> SQLite["gateway.sqlite"]
 ```
 

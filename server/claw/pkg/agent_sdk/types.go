@@ -1,16 +1,8 @@
 package agent_sdk
 
-import (
-	"context"
+import "icoo_claw/common/agentproto"
 
-	"icoo_claw/common/agentproto"
-)
-
-type Runner interface {
-	Run(ctx context.Context, req RunRequest) (*RunResponse, error)
-	RunStream(ctx context.Context, req RunRequest) (<-chan StreamEvent, error)
-}
-
+type Runner = agentproto.Runner
 type RunRequest = agentproto.RunRequest
 type RunResponse = agentproto.RunResponse
 type StreamEvent = agentproto.StreamEvent

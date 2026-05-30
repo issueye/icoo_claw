@@ -9,6 +9,8 @@ import (
 	"strings"
 	"time"
 
+	"icoo_claw/common/id"
+	"icoo_claw/common/jsonutil"
 	"icoo_claw/server/gateway/internal/client"
 	"icoo_claw/server/gateway/internal/dto"
 	"icoo_claw/server/gateway/internal/model"
@@ -75,12 +77,12 @@ func (s *ScheduledTaskService) Create(ctx context.Context, req dto.CreateSchedul
 		UpdatedAt:     now,
 	}
 	if task.ID == "" {
-		task.ID = "task_" + randomID()
+		task.ID = "task_" + id.Random()
 	}
 	payload := req.Payload
 	if len(req.ForceSkills) > 0 {
 		payload = clonePayload(payload)
-		payload["force_skills"] = cleanStringSlice(req.ForceSkills)
+		payload["force_skills"] = jsonutil.CleanStringSlice(req.ForceSkills)
 	}
 	payloadJSON, err := encodePayload(payload)
 	if err != nil {
@@ -151,7 +153,7 @@ func (s *ScheduledTaskService) Update(ctx context.Context, id string, req dto.Up
 	}
 	if req.ForceSkills != nil {
 		payload := decodePayload(task.PayloadJSON)
-		payload["force_skills"] = cleanStringSlice(req.ForceSkills)
+		payload["force_skills"] = jsonutil.CleanStringSlice(req.ForceSkills)
 		encoded, err := encodePayload(payload)
 		if err != nil {
 			return nil, err
@@ -400,7 +402,7 @@ func (s *ScheduledTaskService) recordRun(ctx context.Context, task model.Schedul
 		summary = strings.TrimSpace(task.Name)
 	}
 	run := model.ScheduledTaskRun{
-		ID:         "run_" + randomID(),
+		ID:         "run_" + id.Random(),
 		TaskID:     task.ID,
 		AgentID:    task.AgentID,
 		Status:     status,
@@ -468,7 +470,7 @@ func (s *ScheduledTaskService) executeAgentTask(ctx context.Context, task model.
 		AgentID:      agentID,
 		SessionID:    taskSessionID(task.ID, now),
 		Prompt:       prompt,
-		RequestID:    "req_" + randomID(),
+		RequestID:    "req_" + id.Random(),
 		ForceSkills:  payloadForceSkills(payload),
 		Metadata:     metadata,
 		InstanceName: task.Name,
@@ -541,7 +543,7 @@ func payloadForceSkills(payload map[string]any) []string {
 	}
 	switch raw := payload["force_skills"].(type) {
 	case []string:
-		return cleanStringSlice(raw)
+		return jsonutil.CleanStringSlice(raw)
 	case []any:
 		values := make([]string, 0, len(raw))
 		for _, item := range raw {
@@ -549,7 +551,7 @@ func payloadForceSkills(payload map[string]any) []string {
 				values = append(values, text)
 			}
 		}
-		return cleanStringSlice(values)
+		return jsonutil.CleanStringSlice(values)
 	default:
 		return nil
 	}

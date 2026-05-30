@@ -3,17 +3,12 @@ package agent_sdk
 import (
 	"strings"
 	"testing"
+
+	"icoo_claw/common/agentproto"
 )
 
 func TestParseAgentProfileIgnoresGatewaySkillsRequestPayload(t *testing.T) {
-	profile := parseAgentProfile(map[string]any{
-		"gateway_skills": map[string]any{
-			"path": "E:/skills/active",
-			"skills": []any{
-				map[string]any{"name": "doc-writer", "description": "Write docs"},
-			},
-		},
-	})
+	profile := parseAgentProfile(&agentproto.AgentRuntimeProfile{})
 	if profile.ProjectRoot != "" {
 		t.Fatalf("project root = %q, want empty request profile root", profile.ProjectRoot)
 	}
@@ -23,7 +18,7 @@ func TestRuntimeFactoryDefaultProjectRootKeepsRequestProjectRoot(t *testing.T) {
 	factory := NewRuntimeFactory(nil, nil)
 	factory.SetDefaultProjectRoot("E:/skills/agent")
 
-	profile := parseAgentProfile(map[string]any{"project_root": "E:/user/project"})
+	profile := parseAgentProfile(&agentproto.AgentRuntimeProfile{ProjectRoot: "E:/user/project"})
 	if profile.ProjectRoot != "E:/user/project" {
 		t.Fatalf("parsed project root = %q", profile.ProjectRoot)
 	}

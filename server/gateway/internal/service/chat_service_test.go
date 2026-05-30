@@ -185,8 +185,8 @@ func TestChatServiceCreateAndSendMessage(t *testing.T) {
 	if claw.req.SessionID != conv.SessionID || claw.req.ToolWhitelist[0] != "read" {
 		t.Fatalf("claw request = %+v", claw.req)
 	}
-	if got := claw.req.Agent["network_allow"].([]string); len(got) != 1 || got[0] != "example.com" {
-		t.Fatalf("network_allow = %+v", claw.req.Agent["network_allow"])
+	if claw.req.Agent == nil || len(claw.req.Agent.NetworkAllow) != 1 || claw.req.Agent.NetworkAllow[0] != "example.com" {
+		t.Fatalf("network_allow = %+v", claw.req.Agent)
 	}
 	if instances.instance.Inflight != 0 {
 		t.Fatalf("inflight = %d, want 0", instances.instance.Inflight)
@@ -340,10 +340,10 @@ func TestChatServiceDefaultsToBuiltinToolsWhenWhitelistEmpty(t *testing.T) {
 	if err != nil {
 		t.Fatalf("send message: %v", err)
 	}
-	if _, ok := claw.req.Agent["enabled_builtin_tools"]; ok {
+	if len(claw.req.Agent.EnabledBuiltinTools) != 0 {
 		t.Fatalf("enabled_builtin_tools should be omitted when whitelist is empty: %+v", claw.req.Agent)
 	}
-	if got := claw.req.Agent["project_root"]; got != "E:/codes/icoo_claw" {
+	if got := claw.req.Agent.ProjectRoot; got != "E:/codes/icoo_claw" {
 		t.Fatalf("project_root = %q, want desktop project root", got)
 	}
 	if len(claw.req.ToolWhitelist) != 0 {
@@ -361,7 +361,7 @@ func TestChatServiceAppliesMinimumMaxIterations(t *testing.T) {
 		MCPServerIDsJSON:  `[]`,
 	}, nil, nil)
 
-	if got := payload["max_iterations"]; got != 4 {
+	if got := payload.MaxIterations; got != 4 {
 		t.Fatalf("max_iterations = %v, want minimum 4", got)
 	}
 }

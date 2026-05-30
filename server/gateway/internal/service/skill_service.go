@@ -12,6 +12,9 @@ import (
 	"strings"
 	"time"
 
+	"icoo_claw/common/id"
+	"icoo_claw/common/jsonutil"
+	"icoo_claw/common/stringutil"
 	"icoo_claw/server/gateway/internal/dto"
 	"icoo_claw/server/gateway/internal/model"
 	"icoo_claw/server/gateway/internal/repository"
@@ -54,7 +57,7 @@ func (s *SkillService) Create(ctx context.Context, req dto.CreateSkillRequest) (
 		Description:      strings.TrimSpace(req.Description),
 		Path:             strings.TrimSpace(req.Path),
 		Content:          strings.TrimSpace(req.Content),
-		Version:          defaultString(req.Version, "v1"),
+		Version:          stringutil.Default(req.Version, "v1"),
 		Status:           "active",
 		Source:           strings.TrimSpace(req.Source),
 		AllowedToolsJSON: mustStringSliceJSON(req.AllowedTools),
@@ -63,7 +66,7 @@ func (s *SkillService) Create(ctx context.Context, req dto.CreateSkillRequest) (
 		UpdatedAt:        now,
 	}
 	if skill.ID == "" {
-		skill.ID = "skill_" + randomID()
+		skill.ID = "skill_" + id.Random()
 	}
 	if !isValidSkillName(skill.Name) {
 		return nil, invalidSkillNameError(skill.Name)
@@ -115,7 +118,7 @@ func (s *SkillService) Update(ctx context.Context, id string, req dto.UpdateSkil
 		skill.Content = strings.TrimSpace(*req.Content)
 	}
 	if req.Version != nil {
-		skill.Version = defaultString(*req.Version, skill.Version)
+		skill.Version = stringutil.Default(*req.Version, skill.Version)
 	}
 	if req.Status != nil {
 		skill.Status = normalizeSkillStatus(*req.Status)
@@ -192,7 +195,7 @@ func (s *SkillService) PublishForInstance(instanceID, skillNamesJSON string) (st
 	if strings.TrimSpace(s.baseDir) == "" {
 		return "", nil
 	}
-	names := cleanStringSlice(parseStringSlice(skillNamesJSON))
+	names := jsonutil.CleanStringSlice(jsonutil.UnmarshalStringSlice(skillNamesJSON))
 	for _, name := range names {
 		if !isValidSkillName(name) {
 			return "", invalidSkillNameError(name)

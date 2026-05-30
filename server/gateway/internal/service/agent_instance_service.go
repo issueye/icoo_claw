@@ -7,6 +7,10 @@ import (
 	"log"
 	"time"
 
+	"icoo_claw/common/agentproto"
+	"icoo_claw/common/id"
+	"icoo_claw/common/jsonutil"
+	"icoo_claw/common/stringutil"
 	"icoo_claw/server/gateway/internal/client"
 	"icoo_claw/server/gateway/internal/config"
 	"icoo_claw/server/gateway/internal/dto"
@@ -57,7 +61,7 @@ func (s *AgentInstanceService) Start(ctx context.Context, req dto.StartAgentInst
 	if err != nil {
 		return nil, err
 	}
-	instanceID := "inst_" + randomID()
+	instanceID := "inst_" + id.Random()
 	spec := processSpecFromConfig(s.cfg, instanceID, req.AgentID, port)
 	spec.Transport = normalizeTransport(agent.Transport)
 	if req.Transport != "" {
@@ -66,9 +70,9 @@ func (s *AgentInstanceService) Start(ctx context.Context, req dto.StartAgentInst
 	if spec.Transport == "acp" {
 		spec.BaseURL = client.ACPBaseURL(instanceID)
 	}
-	spec.CommandArgs = parseStringSlice(agent.CommandArgsJSON)
+	spec.CommandArgs = jsonutil.UnmarshalStringSlice(agent.CommandArgsJSON)
 	if req.CommandArgs != nil {
-		spec.CommandArgs = cleanStringSlice(req.CommandArgs)
+		spec.CommandArgs = jsonutil.CleanStringSlice(req.CommandArgs)
 	}
 	spec.Agent = launch
 	if s.skills != nil {
@@ -96,7 +100,7 @@ func (s *AgentInstanceService) Start(ctx context.Context, req dto.StartAgentInst
 		Port:            spec.Port,
 		BaseURL:         spec.BaseURL,
 		Transport:       spec.Transport,
-		CommandArgsJSON: mustJSON(spec.CommandArgs),
+		CommandArgsJSON: jsonutil.MarshalStringSlice(spec.CommandArgs),
 		ProviderID:      launch.ProviderID,
 		ModelProvider:   launch.ModelProvider,
 		ModelName:       launch.ModelName,
@@ -227,7 +231,7 @@ func (s *AgentInstanceService) Restart(ctx context.Context, id string) (*dto.Age
 	if spec.Transport == "acp" {
 		spec.BaseURL = client.ACPBaseURL(id)
 	}
-	spec.CommandArgs = parseStringSlice(instance.CommandArgsJSON)
+	spec.CommandArgs = jsonutil.UnmarshalStringSlice(instance.CommandArgsJSON)
 	spec.Agent = launch
 	if s.skills != nil {
 		skillsRoot, err := s.skills.PublishForInstance(id, agent.SkillNamesJSON)
@@ -273,15 +277,15 @@ func (s *AgentInstanceService) Restart(ctx context.Context, id string) (*dto.Age
 	return dtoInst, nil
 }
 
-func (s *AgentInstanceService) resolveLaunchConfig(ctx context.Context, agent *model.AgentProfile) (AgentLaunchConfig, error) {
+func (s *AgentInstanceService) resolveLaunchConfig(ctx context.Context, agent *model.AgentProfile) (agentproto.AgentLaunchConfig, error) {
 	if agent == nil {
-		return AgentLaunchConfig{}, nil
+		return agentproto.AgentLaunchConfig{}, nil
 	}
 
 	builder := NewAgentRuntimeProfileBuilder(s.providers)
 	provider, err := builder.ResolveProvider(ctx, agent)
 	if err != nil {
-		return AgentLaunchConfig{}, err
+		return agentproto.AgentLaunchConfig{}, err
 	}
 	return builder.BuildLaunchConfig(*agent, provider), nil
 }
@@ -438,8 +442,8 @@ func toAgentInstanceDTO(instance model.AgentInstance) *dto.AgentInstance {
 		Host:            instance.Host,
 		Port:            instance.Port,
 		BaseURL:         instance.BaseURL,
-		Transport:       defaultString(instance.Transport, "http"),
-		CommandArgs:     parseStringSlice(instance.CommandArgsJSON),
+		Transport:       stringutil.Default(instance.Transport, "http"),
+		CommandArgs:     jsonutil.UnmarshalStringSlice(instance.CommandArgsJSON),
 		ProviderID:      instance.ProviderID,
 		ModelProvider:   instance.ModelProvider,
 		ModelName:       instance.ModelName,

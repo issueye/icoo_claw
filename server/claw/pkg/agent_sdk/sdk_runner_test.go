@@ -10,9 +10,9 @@ import (
 	"testing"
 	"time"
 
-	"icoo_claw/server/claw/pkg/sessionstore"
-
+	"icoo_claw/common/agentproto"
 	sdkmodel "icoo_claw/common/core/agent_sdk/model"
+	"icoo_claw/server/claw/pkg/sessionstore"
 )
 
 type memoryHistoryStore struct {
@@ -297,9 +297,7 @@ func TestSDKRunnerRunLoadsAndSavesHistory(t *testing.T) {
 	resp, err := runner.Run(context.Background(), RunRequest{
 		SessionID: "sess_1",
 		Prompt:    "next",
-		Agent: map[string]any{
-			"enabled_builtin_tools": []any{},
-		},
+		Agent:     &agentproto.AgentRuntimeProfile{},
 	})
 	if err != nil {
 		t.Fatalf("run: %v", err)
@@ -322,9 +320,7 @@ func TestSDKRunnerStreamEmitsTextWithoutNilPlaceholders(t *testing.T) {
 	events, err := runner.RunStream(context.Background(), RunRequest{
 		SessionID: "sess_stream",
 		Prompt:    "hello",
-		Agent: map[string]any{
-			"enabled_builtin_tools": []any{},
-		},
+		Agent:     &agentproto.AgentRuntimeProfile{},
 	})
 	if err != nil {
 		t.Fatalf("run stream: %v", err)
@@ -350,9 +346,7 @@ func TestSDKRunnerStreamsModelDeltasWithoutFinalDuplicate(t *testing.T) {
 	events, err := runner.RunStream(context.Background(), RunRequest{
 		SessionID: "sess_delta",
 		Prompt:    "hello",
-		Agent: map[string]any{
-			"enabled_builtin_tools": []any{},
-		},
+		Agent:     &agentproto.AgentRuntimeProfile{},
 	})
 	if err != nil {
 		t.Fatalf("run stream: %v", err)
@@ -382,10 +376,10 @@ func TestSDKRunnerStreamCompletesOnlyAfterToolLoopFinishes(t *testing.T) {
 		SessionID:     "sess_tool_stream",
 		Prompt:        "read the fixture",
 		ToolWhitelist: []string{"read"},
-		Agent: map[string]any{
-			"project_root":          root,
-			"enabled_builtin_tools": []any{"read"},
-			"max_iterations":        float64(3),
+		Agent: &agentproto.AgentRuntimeProfile{
+			ProjectRoot:         root,
+			EnabledBuiltinTools: []string{"read"},
+			MaxIterations:       3,
 		},
 	})
 	if err != nil {
@@ -461,10 +455,10 @@ func TestSDKRunnerExecutesBuiltinReadToolAndSavesResult(t *testing.T) {
 		SessionID:     "sess_tool",
 		Prompt:        "read the fixture",
 		ToolWhitelist: []string{"read"},
-		Agent: map[string]any{
-			"project_root":          root,
-			"enabled_builtin_tools": []any{"read"},
-			"max_iterations":        float64(3),
+		Agent: &agentproto.AgentRuntimeProfile{
+			ProjectRoot:         root,
+			EnabledBuiltinTools: []string{"read"},
+			MaxIterations:       3,
 		},
 	})
 	if err != nil {
@@ -505,14 +499,14 @@ func TestSDKRunnerExecutesBuiltinWriteAndFindTools(t *testing.T) {
 		SessionID:     "sess_write_find",
 		Prompt:        "write and find a file",
 		ToolWhitelist: []string{"write", "find", "bash"},
-		Agent: map[string]any{
-			"project_root": root,
-			"enabled_builtin_tools": []any{
+		Agent: &agentproto.AgentRuntimeProfile{
+			ProjectRoot: root,
+			EnabledBuiltinTools: []string{
 				"write",
 				"find",
 				"bash",
 			},
-			"max_iterations": float64(4),
+			MaxIterations: 4,
 		},
 	})
 	if err != nil {
@@ -553,11 +547,11 @@ func TestSDKRunnerExecutesFetchTool(t *testing.T) {
 		SessionID:     "sess_fetch",
 		Prompt:        "fetch the url",
 		ToolWhitelist: []string{"fetch"},
-		Agent: map[string]any{
-			"project_root":          root,
-			"enabled_builtin_tools": []any{"fetch"},
-			"network_allow":         []any{"127.0.0.1"},
-			"max_iterations":        float64(3),
+		Agent: &agentproto.AgentRuntimeProfile{
+			ProjectRoot:         root,
+			EnabledBuiltinTools: []string{"fetch"},
+			NetworkAllow:        []string{"127.0.0.1"},
+			MaxIterations:       3,
 		},
 	})
 	if err != nil {
@@ -589,11 +583,11 @@ func TestSDKRunnerStreamContinuesAfterFetchToolTimeout(t *testing.T) {
 		SessionID:     "sess_fetch_timeout",
 		Prompt:        "fetch the slow url",
 		ToolWhitelist: []string{"fetch"},
-		Agent: map[string]any{
-			"project_root":          root,
-			"enabled_builtin_tools": []any{"fetch"},
-			"network_allow":         []any{"127.0.0.1"},
-			"max_iterations":        float64(3),
+		Agent: &agentproto.AgentRuntimeProfile{
+			ProjectRoot:         root,
+			EnabledBuiltinTools: []string{"fetch"},
+			NetworkAllow:        []string{"127.0.0.1"},
+			MaxIterations:       3,
 		},
 	})
 	if err != nil {
@@ -646,9 +640,9 @@ func TestRuntimeFactoryExposesCoreBuiltinTools(t *testing.T) {
 	factory := NewRuntimeFactory(history, staticModel{})
 	rt, err := factory.New(context.Background(), RunRequest{
 		SessionID: "sess_tools",
-		Agent: map[string]any{
-			"project_root": root,
-			"enabled_builtin_tools": []any{
+		Agent: &agentproto.AgentRuntimeProfile{
+			ProjectRoot: root,
+			EnabledBuiltinTools: []string{
 				"read",
 				"write",
 				"bash",

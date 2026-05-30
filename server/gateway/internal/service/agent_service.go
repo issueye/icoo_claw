@@ -2,12 +2,11 @@ package service
 
 import (
 	"context"
-	"crypto/rand"
-	"encoding/hex"
-	"encoding/json"
 	"strings"
-	"time"
 
+	"icoo_claw/common/id"
+	"icoo_claw/common/jsonutil"
+	"icoo_claw/common/stringutil"
 	"icoo_claw/server/gateway/internal/dto"
 	"icoo_claw/server/gateway/internal/model"
 	"icoo_claw/server/gateway/internal/repository"
@@ -30,21 +29,21 @@ func (s *AgentService) Create(ctx context.Context, req dto.CreateAgentRequest) (
 		ID:                strings.TrimSpace(req.ID),
 		Name:              strings.TrimSpace(req.Name),
 		ProviderID:        strings.TrimSpace(req.ProviderID),
-		ModelProvider:     defaultString(req.ModelProvider, "openai"),
+		ModelProvider:     stringutil.Default(req.ModelProvider, "openai"),
 		ModelName:         strings.TrimSpace(req.ModelName),
 		BaseURL:           strings.TrimSpace(req.BaseURL),
 		Transport:         normalizeTransport(req.Transport),
-		CommandArgsJSON:   mustJSON(cleanStringSlice(req.CommandArgs)),
+		CommandArgsJSON:   jsonutil.MarshalStringSlice(jsonutil.CleanStringSlice(req.CommandArgs)),
 		SystemPrompt:      strings.TrimSpace(req.SystemPrompt),
 		MaxIterations:     req.MaxIterations,
-		ToolWhitelistJSON: mustJSON(req.ToolWhitelist),
-		NetworkAllowJSON:  mustJSON(req.NetworkAllow),
-		MCPServerIDsJSON:  mustJSON(req.MCPServerIDs),
-		SkillNamesJSON:    mustJSON(req.SkillNames),
+		ToolWhitelistJSON: jsonutil.MarshalStringSlice(req.ToolWhitelist),
+		NetworkAllowJSON:  jsonutil.MarshalStringSlice(req.NetworkAllow),
+		MCPServerIDsJSON:  jsonutil.MarshalStringSlice(req.MCPServerIDs),
+		SkillNamesJSON:    jsonutil.MarshalStringSlice(req.SkillNames),
 		Enabled:           enabled,
 	}
 	if agent.ID == "" {
-		agent.ID = "agent_" + randomID()
+		agent.ID = "agent_" + id.Random()
 	}
 	if err := s.repo.Create(ctx, agent); err != nil {
 		return nil, err
@@ -84,7 +83,7 @@ func (s *AgentService) Update(ctx context.Context, id string, req dto.UpdateAgen
 		agent.ProviderID = strings.TrimSpace(*req.ProviderID)
 	}
 	if req.ModelProvider != nil {
-		agent.ModelProvider = defaultString(*req.ModelProvider, "openai")
+		agent.ModelProvider = stringutil.Default(*req.ModelProvider, "openai")
 	}
 	if req.ModelName != nil {
 		agent.ModelName = strings.TrimSpace(*req.ModelName)
@@ -96,7 +95,7 @@ func (s *AgentService) Update(ctx context.Context, id string, req dto.UpdateAgen
 		agent.Transport = normalizeTransport(*req.Transport)
 	}
 	if req.CommandArgs != nil {
-		agent.CommandArgsJSON = mustJSON(cleanStringSlice(req.CommandArgs))
+		agent.CommandArgsJSON = jsonutil.MarshalStringSlice(jsonutil.CleanStringSlice(req.CommandArgs))
 	}
 	if req.SystemPrompt != nil {
 		agent.SystemPrompt = strings.TrimSpace(*req.SystemPrompt)
@@ -105,16 +104,16 @@ func (s *AgentService) Update(ctx context.Context, id string, req dto.UpdateAgen
 		agent.MaxIterations = *req.MaxIterations
 	}
 	if req.ToolWhitelist != nil {
-		agent.ToolWhitelistJSON = mustJSON(req.ToolWhitelist)
+		agent.ToolWhitelistJSON = jsonutil.MarshalStringSlice(req.ToolWhitelist)
 	}
 	if req.NetworkAllow != nil {
-		agent.NetworkAllowJSON = mustJSON(req.NetworkAllow)
+		agent.NetworkAllowJSON = jsonutil.MarshalStringSlice(req.NetworkAllow)
 	}
 	if req.MCPServerIDs != nil {
-		agent.MCPServerIDsJSON = mustJSON(req.MCPServerIDs)
+		agent.MCPServerIDsJSON = jsonutil.MarshalStringSlice(req.MCPServerIDs)
 	}
 	if req.SkillNames != nil {
-		agent.SkillNamesJSON = mustJSON(req.SkillNames)
+		agent.SkillNamesJSON = jsonutil.MarshalStringSlice(req.SkillNames)
 	}
 	if req.Enabled != nil {
 		agent.Enabled = *req.Enabled
@@ -138,63 +137,15 @@ func toAgentDTO(agent model.AgentProfile) *dto.AgentProfile {
 		ModelName:     agent.ModelName,
 		BaseURL:       agent.BaseURL,
 		Transport:     normalizeTransport(agent.Transport),
-		CommandArgs:   parseStringSlice(agent.CommandArgsJSON),
+		CommandArgs:   jsonutil.UnmarshalStringSlice(agent.CommandArgsJSON),
 		SystemPrompt:  agent.SystemPrompt,
 		MaxIterations: agent.MaxIterations,
-		ToolWhitelist: parseStringSlice(agent.ToolWhitelistJSON),
-		NetworkAllow:  parseStringSlice(agent.NetworkAllowJSON),
-		MCPServerIDs:  parseStringSlice(agent.MCPServerIDsJSON),
-		SkillNames:    parseStringSlice(agent.SkillNamesJSON),
+		ToolWhitelist: jsonutil.UnmarshalStringSlice(agent.ToolWhitelistJSON),
+		NetworkAllow:  jsonutil.UnmarshalStringSlice(agent.NetworkAllowJSON),
+		MCPServerIDs:  jsonutil.UnmarshalStringSlice(agent.MCPServerIDsJSON),
+		SkillNames:    jsonutil.UnmarshalStringSlice(agent.SkillNamesJSON),
 		Enabled:       agent.Enabled,
 		CreatedAt:     agent.CreatedAt,
 		UpdatedAt:     agent.UpdatedAt,
 	}
-}
-
-func mustJSON(values []string) string {
-	if values == nil {
-		values = []string{}
-	}
-	payload, _ := json.Marshal(values)
-	return string(payload)
-}
-
-func parseStringSlice(raw string) []string {
-	if raw == "" {
-		return []string{}
-	}
-	var out []string
-	if err := json.Unmarshal([]byte(raw), &out); err != nil {
-		return []string{}
-	}
-	return out
-}
-
-func cleanStringSlice(values []string) []string {
-	if values == nil {
-		return nil
-	}
-	out := make([]string, 0, len(values))
-	for _, value := range values {
-		if trimmed := strings.TrimSpace(value); trimmed != "" {
-			out = append(out, trimmed)
-		}
-	}
-	return out
-}
-
-func defaultString(value, fallback string) string {
-	value = strings.TrimSpace(value)
-	if value == "" {
-		return fallback
-	}
-	return value
-}
-
-func randomID() string {
-	var buf [12]byte
-	if _, err := rand.Read(buf[:]); err != nil {
-		return hex.EncodeToString([]byte(time.Now().Format("20060102150405.000000000")))
-	}
-	return hex.EncodeToString(buf[:])
 }

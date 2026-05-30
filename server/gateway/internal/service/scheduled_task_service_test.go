@@ -272,16 +272,16 @@ func TestScheduledTaskServiceAgentTaskBuildsRuntimePayload(t *testing.T) {
 	if claw.req.Prompt != "hello" {
 		t.Fatalf("prompt = %q, want hello", claw.req.Prompt)
 	}
-	if got := claw.req.Agent["project_root"]; got != "E:/project" {
+	if got := claw.req.Agent.ProjectRoot; got != "E:/project" {
 		t.Fatalf("project_root = %q", got)
 	}
-	if got := claw.req.Agent["network_allow"].([]string); len(got) != 1 || got[0] != "example.com" {
-		t.Fatalf("network_allow = %+v", claw.req.Agent["network_allow"])
+	if got := claw.req.Agent.NetworkAllow; len(got) != 1 || got[0] != "example.com" {
+		t.Fatalf("network_allow = %+v", got)
 	}
-	if got := claw.req.Agent["mcp_servers"].([]string); len(got) != 1 || got[0] != "mcp_1" {
-		t.Fatalf("mcp_servers = %+v", claw.req.Agent["mcp_servers"])
+	if got := claw.req.Agent.MCPServers; len(got) != 1 || got[0] != "mcp_1" {
+		t.Fatalf("mcp_servers = %+v", got)
 	}
-	if _, ok := claw.req.Agent["enabled_builtin_tools"]; ok {
+	if len(claw.req.Agent.EnabledBuiltinTools) != 0 {
 		t.Fatalf("enabled_builtin_tools should be omitted when whitelist is empty: %+v", claw.req.Agent)
 	}
 	if len(claw.req.ForceSkills) != 1 || claw.req.ForceSkills[0] != "doc-writer" {

@@ -6,6 +6,7 @@ import (
 	"os"
 	"strings"
 
+	"icoo_claw/common/agentproto"
 	"icoo_claw/common/core/agent_sdk/api"
 	sdkmessage "icoo_claw/common/core/agent_sdk/message"
 	sdkmodel "icoo_claw/common/core/agent_sdk/model"
@@ -78,31 +79,24 @@ func (f *RuntimeFactory) New(ctx context.Context, req RunRequest) (*api.Runtime,
 	return rt, nil
 }
 
-type AgentProfile struct {
-	ModelProvider       string
-	ModelName           string
-	APIKey              string
-	BaseURL             string
-	ProjectRoot         string
-	SystemPrompt        string
-	MaxIterations       int
-	EnabledBuiltinTools []string
-	MCPServers          []string
-	NetworkAllow        []string
-}
+type AgentProfile = agentproto.AgentRuntimeProfile
 
-func parseAgentProfile(input map[string]any) AgentProfile {
-	profile := AgentProfile{
-		ModelProvider:       firstStringValue(input, "model_provider", "ICOO_AGENT_MODEL_PROVIDER"),
-		ModelName:           firstStringValue(input, "model_name", "ICOO_AGENT_MODEL_NAME"),
-		APIKey:              firstStringValue(input, "api_key", "ICOO_AGENT_API_KEY"),
-		BaseURL:             firstStringValue(input, "base_url", "ICOO_AGENT_BASE_URL"),
-		ProjectRoot:         stringValue(input, "project_root"),
-		SystemPrompt:        stringValue(input, "system_prompt"),
-		MaxIterations:       intValue(input, "max_iterations"),
-		EnabledBuiltinTools: stringSlice(input, "enabled_builtin_tools"),
-		MCPServers:          stringSlice(input, "mcp_servers"),
-		NetworkAllow:        firstStringSlice(input, "network_allow", "allowed_domains"),
+func parseAgentProfile(input *agentproto.AgentRuntimeProfile) AgentProfile {
+	profile := AgentProfile{}
+	if input != nil {
+		profile = *input
+	}
+	if strings.TrimSpace(profile.ModelProvider) == "" {
+		profile.ModelProvider = strings.TrimSpace(os.Getenv("ICOO_AGENT_MODEL_PROVIDER"))
+	}
+	if strings.TrimSpace(profile.ModelName) == "" {
+		profile.ModelName = strings.TrimSpace(os.Getenv("ICOO_AGENT_MODEL_NAME"))
+	}
+	if strings.TrimSpace(profile.APIKey) == "" {
+		profile.APIKey = strings.TrimSpace(os.Getenv("ICOO_AGENT_API_KEY"))
+	}
+	if strings.TrimSpace(profile.BaseURL) == "" {
+		profile.BaseURL = strings.TrimSpace(os.Getenv("ICOO_AGENT_BASE_URL"))
 	}
 	return profile
 }
@@ -124,62 +118,4 @@ func modelProvider(profile AgentProfile) (api.ModelFactory, error) {
 	default:
 		return nil, fmt.Errorf("unsupported model provider %q", profile.ModelProvider)
 	}
-}
-
-func stringValue(input map[string]any, key string) string {
-	if input == nil {
-		return ""
-	}
-	value, _ := input[key].(string)
-	return strings.TrimSpace(value)
-}
-
-func firstStringValue(input map[string]any, key, envKey string) string {
-	if value := stringValue(input, key); value != "" {
-		return value
-	}
-	return strings.TrimSpace(os.Getenv(envKey))
-}
-
-func intValue(input map[string]any, key string) int {
-	if input == nil {
-		return 0
-	}
-	switch value := input[key].(type) {
-	case int:
-		return value
-	case float64:
-		return int(value)
-	default:
-		return 0
-	}
-}
-
-func stringSlice(input map[string]any, key string) []string {
-	if input == nil {
-		return nil
-	}
-	raw, ok := input[key].([]any)
-	if !ok {
-		if values, ok := input[key].([]string); ok {
-			return values
-		}
-		return nil
-	}
-	out := make([]string, 0, len(raw))
-	for _, item := range raw {
-		if value, ok := item.(string); ok && strings.TrimSpace(value) != "" {
-			out = append(out, strings.TrimSpace(value))
-		}
-	}
-	return out
-}
-
-func firstStringSlice(input map[string]any, keys ...string) []string {
-	for _, key := range keys {
-		if values := stringSlice(input, key); len(values) > 0 {
-			return values
-		}
-	}
-	return nil
 }

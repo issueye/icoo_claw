@@ -8,6 +8,7 @@
 | ORM | GORM | Gateway 控制面与会话业务数据 |
 | SQLite(no cgo) | `github.com/glebarez/sqlite` | GORM 纯 Go SQLite driver |
 | Agent Runtime | `common/core/agent_sdk` | agentsdk-go 源码已抽取为共享模块 |
+| Cross-service Protocol | `common/agentproto`, `common/sessionproto` | Gateway/Claw run stream 协议、Session API 协议与共享 client |
 | Config | TOML | 三服务使用 `--config <file>` |
 | DI | 手动 DI | `internal/di/container.go` 显式组装 |
 
@@ -17,11 +18,14 @@
 
 ```text
 go.work
+common/go.mod
 server/gateway/go.mod
 server/claw/go.mod
 ```
 
 `server/gateway` 使用 `github.com/glebarez/sqlite`。
+
+`common` 是跨服务稳定边界：新代码应优先使用 `common/agentproto`、`common/sessionproto`、`common/httperr` 中的协议和 client。`server/gateway/internal/client` 与 `server/claw/pkg/sessionstore` 中的同名类型主要作为历史兼容壳保留。
 
 ## 配置文件
 
@@ -124,7 +128,9 @@ type Runner interface {
 }
 ```
 
-`RunRequest` 当前仍以 `map[string]any` 接收 AgentProfile。P1 应改为强类型 contract。
+`RunRequest.Agent` 使用 `common/agentproto.AgentRuntimeProfile` 强类型 contract，包含模型、工具、MCP、网络白名单、项目根目录等运行时配置。
+
+Gateway 到 Claw 的 HTTP run/stream client 位于 `common/agentproto.HTTPClient`；Gateway 内部的 `ClawClient` 是兼容别名。ACP stdio registry 仍保留在 Gateway 内部，因为它绑定本地进程生命周期、连接注册和健康探测。
 
 运行模式：
 
@@ -136,6 +142,7 @@ type Runner interface {
 - `HistoryAdapter.Load` 从 Gateway 会话 API 读取 messages。
 - `HistoryAdapter.SaveSnapshot` 调用 Gateway 会话 API 的 snapshot 接口。
 - snapshot 使用 revision 冲突保护，避免覆盖并发更新。
+- Session API 协议与共享 HTTP client 位于 `common/sessionproto`；Claw 的 `pkg/sessionstore` 包仅保留兼容别名。
 
 ## Gateway 会话 API: GORM SQLite
 

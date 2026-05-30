@@ -2,6 +2,7 @@ package acp
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"os"
 	"strings"
@@ -9,6 +10,7 @@ import (
 	"time"
 
 	acp "github.com/coder/acp-go-sdk"
+	"icoo_claw/common/agentproto"
 	"icoo_claw/server/claw/pkg/agent_sdk"
 )
 
@@ -85,7 +87,7 @@ func (a *Agent) Prompt(ctx context.Context, params acp.PromptRequest) (acp.Promp
 		SessionID:     sessionID,
 		RequestID:     firstNonEmpty(metaString(params.Meta, "request_id"), stringPtr(params.MessageId), "req_"+randomID()),
 		Prompt:        promptText(params.Prompt),
-		Agent:         metaMap(params.Meta, "agent"),
+		Agent:         metaAgentProfile(params.Meta, "agent"),
 		ToolWhitelist: metaStringSlice(params.Meta, "tool_whitelist"),
 		ForceSkills:   metaStringSlice(params.Meta, "force_skills"),
 		Metadata:      metaMap(params.Meta, "metadata"),
@@ -278,6 +280,22 @@ func metaMap(meta map[string]any, key string) map[string]any {
 		out[k] = v
 	}
 	return out
+}
+
+func metaAgentProfile(meta map[string]any, key string) *agentproto.AgentRuntimeProfile {
+	raw := metaMap(meta, key)
+	if raw == nil {
+		return nil
+	}
+	payload, err := json.Marshal(raw)
+	if err != nil {
+		return nil
+	}
+	var profile agentproto.AgentRuntimeProfile
+	if err := json.Unmarshal(payload, &profile); err != nil {
+		return nil
+	}
+	return &profile
 }
 
 func metaStringSlice(meta map[string]any, key string) []string {

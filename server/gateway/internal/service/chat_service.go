@@ -5,6 +5,8 @@ import (
 	"time"
 
 	"icoo_claw/common/agentproto"
+	"icoo_claw/common/id"
+	"icoo_claw/common/stringutil"
 	"icoo_claw/server/gateway/internal/client"
 	"icoo_claw/server/gateway/internal/dto"
 	"icoo_claw/server/gateway/internal/model"
@@ -61,11 +63,11 @@ func (s *ChatService) CreateConversation(ctx context.Context, req dto.CreateConv
 	}
 	now := time.Now().UTC()
 	conversation := model.Conversation{
-		ID:        "conv_" + randomID(),
-		SessionID: "sess_" + randomID(),
+		ID:        "conv_" + id.Random(),
+		SessionID: "sess_" + id.Random(),
 		AgentID:   req.AgentID,
 		UserID:    req.UserID,
-		Title:     defaultString(req.Title, "New conversation"),
+		Title:     stringutil.Default(req.Title, "New conversation"),
 		Status:    "active",
 		CreatedAt: now,
 		UpdatedAt: now,

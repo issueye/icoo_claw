@@ -5,6 +5,8 @@ import (
 	"errors"
 	"strings"
 
+	"icoo_claw/common/agentproto"
+	"icoo_claw/common/jsonutil"
 	"icoo_claw/server/gateway/internal/model"
 	"icoo_claw/server/gateway/internal/repository"
 )
@@ -49,12 +51,12 @@ func (b *AgentRuntimeProfileBuilder) ResolveProvider(ctx context.Context, agent 
 	return provider, nil
 }
 
-func (b *AgentRuntimeProfileBuilder) BuildPayload(agent model.AgentProfile, provider *model.ProviderProfile, metadata map[string]any) map[string]any {
-	return agentProfileMap(agent, provider, metadata)
+func (b *AgentRuntimeProfileBuilder) BuildPayload(agent model.AgentProfile, provider *model.ProviderProfile, metadata map[string]any) *agentproto.AgentRuntimeProfile {
+	return agentRuntimeProfile(agent, provider, metadata)
 }
 
-func (b *AgentRuntimeProfileBuilder) BuildLaunchConfig(agent model.AgentProfile, provider *model.ProviderProfile) AgentLaunchConfig {
-	launch := AgentLaunchConfig{
+func (b *AgentRuntimeProfileBuilder) BuildLaunchConfig(agent model.AgentProfile, provider *model.ProviderProfile) agentproto.AgentLaunchConfig {
+	launch := agentproto.AgentLaunchConfig{
 		ProviderID:    agent.ProviderID,
 		ModelProvider: agent.ModelProvider,
 		ModelName:     agent.ModelName,
@@ -77,7 +79,7 @@ func (b *AgentRuntimeProfileBuilder) BuildLaunchConfig(agent model.AgentProfile,
 	return launch
 }
 
-func agentProfileMap(agent model.AgentProfile, provider *model.ProviderProfile, metadata map[string]any) map[string]any {
+func agentRuntimeProfile(agent model.AgentProfile, provider *model.ProviderProfile, metadata map[string]any) *agentproto.AgentRuntimeProfile {
 	modelProvider := agent.ModelProvider
 	modelName := agent.ModelName
 	baseURL := agent.BaseURL
@@ -94,21 +96,21 @@ func agentProfileMap(agent model.AgentProfile, provider *model.ProviderProfile, 
 		}
 		apiKey = provider.APIKey
 	}
-	profile := map[string]any{
-		"model_provider": modelProvider,
-		"model_name":     modelName,
-		"base_url":       baseURL,
-		"api_key":        apiKey,
-		"system_prompt":  agent.SystemPrompt,
-		"max_iterations": maxAgentIterations(agent.MaxIterations),
-		"network_allow":  parseStringSlice(agent.NetworkAllowJSON),
-		"mcp_servers":    parseStringSlice(agent.MCPServerIDsJSON),
+	profile := &agentproto.AgentRuntimeProfile{
+		ModelProvider: modelProvider,
+		ModelName:     modelName,
+		BaseURL:       baseURL,
+		APIKey:        apiKey,
+		SystemPrompt:  agent.SystemPrompt,
+		MaxIterations: maxAgentIterations(agent.MaxIterations),
+		NetworkAllow:  jsonutil.UnmarshalStringSlice(agent.NetworkAllowJSON),
+		MCPServers:    jsonutil.UnmarshalStringSlice(agent.MCPServerIDsJSON),
 	}
-	if tools := parseStringSlice(agent.ToolWhitelistJSON); len(tools) > 0 {
-		profile["enabled_builtin_tools"] = tools
+	if tools := jsonutil.UnmarshalStringSlice(agent.ToolWhitelistJSON); len(tools) > 0 {
+		profile.EnabledBuiltinTools = tools
 	}
 	if projectRoot := metadataString(metadata, "project_root"); projectRoot != "" {
-		profile["project_root"] = projectRoot
+		profile.ProjectRoot = projectRoot
 	}
 	return profile
 }

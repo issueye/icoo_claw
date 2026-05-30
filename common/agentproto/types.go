@@ -3,13 +3,13 @@ package agentproto
 import "encoding/json"
 
 type RunRequest struct {
-	SessionID     string         `json:"session_id"`
-	RequestID     string         `json:"request_id"`
-	Prompt        string         `json:"prompt"`
-	Agent         map[string]any `json:"agent,omitempty"`
-	ToolWhitelist []string       `json:"tool_whitelist,omitempty"`
-	ForceSkills   []string       `json:"force_skills,omitempty"`
-	Metadata      map[string]any `json:"metadata,omitempty"`
+	SessionID     string               `json:"session_id"`
+	RequestID     string               `json:"request_id"`
+	Prompt        string               `json:"prompt"`
+	Agent         *AgentRuntimeProfile `json:"agent,omitempty"`
+	ToolWhitelist []string             `json:"tool_whitelist,omitempty"`
+	ForceSkills   []string             `json:"force_skills,omitempty"`
+	Metadata      map[string]any       `json:"metadata,omitempty"`
 }
 
 type RunResponse struct {

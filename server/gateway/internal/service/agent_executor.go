@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 
+	"icoo_claw/common/jsonutil"
 	"icoo_claw/server/gateway/internal/client"
 	"icoo_claw/server/gateway/internal/dto"
 	"icoo_claw/server/gateway/internal/model"
@@ -96,8 +97,8 @@ func (e *GatewayAgentExecutor) Prepare(ctx context.Context, req AgentExecutionRe
 			RequestID:     req.RequestID,
 			Prompt:        req.Prompt,
 			Agent:         payload,
-			ToolWhitelist: parseStringSlice(agent.ToolWhitelistJSON),
-			ForceSkills:   cleanStringSlice(req.ForceSkills),
+			ToolWhitelist: jsonutil.UnmarshalStringSlice(agent.ToolWhitelistJSON),
+			ForceSkills:   jsonutil.CleanStringSlice(req.ForceSkills),
 			Metadata:      req.Metadata,
 		},
 	}, nil

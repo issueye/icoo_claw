@@ -4,6 +4,7 @@ import (
 	"context"
 	"strings"
 
+	"icoo_claw/common/id"
 	"icoo_claw/server/gateway/internal/dto"
 	"icoo_claw/server/gateway/internal/model"
 	"icoo_claw/server/gateway/internal/repository"
@@ -32,7 +33,7 @@ func (s *ProviderService) Create(ctx context.Context, req dto.CreateProviderRequ
 		Enabled:      enabled,
 	}
 	if provider.ID == "" {
-		provider.ID = provider.Type + "_" + randomID()
+		provider.ID = provider.Type + "_" + id.Random()
 	}
 	if err := s.repo.Create(ctx, provider); err != nil {
 		return nil, err

@@ -9,9 +9,9 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strconv"
-	"strings"
 	"time"
 
+	"icoo_claw/common/agentproto"
 	"icoo_claw/server/gateway/internal/client"
 	"icoo_claw/server/gateway/internal/config"
 	"icoo_claw/server/gateway/internal/model"
@@ -32,15 +32,7 @@ type StartAgentInstanceSpec struct {
 	RunnerMode         string
 	Transport          string
 	CommandArgs        []string
-	Agent              AgentLaunchConfig
-}
-
-type AgentLaunchConfig struct {
-	ProviderID    string
-	ModelProvider string
-	ModelName     string
-	APIKey        string
-	BaseURL       string
+	Agent              agentproto.AgentLaunchConfig
 }
 
 type AgentProcess struct {
@@ -254,7 +246,7 @@ func writeClawConfig(spec StartAgentInstanceSpec) (string, error) {
 	return absPath, nil
 }
 
-func agentLaunchEnv(agent AgentLaunchConfig) []string {
+func agentLaunchEnv(agent agentproto.AgentLaunchConfig) []string {
 	return []string{
 		"ICOO_AGENT_PROVIDER_ID=" + agent.ProviderID,
 		"ICOO_AGENT_MODEL_PROVIDER=" + agent.ModelProvider,
@@ -265,10 +257,5 @@ func agentLaunchEnv(agent AgentLaunchConfig) []string {
 }
 
 func normalizeTransport(value string) string {
-	switch strings.ToLower(strings.TrimSpace(value)) {
-	case "acp":
-		return "acp"
-	default:
-		return "http"
-	}
+	return agentproto.NormalizeTransport(value)
 }
