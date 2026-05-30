@@ -200,7 +200,7 @@ func subagentToolAllow(rt *Runtime, whitelist []string, target string) map[strin
 					continue
 				}
 				name := canonicalToolName(impl.Name())
-				if name == "" || name == "skill" {
+				if name == "" || isSkillExecutionTool(name) {
 					continue
 				}
 				allow[name] = struct{}{}
@@ -209,6 +209,7 @@ func subagentToolAllow(rt *Runtime, whitelist []string, target string) map[strin
 		return allow
 	}
 	delete(allow, "skill")
+	delete(allow, "skill_execute")
 	return allow
 }
 
@@ -236,4 +237,13 @@ func sessionIDFromMetadata(meta map[string]any) string {
 		return strings.TrimSpace(fmt.Sprint(value))
 	}
 	return ""
+}
+
+func isSkillExecutionTool(name string) bool {
+	switch canonicalToolName(name) {
+	case "skill", "skill_execute":
+		return true
+	default:
+		return false
+	}
 }

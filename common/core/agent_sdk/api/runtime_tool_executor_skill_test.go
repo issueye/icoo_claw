@@ -26,7 +26,7 @@ func TestRuntimeToolExecutorPassesUserPromptToSkill(t *testing.T) {
 
 	dispatcher := &capturePromptDispatcher{}
 	toolRegistry := tool.NewRegistry()
-	if err := toolRegistry.Register(toolbuiltin.NewSkillToolWithSubagent(reg, nil, dispatcher)); err != nil {
+	if err := toolRegistry.Register(toolbuiltin.NewSkillExecuteToolWithSubagent(reg, nil, dispatcher)); err != nil {
 		t.Fatalf("register tool: %v", err)
 	}
 
@@ -39,7 +39,7 @@ func TestRuntimeToolExecutorPassesUserPromptToSkill(t *testing.T) {
 
 	_, err := executor.Execute(context.Background(), model.ToolCall{
 		ID:        "call_1",
-		Name:      "skill",
+		Name:      "skill_execute",
 		Arguments: map[string]any{"command": "weather-zh"},
 	})
 	if err != nil {

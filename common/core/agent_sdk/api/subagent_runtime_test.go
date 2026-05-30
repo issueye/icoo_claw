@@ -15,6 +15,7 @@ func TestSubagentToolAllowExcludesSkillForSkillExecutor(t *testing.T) {
 	for _, impl := range []tool.Tool{
 		toolbuiltin.NewBashToolWithRoot(t.TempDir()),
 		toolbuiltin.NewSkillTool(nil, nil),
+		toolbuiltin.NewSkillExecuteTool(nil, nil),
 	} {
 		if err := registry.Register(impl); err != nil {
 			t.Fatalf("register %s: %v", impl.Name(), err)
@@ -25,6 +26,9 @@ func TestSubagentToolAllowExcludesSkillForSkillExecutor(t *testing.T) {
 	allow := subagentToolAllow(rt, nil, subagents.TypeSkillExecutor)
 	if _, ok := allow["skill"]; ok {
 		t.Fatalf("skill-executor should not expose skill tool")
+	}
+	if _, ok := allow["skill_execute"]; ok {
+		t.Fatalf("skill-executor should not expose skill_execute tool")
 	}
 	if _, ok := allow["bash"]; !ok {
 		t.Fatalf("skill-executor should keep non-skill tools")

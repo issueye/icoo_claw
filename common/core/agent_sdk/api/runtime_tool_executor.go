@@ -157,7 +157,7 @@ func (t *runtimeToolExecutor) execute(ctx context.Context, call model.ToolCall, 
 	if params != nil {
 		call.Arguments = params
 	}
-	if canonicalToolName(call.Name) == "skill" {
+	if isSkillExecutionTool(call.Name) {
 		ctx = toolbuiltin.WithSkillActivationContext(ctx, skills.ActivationContext{Prompt: t.latestUserPrompt()})
 	}
 

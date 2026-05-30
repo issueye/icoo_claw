@@ -22,6 +22,7 @@ import (
 type preparedRun struct {
 	ctx            context.Context
 	prompt         string
+	modelPrompt    string
 	contentBlocks  []model.ContentBlock
 	history        *message.History
 	normalized     Request
@@ -30,6 +31,7 @@ type preparedRun struct {
 	subagentResult *subagents.Result
 	mode           ModeContext
 	toolWhitelist  map[string]struct{}
+	userInputIndex int
 }
 
 type runResult struct {
@@ -57,6 +59,7 @@ func (rt *Runtime) prepare(ctx context.Context, req Request) (preparedRun, error
 	if err != nil {
 		return preparedRun{}, err
 	}
+	userInputIndex := history.Len()
 
 	if rt.deferred != nil && rt.opts.SessionStore != nil {
 		loader := func(c context.Context, id string) ([]string, error) {
@@ -70,22 +73,22 @@ func (rt *Runtime) prepare(ctx context.Context, req Request) (preparedRun, error
 
 	activation := normalized.activationContext(prompt)
 
-	skillRes, promptAfterSkills, err := rt.executeSkills(ctx, prompt, activation, &normalized)
+	skillRes, modelPrompt, err := rt.executeSkills(ctx, prompt, activation, &normalized)
 	if err != nil {
 		return preparedRun{}, err
 	}
-	prompt = promptAfterSkills
-	activation.Prompt = prompt
-	subRes, promptAfterSubagent, err := rt.executeSubagent(ctx, prompt, activation, &normalized)
+	activation.Prompt = modelPrompt
+	subRes, promptAfterSubagent, err := rt.executeSubagent(ctx, modelPrompt, activation, &normalized)
 	if err != nil {
 		return preparedRun{}, err
 	}
-	prompt = promptAfterSubagent
-	activation.Prompt = prompt
+	modelPrompt = promptAfterSubagent
+	activation.Prompt = modelPrompt
 	whitelist := combineToolWhitelists(normalized.ToolWhitelist, nil)
 	return preparedRun{
 		ctx:            ctx,
 		prompt:         prompt,
+		modelPrompt:    modelPrompt,
 		contentBlocks:  normalized.ContentBlocks,
 		history:        history,
 		normalized:     normalized,
@@ -94,6 +97,7 @@ func (rt *Runtime) prepare(ctx context.Context, req Request) (preparedRun, error
 		subagentResult: subRes,
 		mode:           normalized.Mode,
 		toolWhitelist:  whitelist,
+		userInputIndex: userInputIndex,
 	}, nil
 }
 
@@ -215,6 +219,7 @@ func (rt *Runtime) runLoop(prep preparedRun, mdl model.Model, hookAdapter *runti
 		}
 
 		snapshot := prep.history.All()
+		snapshot = applyTransientModelPrompt(snapshot, prep)
 		if trimmer != nil {
 			snapshot = trimmer.Trim(snapshot)
 		}
@@ -306,6 +311,51 @@ func appendUserInput(history *message.History, prompt string, blocks []model.Con
 		userMsg.ContentBlocks = convertAPIContentBlocks(blocks)
 	}
 	history.Append(userMsg)
+}
+
+func applyTransientModelPrompt(snapshot []message.Message, prep preparedRun) []message.Message {
+	modelPrompt := strings.TrimSpace(prep.modelPrompt)
+	if modelPrompt == "" || modelPrompt == strings.TrimSpace(prep.prompt) {
+		return snapshot
+	}
+	idx := prep.userInputIndex
+	if idx < 0 || idx >= len(snapshot) || strings.TrimSpace(snapshot[idx].Role) != "user" {
+		idx = findMatchingUserInput(snapshot, prep.prompt)
+	}
+	if idx < 0 {
+		return snapshot
+	}
+	out := message.CloneMessages(snapshot)
+	out[idx].Content = modelPrompt
+	if len(out[idx].ContentBlocks) > 0 {
+		out[idx].ContentBlocks = replaceTextBlock(out[idx].ContentBlocks, modelPrompt)
+	}
+	return out
+}
+
+func findMatchingUserInput(snapshot []message.Message, prompt string) int {
+	prompt = strings.TrimSpace(prompt)
+	for i := len(snapshot) - 1; i >= 0; i-- {
+		msg := snapshot[i]
+		if strings.TrimSpace(msg.Role) != "user" {
+			continue
+		}
+		if strings.TrimSpace(msg.Content) == prompt {
+			return i
+		}
+	}
+	return -1
+}
+
+func replaceTextBlock(blocks []message.ContentBlock, prompt string) []message.ContentBlock {
+	out := append([]message.ContentBlock(nil), blocks...)
+	for i := range out {
+		if out[i].Type == message.ContentBlockText {
+			out[i].Text = prompt
+			return out
+		}
+	}
+	return append([]message.ContentBlock{{Type: message.ContentBlockText, Text: prompt}}, out...)
 }
 
 func newRunState(req Request, skReg *skills.Registry) *middleware.State {
@@ -473,8 +523,12 @@ func (rt *Runtime) executeSkillViaSubagent(ctx context.Context, loaded skills.Re
 	if subReq.Metadata == nil {
 		subReq.Metadata = map[string]any{}
 	}
-	if req != nil && strings.TrimSpace(req.SessionID) != "" {
-		subReq.Metadata["session_id"] = strings.TrimSpace(req.SessionID)
+	if sessionID := isolatedSkillSessionID(loaded, req); sessionID != "" {
+		subReq.Metadata["session_id"] = sessionID
+		defer func() {
+			_ = cleanupBashOutputSessionDir(sessionID)
+			_ = cleanupToolOutputSessionDir(sessionID)
+		}()
 	}
 	subRes, err := rt.opts.subMgr.Dispatch(ctx, subReq)
 	if err != nil {
@@ -488,6 +542,22 @@ func (rt *Runtime) executeSkillViaSubagent(ctx context.Context, loaded skills.Re
 	loaded.Metadata["subagent"] = subRes.Subagent
 	loaded.Metadata["subagent_metadata"] = subRes.Metadata
 	return loaded, nil
+}
+
+func isolatedSkillSessionID(loaded skills.Result, req *Request) string {
+	parts := []string{"skill"}
+	if req != nil {
+		if id := strings.TrimSpace(req.SessionID); id != "" {
+			parts = append(parts, id)
+		}
+		if id := strings.TrimSpace(req.RequestID); id != "" {
+			parts = append(parts, id)
+		}
+	}
+	if name := strings.TrimSpace(loaded.Skill); name != "" {
+		parts = append(parts, name)
+	}
+	return sanitizePathComponent(strings.Join(parts, "-"))
 }
 
 func (rt *Runtime) executeSubagent(ctx context.Context, prompt string, activation skills.ActivationContext, req *Request) (*subagents.Result, string, error) {

@@ -35,7 +35,7 @@ func TestSkillToolExecutesViaSubagentAndReturnsSummary(t *testing.T) {
 			},
 			Metadata: map[string]any{
 				"source":        "C:/gateway/.skills/active/.agents/skills/weather-zh/SKILL.md",
-				"allowed-tools": []string{"bash", "read", "skill"},
+				"allowed-tools": []string{"bash", "read", "skill", "skill_execute"},
 			},
 		}, nil
 	}))
@@ -44,9 +44,12 @@ func TestSkillToolExecutesViaSubagentAndReturnsSummary(t *testing.T) {
 	}
 
 	dispatcher := &fakeSkillDispatcher{}
-	tool := NewSkillToolWithSubagent(reg, func(context.Context) skills.ActivationContext {
+	tool := NewSkillExecuteToolWithSubagent(reg, func(context.Context) skills.ActivationContext {
 		return skills.ActivationContext{Prompt: "今天成都的天气"}
 	}, dispatcher)
+	if tool.Name() != "skill_execute" {
+		t.Fatalf("tool name = %q, want skill_execute", tool.Name())
+	}
 
 	res, err := tool.Execute(context.Background(), map[string]any{"command": "weather-zh"})
 	if err != nil {
@@ -64,7 +67,8 @@ func TestSkillToolExecutesViaSubagentAndReturnsSummary(t *testing.T) {
 	if !strings.Contains(dispatcher.req.Instruction, "scripts/weather-cn.sh") {
 		t.Fatalf("instruction missing support file: %s", dispatcher.req.Instruction)
 	}
-	if strings.Contains(strings.Join(dispatcher.req.ToolWhitelist, ","), "skill") {
-		t.Fatalf("tool whitelist should exclude skill to avoid recursion: %#v", dispatcher.req.ToolWhitelist)
+	joined := strings.Join(dispatcher.req.ToolWhitelist, ",")
+	if strings.Contains(joined, "skill") || strings.Contains(joined, "skill_execute") {
+		t.Fatalf("tool whitelist should exclude skill execution tools to avoid recursion: %#v", dispatcher.req.ToolWhitelist)
 	}
 }

@@ -132,16 +132,17 @@ func builtinToolFactories(root string, networkAllow []string, sandboxDisabled bo
 		subMgr:           subMgr,
 	}
 	return map[string]func() tool.Tool{
-		"bash":       cfg.bash,
-		"read":       cfg.read,
-		"write":      cfg.write,
-		"edit":       cfg.edit,
-		"find":       cfg.find,
-		"fetch":      cfg.fetch,
-		"web_search": cfg.webSearch,
-		"grep":       cfg.grep,
-		"glob":       cfg.glob,
-		"skill":      cfg.skill,
+		"bash":          cfg.bash,
+		"read":          cfg.read,
+		"write":         cfg.write,
+		"edit":          cfg.edit,
+		"find":          cfg.find,
+		"fetch":         cfg.fetch,
+		"web_search":    cfg.webSearch,
+		"grep":          cfg.grep,
+		"glob":          cfg.glob,
+		"skill":         cfg.skill,
+		"skill_execute": cfg.skillExecute,
 	}
 }
 
@@ -234,9 +235,13 @@ func (c builtinToolFactoryConfig) skill() tool.Tool {
 	return toolbuiltin.NewSkillToolWithSubagent(c.skReg, nil, c.subMgr)
 }
 
+func (c builtinToolFactoryConfig) skillExecute() tool.Tool {
+	return toolbuiltin.NewSkillExecuteToolWithSubagent(c.skReg, nil, c.subMgr)
+}
+
 func builtinOrder(entry EntryPoint) []string {
 	_ = entry
-	return []string{"bash", "read", "write", "edit", "find", "fetch", "web_search", "glob", "grep", "skill"}
+	return []string{"bash", "read", "write", "edit", "find", "fetch", "web_search", "glob", "grep", "skill_execute", "skill"}
 }
 
 func filterBuiltinNames(enabled []string, order []string) []string {

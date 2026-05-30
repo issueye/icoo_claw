@@ -44,6 +44,7 @@ type SkillSubagentDispatcher interface {
 
 // SkillTool adapts the runtime skills registry into a tool.
 type SkillTool struct {
+	name     string
 	registry *skills.Registry
 	provider ActivationContextProvider
 	dispatch SkillSubagentDispatcher
@@ -56,13 +57,36 @@ func NewSkillTool(reg *skills.Registry, provider ActivationContextProvider) *Ski
 
 // NewSkillToolWithSubagent wires the registry to subagent-backed execution.
 func NewSkillToolWithSubagent(reg *skills.Registry, provider ActivationContextProvider, dispatcher SkillSubagentDispatcher) *SkillTool {
+	return newSkillToolWithName("skill", reg, provider, dispatcher)
+}
+
+// NewSkillExecuteTool wires the registry as the explicit skill execution tool.
+func NewSkillExecuteTool(reg *skills.Registry, provider ActivationContextProvider) *SkillTool {
+	return NewSkillExecuteToolWithSubagent(reg, provider, nil)
+}
+
+// NewSkillExecuteToolWithSubagent wires skill_execute to subagent-backed execution.
+func NewSkillExecuteToolWithSubagent(reg *skills.Registry, provider ActivationContextProvider, dispatcher SkillSubagentDispatcher) *SkillTool {
+	return newSkillToolWithName("skill_execute", reg, provider, dispatcher)
+}
+
+func newSkillToolWithName(name string, reg *skills.Registry, provider ActivationContextProvider, dispatcher SkillSubagentDispatcher) *SkillTool {
 	if provider == nil {
 		provider = defaultActivationProvider
 	}
-	return &SkillTool{registry: reg, provider: provider, dispatch: dispatcher}
+	name = strings.TrimSpace(name)
+	if name == "" {
+		name = "skill_execute"
+	}
+	return &SkillTool{name: name, registry: reg, provider: provider, dispatch: dispatcher}
 }
 
-func (s *SkillTool) Name() string { return "skill" }
+func (s *SkillTool) Name() string {
+	if s == nil || strings.TrimSpace(s.name) == "" {
+		return "skill_execute"
+	}
+	return s.name
+}
 
 func (s *SkillTool) Description() string {
 	var defs []skills.Definition
@@ -336,7 +360,7 @@ func SkillToolWhitelist(result skills.Result) []string {
 	out := tools[:0]
 	for _, name := range tools {
 		name = strings.ToLower(strings.TrimSpace(name))
-		if name == "" || name == "skill" {
+		if name == "" || isSkillExecutionToolName(name) {
 			continue
 		}
 		out = append(out, name)
@@ -427,6 +451,15 @@ func skillLocation(def skills.Definition) string {
 		}
 	}
 	return ""
+}
+
+func isSkillExecutionToolName(name string) bool {
+	switch strings.ToLower(strings.TrimSpace(name)) {
+	case "skill", "skill_execute":
+		return true
+	default:
+		return false
+	}
 }
 
 var skillDescriptionEscaper = strings.NewReplacer(
