@@ -54,3 +54,28 @@ func TestWebSearchToolRejectsDeniedDuckDuckGoHost(t *testing.T) {
 		t.Fatal("web_search denied host succeeded, want error")
 	}
 }
+
+func TestWebSearchToolUsesConfiguredHTTPProxy(t *testing.T) {
+	proxyHit := false
+	proxy := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		proxyHit = true
+		if r.URL.Query().Get("q") != "agent tools" {
+			t.Fatalf("query = %q, want agent tools", r.URL.Query().Get("q"))
+		}
+		_, _ = w.Write([]byte(`<html><body><a class="result__a" href="https://example.com">Agent Tools</a></body></html>`))
+	}))
+	defer proxy.Close()
+
+	search := NewWebSearchToolWithEndpointAndOptions(
+		sandbox.NewDomainAllowList("duckduckgo.test"),
+		"http://duckduckgo.test/html/",
+		NetworkOptions{HTTPProxy: proxy.URL},
+	)
+	result, err := search.Execute(context.Background(), map[string]interface{}{"query": "agent tools"})
+	if err != nil {
+		t.Fatalf("web_search: %v", err)
+	}
+	if !proxyHit || !strings.Contains(result.Output, "Agent Tools") {
+		t.Fatalf("proxyHit=%v output=%q", proxyHit, result.Output)
+	}
+}

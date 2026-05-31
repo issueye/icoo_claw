@@ -565,6 +565,49 @@ func TestSDKRunnerExecutesFetchTool(t *testing.T) {
 	}
 }
 
+func TestSDKRunnerFetchToolUsesAgentNetworkProxy(t *testing.T) {
+	proxyHit := false
+	proxy := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		proxyHit = true
+		if r.URL.String() != "http://proxy-only.example/secret" {
+			t.Fatalf("proxy request URL = %q", r.URL.String())
+		}
+		_, _ = w.Write([]byte("network-secret"))
+	}))
+	defer proxy.Close()
+
+	root := t.TempDir()
+	store := &memoryHistoryStore{}
+	history := NewHistoryAdapter(store)
+	model := &fetchModel{t: t, url: "http://proxy-only.example/secret"}
+	factory := NewRuntimeFactory(history, model)
+	runner := NewSDKRunner(factory, history)
+
+	resp, err := runner.Run(context.Background(), RunRequest{
+		SessionID:     "sess_fetch_proxy",
+		Prompt:        "fetch through proxy",
+		ToolWhitelist: []string{"fetch"},
+		Agent: &agentproto.AgentRuntimeProfile{
+			ProjectRoot:         root,
+			EnabledBuiltinTools: []string{"fetch"},
+			NetworkAllow:        []string{"proxy-only.example"},
+			NetworkProxy: agentproto.NetworkProxyConfig{
+				HTTPProxy: proxy.URL,
+			},
+			MaxIterations: 3,
+		},
+	})
+	if err != nil {
+		t.Fatalf("run: %v", err)
+	}
+	if resp.Output != "fetch ok" {
+		t.Fatalf("output = %q, want fetch ok", resp.Output)
+	}
+	if !proxyHit {
+		t.Fatal("expected fetch to use configured HTTP proxy")
+	}
+}
+
 func TestSDKRunnerStreamContinuesAfterFetchToolTimeout(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		time.Sleep(50 * time.Millisecond)

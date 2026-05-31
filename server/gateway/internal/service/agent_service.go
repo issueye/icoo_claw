@@ -38,6 +38,7 @@ func (s *AgentService) Create(ctx context.Context, req dto.CreateAgentRequest) (
 		MaxIterations:     req.MaxIterations,
 		ToolWhitelistJSON: jsonutil.MarshalStringSlice(req.ToolWhitelist),
 		NetworkAllowJSON:  jsonutil.MarshalStringSlice(req.NetworkAllow),
+		NetworkProxyJSON:  marshalNetworkProxy(req.NetworkProxy),
 		MCPServerIDsJSON:  jsonutil.MarshalStringSlice(req.MCPServerIDs),
 		SkillNamesJSON:    jsonutil.MarshalStringSlice(req.SkillNames),
 		Enabled:           enabled,
@@ -109,6 +110,9 @@ func (s *AgentService) Update(ctx context.Context, id string, req dto.UpdateAgen
 	if req.NetworkAllow != nil {
 		agent.NetworkAllowJSON = jsonutil.MarshalStringSlice(req.NetworkAllow)
 	}
+	if req.NetworkProxy != nil {
+		agent.NetworkProxyJSON = marshalNetworkProxy(*req.NetworkProxy)
+	}
 	if req.MCPServerIDs != nil {
 		agent.MCPServerIDsJSON = jsonutil.MarshalStringSlice(req.MCPServerIDs)
 	}
@@ -142,6 +146,7 @@ func toAgentDTO(agent model.AgentProfile) *dto.AgentProfile {
 		MaxIterations: agent.MaxIterations,
 		ToolWhitelist: jsonutil.UnmarshalStringSlice(agent.ToolWhitelistJSON),
 		NetworkAllow:  jsonutil.UnmarshalStringSlice(agent.NetworkAllowJSON),
+		NetworkProxy:  unmarshalNetworkProxy(agent.NetworkProxyJSON),
 		MCPServerIDs:  jsonutil.UnmarshalStringSlice(agent.MCPServerIDsJSON),
 		SkillNames:    jsonutil.UnmarshalStringSlice(agent.SkillNamesJSON),
 		Enabled:       agent.Enabled,

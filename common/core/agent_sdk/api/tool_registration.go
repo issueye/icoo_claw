@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"net/url"
+	"os"
 	"strings"
 	"time"
 
@@ -27,7 +28,7 @@ func registerTools(registry *tool.Registry, opts Options, settings *config.Setti
 			skReg = skills.NewRegistry()
 		}
 
-		factories := builtinToolFactories(opts.ProjectRoot, opts.Sandbox.NetworkAllow, sandboxDisabled, entry, settings, skReg, subMgr)
+		factories := builtinToolFactories(opts.ProjectRoot, opts.Sandbox.NetworkAllow, opts.Sandbox.NetworkProxy, sandboxDisabled, entry, settings, skReg, subMgr)
 		names := builtinOrder(entry)
 		selectedNames := filterBuiltinNames(opts.EnabledBuiltinTools, names)
 		for _, name := range selectedNames {
@@ -108,7 +109,7 @@ func withToolSearch(tools []tool.Tool) []tool.Tool {
 	return append(tools, toolbuiltin.NewToolSearchTool(tools))
 }
 
-func builtinToolFactories(root string, networkAllow []string, sandboxDisabled bool, entry EntryPoint, settings *config.Settings, skReg *skills.Registry, subMgr *subagents.Manager) map[string]func() tool.Tool {
+func builtinToolFactories(root string, networkAllow []string, networkProxy NetworkProxyOptions, sandboxDisabled bool, entry EntryPoint, settings *config.Settings, skReg *skills.Registry, subMgr *subagents.Manager) map[string]func() tool.Tool {
 	var networkPolicy sandbox.NetworkPolicy
 	if !sandboxDisabled {
 		if len(networkAllow) == 0 {
@@ -127,6 +128,7 @@ func builtinToolFactories(root string, networkAllow []string, sandboxDisabled bo
 		entry:            entry,
 		sandboxDisabled:  sandboxDisabled,
 		networkPolicy:    networkPolicy,
+		networkOptions:   networkToolOptions(networkProxy, settings),
 		respectGitignore: respectGitignore,
 		skReg:            skReg,
 		subMgr:           subMgr,
@@ -151,6 +153,7 @@ type builtinToolFactoryConfig struct {
 	entry            EntryPoint
 	sandboxDisabled  bool
 	networkPolicy    sandbox.NetworkPolicy
+	networkOptions   toolbuiltin.NetworkOptions
 	respectGitignore bool
 	skReg            *skills.Registry
 	subMgr           *subagents.Manager
@@ -224,11 +227,11 @@ func (c builtinToolFactoryConfig) find() tool.Tool {
 }
 
 func (c builtinToolFactoryConfig) fetch() tool.Tool {
-	return toolbuiltin.NewFetchToolWithNetworkPolicy(c.networkPolicy)
+	return toolbuiltin.NewFetchToolWithNetworkPolicyAndOptions(c.networkPolicy, c.networkOptions)
 }
 
 func (c builtinToolFactoryConfig) webSearch() tool.Tool {
-	return toolbuiltin.NewWebSearchToolWithNetworkPolicy(c.networkPolicy)
+	return toolbuiltin.NewWebSearchToolWithNetworkPolicyAndOptions(c.networkPolicy, c.networkOptions)
 }
 
 func (c builtinToolFactoryConfig) skillExecute() tool.Tool {
@@ -237,6 +240,48 @@ func (c builtinToolFactoryConfig) skillExecute() tool.Tool {
 
 func (c builtinToolFactoryConfig) skillCreate() tool.Tool {
 	return toolbuiltin.NewSkillCreateTool(c.root, c.skReg)
+}
+
+func networkToolOptions(proxy NetworkProxyOptions, settings *config.Settings) toolbuiltin.NetworkOptions {
+	opts := toolbuiltin.NetworkOptions{
+		HTTPProxy:  strings.TrimSpace(proxy.HTTPProxy),
+		HTTPSProxy: strings.TrimSpace(proxy.HTTPSProxy),
+		NoProxy:    strings.TrimSpace(proxy.NoProxy),
+	}
+	if settings != nil && settings.Sandbox != nil && settings.Sandbox.Network != nil {
+		network := settings.Sandbox.Network
+		if opts.HTTPProxy == "" && network.HTTPProxyPort != nil && *network.HTTPProxyPort > 0 {
+			opts.HTTPProxy = fmt.Sprintf("http://127.0.0.1:%d", *network.HTTPProxyPort)
+		}
+		if opts.HTTPSProxy == "" && network.HTTPProxyPort != nil && *network.HTTPProxyPort > 0 {
+			opts.HTTPSProxy = fmt.Sprintf("http://127.0.0.1:%d", *network.HTTPProxyPort)
+		}
+		if opts.HTTPProxy == "" && network.SocksProxyPort != nil && *network.SocksProxyPort > 0 {
+			opts.HTTPProxy = fmt.Sprintf("socks5://127.0.0.1:%d", *network.SocksProxyPort)
+		}
+		if opts.HTTPSProxy == "" && network.SocksProxyPort != nil && *network.SocksProxyPort > 0 {
+			opts.HTTPSProxy = fmt.Sprintf("socks5://127.0.0.1:%d", *network.SocksProxyPort)
+		}
+	}
+	if opts.HTTPProxy == "" {
+		opts.HTTPProxy = firstEnv("HTTP_PROXY", "http_proxy")
+	}
+	if opts.HTTPSProxy == "" {
+		opts.HTTPSProxy = firstEnv("HTTPS_PROXY", "https_proxy")
+	}
+	if opts.NoProxy == "" {
+		opts.NoProxy = firstEnv("NO_PROXY", "no_proxy")
+	}
+	return opts
+}
+
+func firstEnv(keys ...string) string {
+	for _, key := range keys {
+		if value := strings.TrimSpace(os.Getenv(key)); value != "" {
+			return value
+		}
+	}
+	return ""
 }
 
 func builtinOrder(entry EntryPoint) []string {

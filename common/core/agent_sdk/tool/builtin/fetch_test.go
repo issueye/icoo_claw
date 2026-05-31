@@ -64,3 +64,58 @@ func TestFetchToolTruncatesResponse(t *testing.T) {
 		t.Fatalf("output = %q", result.Output)
 	}
 }
+
+func TestFetchToolUsesConfiguredHTTPProxy(t *testing.T) {
+	target := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		t.Fatalf("target should not be reached directly")
+	}))
+	defer target.Close()
+
+	proxyHit := false
+	proxy := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		proxyHit = true
+		if strings.TrimRight(r.URL.String(), "/") != strings.TrimRight(target.URL, "/") {
+			t.Fatalf("proxy request URL = %q, want %q", r.URL.String(), target.URL)
+		}
+		_, _ = w.Write([]byte("via proxy"))
+	}))
+	defer proxy.Close()
+
+	fetch := NewFetchToolWithNetworkPolicyAndOptions(
+		sandbox.NewDomainAllowList("127.0.0.1"),
+		NetworkOptions{HTTPProxy: proxy.URL},
+	)
+	result, err := fetch.Execute(context.Background(), map[string]interface{}{"url": target.URL})
+	if err != nil {
+		t.Fatalf("fetch: %v", err)
+	}
+	if !proxyHit || !strings.Contains(result.Output, "via proxy") {
+		t.Fatalf("proxyHit=%v output=%q", proxyHit, result.Output)
+	}
+}
+
+func TestFetchToolNoProxyBypassesConfiguredProxy(t *testing.T) {
+	target := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_, _ = w.Write([]byte("direct"))
+	}))
+	defer target.Close()
+
+	proxyHit := false
+	proxy := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		proxyHit = true
+		_, _ = w.Write([]byte("proxy"))
+	}))
+	defer proxy.Close()
+
+	fetch := NewFetchToolWithNetworkPolicyAndOptions(
+		sandbox.NewDomainAllowList("127.0.0.1"),
+		NetworkOptions{HTTPProxy: proxy.URL, NoProxy: "127.0.0.1"},
+	)
+	result, err := fetch.Execute(context.Background(), map[string]interface{}{"url": target.URL})
+	if err != nil {
+		t.Fatalf("fetch: %v", err)
+	}
+	if proxyHit || !strings.Contains(result.Output, "direct") {
+		t.Fatalf("proxyHit=%v output=%q", proxyHit, result.Output)
+	}
+}

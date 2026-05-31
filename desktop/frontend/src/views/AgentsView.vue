@@ -73,6 +73,9 @@ function emptyForm() {
     maxIterations: 0,
     toolWhitelist: '',
     networkAllow: '',
+    httpProxy: '',
+    httpsProxy: '',
+    noProxy: '',
     mcpServerIds: '',
     skillNames: '',
     enabled: true,
@@ -135,6 +138,9 @@ function openEditEditor(agent) {
     maxIterations: agent.maxIterations || 0,
     toolWhitelist: listToText(agent.toolWhitelist),
     networkAllow: listToText(agent.networkAllow),
+    httpProxy: agent.httpProxy || '',
+    httpsProxy: agent.httpsProxy || '',
+    noProxy: agent.noProxy || '',
     mcpServerIds: listToText(agent.mcpServerIds),
     skillNames: listToText(agent.skillNames),
     enabled: Boolean(agent.enabled),
@@ -541,6 +547,18 @@ onMounted(() => {
           </QqFormField>
           <QqFormField label="网络允许列表" helper="每行一个域名或地址。">
             <QqTextarea v-model="form.networkAllow" :rows="3" placeholder="api.openai.com" />
+          </QqFormField>
+        </div>
+
+        <div class="grid gap-4 md:grid-cols-3">
+          <QqFormField label="HTTP 代理" helper="用于 fetch、web search 等网络工具。">
+            <QqInput v-model="form.httpProxy" placeholder="http://127.0.0.1:7890" />
+          </QqFormField>
+          <QqFormField label="HTTPS 代理">
+            <QqInput v-model="form.httpsProxy" placeholder="http://127.0.0.1:7890" />
+          </QqFormField>
+          <QqFormField label="不走代理" helper="多个地址用逗号分隔。">
+            <QqInput v-model="form.noProxy" placeholder="localhost,127.0.0.1" />
           </QqFormField>
         </div>
 

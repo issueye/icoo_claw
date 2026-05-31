@@ -78,14 +78,26 @@ func NewWebSearchTool() *WebSearchTool {
 // NewWebSearchToolWithNetworkPolicy builds a WebSearchTool using a custom network policy.
 // A nil policy disables network host checks and should only be used when sandboxing is disabled.
 func NewWebSearchToolWithNetworkPolicy(policy sandbox.NetworkPolicy) *WebSearchTool {
-	return NewWebSearchToolWithEndpoint(policy, "https://html.duckduckgo.com/html/")
+	return NewWebSearchToolWithNetworkPolicyAndOptions(policy, NetworkOptions{})
+}
+
+func NewWebSearchToolWithNetworkPolicyAndOptions(policy sandbox.NetworkPolicy, network NetworkOptions) *WebSearchTool {
+	return NewWebSearchToolWithEndpointAndOptions(policy, "https://html.duckduckgo.com/html/", network)
 }
 
 // NewWebSearchToolWithEndpoint builds a WebSearchTool against a custom endpoint, primarily for tests.
 func NewWebSearchToolWithEndpoint(policy sandbox.NetworkPolicy, endpoint string) *WebSearchTool {
+	return NewWebSearchToolWithEndpointAndOptions(policy, endpoint, NetworkOptions{})
+}
+
+func NewWebSearchToolWithEndpointAndOptions(policy sandbox.NetworkPolicy, endpoint string, network NetworkOptions) *WebSearchTool {
+	transport, err := network.transport()
+	if err != nil {
+		transport = http.DefaultTransport.(*http.Transport).Clone()
+	}
 	return &WebSearchTool{
 		policy:    policy,
-		client:    &http.Client{Timeout: webSearchDefaultTimeout},
+		client:    &http.Client{Timeout: webSearchDefaultTimeout, Transport: transport},
 		endpoint:  strings.TrimSpace(endpoint),
 		timeout:   webSearchDefaultTimeout,
 		maxResult: webSearchDefaultLimit,

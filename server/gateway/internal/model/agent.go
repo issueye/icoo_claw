@@ -15,6 +15,7 @@ type AgentProfile struct {
 	MaxIterations     int
 	ToolWhitelistJSON string `gorm:"column:tool_whitelist;type:text"`
 	NetworkAllowJSON  string `gorm:"column:network_allow;type:text"`
+	NetworkProxyJSON  string `gorm:"column:network_proxy;type:text"`
 	MCPServerIDsJSON  string `gorm:"column:mcp_server_ids;type:text"`
 	SkillNamesJSON    string `gorm:"column:skill_names;type:text"`
 	Enabled           bool

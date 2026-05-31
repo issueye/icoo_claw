@@ -233,6 +233,7 @@ func TestScheduledTaskServiceAgentTaskBuildsRuntimePayload(t *testing.T) {
 			ModelProvider:     "openai",
 			ToolWhitelistJSON: `[]`,
 			NetworkAllowJSON:  `["example.com"]`,
+			NetworkProxyJSON:  `{"http_proxy":"http://127.0.0.1:7890","https_proxy":"http://127.0.0.1:7891","no_proxy":"localhost"}`,
 			MCPServerIDsJSON:  `["mcp_1"]`,
 			Enabled:           true,
 		}},
@@ -253,6 +254,9 @@ func TestScheduledTaskServiceAgentTaskBuildsRuntimePayload(t *testing.T) {
 	}
 	if got := claw.req.Agent.NetworkAllow; len(got) != 1 || got[0] != "example.com" {
 		t.Fatalf("network_allow = %+v", got)
+	}
+	if got := claw.req.Agent.NetworkProxy; got.HTTPProxy != "http://127.0.0.1:7890" || got.HTTPSProxy != "http://127.0.0.1:7891" || got.NoProxy != "localhost" {
+		t.Fatalf("network_proxy = %+v", got)
 	}
 	if got := claw.req.Agent.MCPServers; len(got) != 1 || got[0] != "mcp_1" {
 		t.Fatalf("mcp_servers = %+v", got)

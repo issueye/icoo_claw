@@ -23,6 +23,7 @@ func (r chatAgentRepo) Get(context.Context, string) (*model.AgentProfile, error)
 		ModelProvider:     "openai",
 		ToolWhitelistJSON: `["read"]`,
 		NetworkAllowJSON:  `["example.com"]`,
+		NetworkProxyJSON:  `{"http_proxy":"http://127.0.0.1:7890","https_proxy":"http://127.0.0.1:7891","no_proxy":"localhost,127.0.0.1"}`,
 		MCPServerIDsJSON:  `[]`,
 		SkillNamesJSON:    `[]`,
 		Enabled:           true,
@@ -187,6 +188,11 @@ func TestChatServiceCreateAndSendMessage(t *testing.T) {
 	}
 	if claw.req.Agent == nil || len(claw.req.Agent.NetworkAllow) != 1 || claw.req.Agent.NetworkAllow[0] != "example.com" {
 		t.Fatalf("network_allow = %+v", claw.req.Agent)
+	}
+	if claw.req.Agent.NetworkProxy.HTTPProxy != "http://127.0.0.1:7890" ||
+		claw.req.Agent.NetworkProxy.HTTPSProxy != "http://127.0.0.1:7891" ||
+		claw.req.Agent.NetworkProxy.NoProxy != "localhost,127.0.0.1" {
+		t.Fatalf("network_proxy = %+v", claw.req.Agent.NetworkProxy)
 	}
 	if instances.instance.Inflight != 0 {
 		t.Fatalf("inflight = %d, want 0", instances.instance.Inflight)

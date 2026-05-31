@@ -43,6 +43,11 @@ func (f *RuntimeFactory) New(ctx context.Context, req RunRequest) (*api.Runtime,
 		MCPServers:          profile.MCPServers,
 		Sandbox: api.SandboxOptions{
 			NetworkAllow: profile.NetworkAllow,
+			NetworkProxy: api.NetworkProxyOptions{
+				HTTPProxy:  profile.NetworkProxy.HTTPProxy,
+				HTTPSProxy: profile.NetworkProxy.HTTPSProxy,
+				NoProxy:    profile.NetworkProxy.NoProxy,
+			},
 		},
 		// Claw runs as the platform service layer, not an interactive CLI. Keep
 		// existing API behavior by approving SDK permission prompts here while

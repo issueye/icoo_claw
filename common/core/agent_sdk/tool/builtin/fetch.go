@@ -70,13 +70,22 @@ func NewFetchTool() *FetchTool {
 // NewFetchToolWithNetworkPolicy builds a FetchTool using a custom network policy.
 // A nil policy disables network host checks and should only be used when sandboxing is disabled.
 func NewFetchToolWithNetworkPolicy(policy sandbox.NetworkPolicy) *FetchTool {
+	return NewFetchToolWithNetworkPolicyAndOptions(policy, NetworkOptions{})
+}
+
+func NewFetchToolWithNetworkPolicyAndOptions(policy sandbox.NetworkPolicy, network NetworkOptions) *FetchTool {
 	t := &FetchTool{
 		policy:      policy,
 		timeout:     fetchDefaultTimeout,
 		maxBodySize: fetchDefaultMaxBody,
 	}
+	transport, err := network.transport()
+	if err != nil {
+		transport = http.DefaultTransport.(*http.Transport).Clone()
+	}
 	t.client = &http.Client{
-		Timeout: t.timeout,
+		Timeout:   t.timeout,
+		Transport: transport,
 		CheckRedirect: func(req *http.Request, via []*http.Request) error {
 			if len(via) >= 5 {
 				return errors.New("stopped after 5 redirects")

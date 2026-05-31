@@ -79,7 +79,14 @@ type SandboxOptions struct {
 	Root          string
 	AllowedPaths  []string
 	NetworkAllow  []string
+	NetworkProxy  NetworkProxyOptions
 	ResourceLimit sandbox.ResourceLimits
+}
+
+type NetworkProxyOptions struct {
+	HTTPProxy  string
+	HTTPSProxy string
+	NoProxy    string
 }
 
 type StreamStallConfig struct {
@@ -455,6 +462,11 @@ func freezeSandboxOptions(in SandboxOptions) SandboxOptions {
 	}
 	if len(in.NetworkAllow) > 0 {
 		out.NetworkAllow = append([]string(nil), in.NetworkAllow...)
+	}
+	out.NetworkProxy = NetworkProxyOptions{
+		HTTPProxy:  strings.TrimSpace(in.NetworkProxy.HTTPProxy),
+		HTTPSProxy: strings.TrimSpace(in.NetworkProxy.HTTPSProxy),
+		NoProxy:    strings.TrimSpace(in.NetworkProxy.NoProxy),
 	}
 	return out
 }

@@ -104,6 +104,7 @@ func agentRuntimeProfile(agent model.AgentProfile, provider *model.ProviderProfi
 		SystemPrompt:  agent.SystemPrompt,
 		MaxIterations: maxAgentIterations(agent.MaxIterations),
 		NetworkAllow:  jsonutil.UnmarshalStringSlice(agent.NetworkAllowJSON),
+		NetworkProxy:  toAgentProtoNetworkProxy(unmarshalNetworkProxy(agent.NetworkProxyJSON)),
 		MCPServers:    jsonutil.UnmarshalStringSlice(agent.MCPServerIDsJSON),
 	}
 	if tools := jsonutil.UnmarshalStringSlice(agent.ToolWhitelistJSON); len(tools) > 0 {
