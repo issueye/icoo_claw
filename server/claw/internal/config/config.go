@@ -3,10 +3,15 @@ package config
 import (
 	"fmt"
 	"os"
+	"path/filepath"
 	"strings"
+
+	"icoo_claw/common/runtimepath"
 
 	"github.com/pelletier/go-toml/v2"
 )
+
+const DefaultConfigPath = runtimepath.DirName + "/config/claw.toml"
 
 type Config struct {
 	HTTPAddr           string
@@ -25,11 +30,11 @@ type fileConfig struct {
 }
 
 type gatewaySkillsFileConfig struct {
-	Path string `toml:"path"`
+	Path *string `toml:"path"`
 }
 
 func Load() Config {
-	cfg, err := LoadFile(configPath("config/claw.toml"))
+	cfg, err := LoadFile(configPath(DefaultConfigPath))
 	if err != nil {
 		panic(err)
 	}
@@ -64,9 +69,10 @@ func LoadFile(path string) (Config, error) {
 	if file.RunnerMode != "" {
 		cfg.RunnerMode = file.RunnerMode
 	}
-	if file.GatewaySkills.Path != "" {
-		cfg.DefaultProjectRoot = file.GatewaySkills.Path
+	if file.GatewaySkills.Path != nil {
+		cfg.DefaultProjectRoot = *file.GatewaySkills.Path
 	}
+	resolveRelativePaths(&cfg, path)
 	return cfg, nil
 }
 
@@ -85,8 +91,35 @@ func configPath(fallback string) string {
 
 func defaults() Config {
 	return Config{
-		HTTPAddr:      ":8081",
-		SessionAPIURL: "http://127.0.0.1:8080",
-		RunnerMode:    "sdk",
+		HTTPAddr:           ":8081",
+		SessionAPIURL:      "http://127.0.0.1:8080",
+		RunnerMode:         "sdk",
+		DefaultProjectRoot: filepath.Join(runtimepath.Root(), "skills"),
 	}
+}
+
+func resolveRelativePaths(cfg *Config, configFilePath string) {
+	cfg.DefaultProjectRoot = resolveConfigDataPath(cfg.DefaultProjectRoot, configBaseDir(configFilePath))
+}
+
+func configBaseDir(configFilePath string) string {
+	if configFilePath == "" {
+		return ""
+	}
+	abs, err := filepath.Abs(configFilePath)
+	if err != nil {
+		return filepath.Dir(configFilePath)
+	}
+	return filepath.Dir(abs)
+}
+
+func resolveConfigDataPath(value string, baseDir string) string {
+	value = strings.TrimSpace(value)
+	if value == "" || baseDir == "" {
+		return value
+	}
+	if filepath.IsAbs(value) {
+		return filepath.Clean(value)
+	}
+	return filepath.Clean(filepath.Join(baseDir, value))
 }

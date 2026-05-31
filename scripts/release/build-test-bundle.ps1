@@ -50,7 +50,7 @@ function New-CleanDirectory {
 function Backup-RuntimeData {
   param([string]$BundleRoot)
 
-  $source = Join-Path $BundleRoot "runtime\data"
+  $source = Join-Path $BundleRoot "icoo_runtime\data"
   if (-not (Test-Path $source)) {
     return ""
   }
@@ -132,7 +132,7 @@ New-CleanDirectory $bundleRoot
 $binDir = Join-Path $bundleRoot "bin"
 $configDir = Join-Path $bundleRoot "config"
 $binConfigDir = Join-Path $binDir "config"
-$runtimeDir = Join-Path $bundleRoot "runtime"
+$runtimeDir = Join-Path $bundleRoot "icoo_runtime"
 $runtimeConfigDir = Join-Path $runtimeDir "config"
 $runtimeDataDir = Join-Path $runtimeDir "data"
 $runtimeLogDir = Join-Path $runtimeDir "logs"
@@ -171,14 +171,14 @@ Copy-Item -LiteralPath $desktopExe -Destination (Join-Path $binDir "desktop.exe"
 
 $manualRootGatewayConfig = @"
 http_addr = "127.0.0.1:8080"
-db_path = "../runtime/data/gateway.sqlite"
+db_path = "../icoo_runtime/data/gateway.sqlite"
 
 session_api_url = "http://127.0.0.1:8080"
 internal_token = "dev-internal-token"
 
 claw_binary_path = "../bin/claw.exe"
 claw_work_dir = ".."
-claw_config_dir = "../runtime/data/claw-configs"
+claw_config_dir = "../icoo_runtime/data/claw-configs"
 claw_runner_mode = "sdk"
 claw_port_start = 8101
 claw_port_end = 8199
@@ -190,14 +190,14 @@ Write-Utf8NoBom -Path (Join-Path $configDir "gateway.toml") -Content $manualRoot
 
 $manualBinGatewayConfig = @"
 http_addr = "127.0.0.1:8080"
-db_path = "../../runtime/data/gateway.sqlite"
+db_path = "../../icoo_runtime/data/gateway.sqlite"
 
 session_api_url = "http://127.0.0.1:8080"
 internal_token = "dev-internal-token"
 
 claw_binary_path = "../claw.exe"
 claw_work_dir = "../.."
-claw_config_dir = "../../runtime/data/claw-configs"
+claw_config_dir = "../../icoo_runtime/data/claw-configs"
 claw_runner_mode = "sdk"
 claw_port_start = 8101
 claw_port_end = 8199
@@ -213,7 +213,7 @@ $ErrorActionPreference = "Stop"
 
 $packageRoot = (Resolve-Path (Join-Path $PSScriptRoot "..")).Path
 $binDir = Join-Path $packageRoot "bin"
-$runtimeRoot = Join-Path $packageRoot "runtime"
+$runtimeRoot = Join-Path $packageRoot "icoo_runtime"
 $configDir = Join-Path $runtimeRoot "config"
 $dataDir = Join-Path $runtimeRoot "data"
 $logDir = Join-Path $runtimeRoot "logs"
@@ -398,7 +398,7 @@ $ErrorActionPreference = "Stop"
 
 $packageRoot = (Resolve-Path (Join-Path $PSScriptRoot "..")).Path
 $binDir = Join-Path $packageRoot "bin"
-$runDir = Join-Path $packageRoot "runtime\run"
+$runDir = Join-Path $packageRoot "icoo_runtime\run"
 
 function Stop-ByPidFile {
   param([string]$Name)
@@ -453,7 +453,7 @@ $ErrorActionPreference = "Stop"
 
 $packageRoot = (Resolve-Path (Join-Path $PSScriptRoot "..")).Path
 $desktopExe = Join-Path $packageRoot "bin\desktop.exe"
-$runDir = Join-Path $packageRoot "runtime\run"
+$runDir = Join-Path $packageRoot "icoo_runtime\run"
 
 if (-not (Test-Path $desktopExe)) {
   throw "desktop.exe not found: $desktopExe"
@@ -666,7 +666,7 @@ From `bin\`:
 ## Notes
 
 - The desktop app writes settings to `%APPDATA%\icoo-claw\settings.toml`.
-- Runtime databases, generated configs, logs, and pid files live under `runtime/`.
+- Runtime databases, generated configs, logs, and pid files live under `icoo_runtime/`.
 - Configure a provider API Key, Base URL, and model in the desktop app before starting Agent instances.
 - Windows WebView2 runtime is required for the desktop window.
 - If the client shows that the gateway cannot be reached, start the package through `start-test-app.cmd` instead of opening `desktop.exe` by itself.

@@ -169,6 +169,11 @@ func LoadFromFS(opts LoaderOptions) ([]SkillRegistration, []error) {
 	files, loadErrs := loadSkillDirFn(agentsDir, projectFS)
 	errs = append(errs, loadErrs...)
 	allFiles = append(allFiles, files...)
+
+	files, loadErrs = loadVersionedSkillDir(opts.ProjectRoot, projectFS)
+	errs = append(errs, loadErrs...)
+	allFiles = append(allFiles, files...)
+
 	for _, dir := range opts.SkillDirs {
 		if strings.TrimSpace(dir) == "" {
 			continue
@@ -271,6 +276,87 @@ func loadSkillDir(root string, fsLayer *config.FS) ([]SkillFile, []error) {
 	}
 	sort.Slice(results, func(i, j int) bool { return results[i].Path < results[j].Path })
 	return results, errs
+}
+
+func loadVersionedSkillDir(root string, fsLayer *config.FS) ([]SkillFile, []error) {
+	var (
+		resultsBySkill = map[string]versionedSkillFile{}
+		errs           []error
+	)
+
+	root = strings.TrimSpace(root)
+	if root == "" {
+		return nil, nil
+	}
+	if fsLayer == nil {
+		fsLayer = config.NewFS("", nil)
+	}
+
+	info, err := fsLayer.Stat(root)
+	if err != nil {
+		if errors.Is(err, fs.ErrNotExist) {
+			return nil, nil
+		}
+		return nil, []error{fmt.Errorf("skills: stat %s: %w", root, err)}
+	}
+	if !info.IsDir() {
+		return nil, []error{fmt.Errorf("skills: path %s is not a directory", root)}
+	}
+
+	if walkErr := fsLayer.WalkDir(root, func(path string, d fs.DirEntry, walkErr error) error {
+		if walkErr != nil {
+			if errors.Is(walkErr, fs.ErrNotExist) {
+				return fs.SkipDir
+			}
+			errs = append(errs, fmt.Errorf("skills: walk %s: %w", path, walkErr))
+			return nil
+		}
+		if d == nil || d.IsDir() || d.Name() != "SKILL.md" {
+			return nil
+		}
+
+		rel, err := filepath.Rel(root, path)
+		if err != nil {
+			errs = append(errs, fmt.Errorf("skills: relate %s to %s: %w", path, root, err))
+			return nil
+		}
+		parts := strings.Split(filepath.ToSlash(rel), "/")
+		if len(parts) != 3 || parts[2] != "SKILL.md" {
+			return nil
+		}
+		skillName := parts[0]
+		if !isValidSkillName(skillName) {
+			errs = append(errs, fmt.Errorf("skills: invalid skill directory %q in %s", skillName, path))
+			return nil
+		}
+
+		version := parts[1]
+		file, parseErr := parseSkillFile(path, skillName, fsLayer)
+		if parseErr != nil {
+			if errors.Is(parseErr, fs.ErrNotExist) {
+				return nil
+			}
+			errs = append(errs, parseErr)
+			return nil
+		}
+		if previous, exists := resultsBySkill[skillName]; !exists || version > previous.version {
+			resultsBySkill[skillName] = versionedSkillFile{version: version, file: file}
+		}
+		return nil
+	}); walkErr != nil {
+		errs = append(errs, fmt.Errorf("skills: walk %s: %w", root, walkErr))
+	}
+	results := make([]SkillFile, 0, len(resultsBySkill))
+	for _, item := range resultsBySkill {
+		results = append(results, item.file)
+	}
+	sort.Slice(results, func(i, j int) bool { return results[i].Path < results[j].Path })
+	return results, errs
+}
+
+type versionedSkillFile struct {
+	version string
+	file    SkillFile
 }
 
 func loadEmbeddedSkillDir(projectRoot string, embed fs.FS) ([]SkillFile, []error) {

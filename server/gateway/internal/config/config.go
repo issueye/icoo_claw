@@ -8,8 +8,12 @@ import (
 	"strings"
 	"time"
 
+	"icoo_claw/common/runtimepath"
+
 	"github.com/pelletier/go-toml/v2"
 )
+
+const DefaultConfigPath = runtimepath.DirName + "/config/gateway.toml"
 
 type Config struct {
 	HTTPAddr          string
@@ -45,7 +49,7 @@ type fileConfig struct {
 }
 
 func Load() Config {
-	cfg, err := LoadFile(configPath("config/gateway.toml"))
+	cfg, err := LoadFile(configPath(DefaultConfigPath))
 	if err != nil {
 		panic(err)
 	}
@@ -88,18 +92,13 @@ func configPath(fallback string) string {
 }
 
 func defaults() Config {
-	workDir, err := os.Getwd()
-	if err != nil {
-		workDir = "."
-	}
-	if abs, err := filepath.Abs(workDir); err == nil {
-		workDir = abs
-	}
+	runtimeRoot := runtimepath.Root()
 	return Config{
 		HTTPAddr:          ":8080",
-		DBPath:            "gateway.sqlite",
-		ClawConfigDir:     "data/claw_configs",
-		GatewayWorkDir:    workDir,
+		DBPath:            filepath.Join(runtimeRoot, "gateway.sqlite"),
+		ClawWorkDir:       runtimeRoot,
+		ClawConfigDir:     filepath.Join(runtimeRoot, "claw_configs"),
+		GatewayWorkDir:    runtimeRoot,
 		ClawRunnerMode:    "sdk",
 		ClawPortStart:     8101,
 		ClawPortEnd:       8199,
@@ -207,7 +206,7 @@ func (cfg Config) GatewaySkillsRoot() string {
 	if workDir == "" {
 		workDir = "."
 	}
-	return filepath.Clean(filepath.Join(workDir, ".skills"))
+	return filepath.Clean(filepath.Join(workDir, "skills"))
 }
 
 func configBaseDir(configFilePath string) string {

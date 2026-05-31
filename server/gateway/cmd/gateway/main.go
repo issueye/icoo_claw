@@ -4,6 +4,7 @@ import (
 	"flag"
 	"log"
 
+	"icoo_claw/server/gateway/internal/config"
 	"icoo_claw/server/gateway/internal/di"
 )
 
@@ -12,7 +13,7 @@ var (
 )
 
 func main() {
-	flag.StringVar(&cfgPath, "config", "runtime/config/gateway.toml", "config file path")
+	flag.StringVar(&cfgPath, "config", config.DefaultConfigPath, "config file path")
 	flag.Parse()
 
 	container, err := di.NewContainer(cfgPath)

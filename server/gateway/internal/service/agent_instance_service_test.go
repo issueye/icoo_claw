@@ -258,7 +258,7 @@ func TestAgentInstanceServiceStartUsesAgentCommandArgs(t *testing.T) {
 }
 
 func TestAgentInstanceServiceStartPublishesBoundSkillRoot(t *testing.T) {
-	root := filepath.Join(t.TempDir(), ".skills")
+	root := filepath.Join(t.TempDir(), "icoo_runtime", "skills")
 	skillRepo := &memorySkillRepo{}
 	skills := NewSkillService(root, skillRepo)
 	if _, err := skills.Create(context.Background(), dto.CreateSkillRequest{
@@ -266,6 +266,7 @@ func TestAgentInstanceServiceStartPublishesBoundSkillRoot(t *testing.T) {
 		Name:        "doc-writer",
 		Description: "Write documents",
 		Path:        "docs/doc-writer",
+		Version:     "v1",
 		Files: []dto.SkillFile{
 			{Path: "references/template.md", Content: "template notes"},
 		},
@@ -293,14 +294,14 @@ func TestAgentInstanceServiceStartPublishesBoundSkillRoot(t *testing.T) {
 	if err != nil {
 		t.Fatalf("start: %v", err)
 	}
-	wantRoot := filepath.Join(root, "agents", started.ID)
+	wantRoot := filepath.Join(root, "instances", started.ID)
 	if supervisor.spec.DefaultProjectRoot != wantRoot {
 		t.Fatalf("default project root = %q, want %q", supervisor.spec.DefaultProjectRoot, wantRoot)
 	}
-	if _, err := os.Stat(filepath.Join(wantRoot, ".agents", "skills", "doc-writer", "SKILL.md")); err != nil {
+	if _, err := os.Stat(filepath.Join(wantRoot, "doc-writer", "v1", "SKILL.md")); err != nil {
 		t.Fatalf("published skill missing: %v", err)
 	}
-	if data, err := os.ReadFile(filepath.Join(wantRoot, ".agents", "skills", "doc-writer", "references", "template.md")); err != nil || string(data) != "template notes" {
+	if data, err := os.ReadFile(filepath.Join(wantRoot, "doc-writer", "v1", "references", "template.md")); err != nil || string(data) != "template notes" {
 		t.Fatalf("published skill support file = %q, %v", string(data), err)
 	}
 }
@@ -322,6 +323,32 @@ func TestAgentInstanceServiceStartDefaultsToEmptyProjectRootWithoutSkillService(
 	}
 	if supervisor.spec.DefaultProjectRoot != "" {
 		t.Fatalf("default project root = %q, want empty when no skill service", supervisor.spec.DefaultProjectRoot)
+	}
+}
+
+func TestAgentInstanceServiceStartUsesGlobalSkillRootWhenUnbound(t *testing.T) {
+	root := filepath.Join(t.TempDir(), "icoo_runtime", "skills")
+	skills := NewSkillService(root, &memorySkillRepo{})
+	repo := &memoryInstanceRepo{}
+	supervisor := &captureSupervisor{}
+	svc := NewAgentInstanceService(
+		config.Config{ClawPortStart: 8101, ClawPortEnd: 8101, MaxAgentInstances: 1},
+		instanceAgentRepo{agent: model.AgentProfile{
+			ID:      "agent_1",
+			Name:    "Default",
+			Enabled: true,
+		}},
+		nil,
+		repo,
+		supervisor,
+		skills,
+	)
+
+	if _, err := svc.Start(context.Background(), dto.StartAgentInstanceRequest{AgentID: "agent_1"}); err != nil {
+		t.Fatalf("start: %v", err)
+	}
+	if supervisor.spec.DefaultProjectRoot != root {
+		t.Fatalf("default project root = %q, want global skill root %q", supervisor.spec.DefaultProjectRoot, root)
 	}
 }
 

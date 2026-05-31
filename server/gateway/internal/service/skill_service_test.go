@@ -4,6 +4,7 @@ import (
 	"context"
 	"os"
 	"path/filepath"
+	"regexp"
 	"testing"
 
 	"icoo_claw/server/gateway/internal/dto"
@@ -74,8 +75,8 @@ func (r *memorySkillRepo) Delete(_ context.Context, id string) error {
 	return repository.ErrNotFound
 }
 
-func TestSkillServiceCreatePublishesActiveSkillRoot(t *testing.T) {
-	root := filepath.Join(t.TempDir(), ".skills")
+func TestSkillServiceCreatePublishesVersionedSkillRoot(t *testing.T) {
+	root := filepath.Join(t.TempDir(), "icoo_runtime", "skills")
 	repo := &memorySkillRepo{}
 	svc := NewSkillService(root, repo)
 
@@ -90,11 +91,7 @@ func TestSkillServiceCreatePublishesActiveSkillRoot(t *testing.T) {
 		t.Fatalf("create skill: %v", err)
 	}
 
-	activePath := filepath.Join(root, "active", ".agents", "skills", "doc-writer", "SKILL.md")
-	if _, err := os.Stat(activePath); err != nil {
-		t.Fatalf("active SKILL.md missing at %s: %v", activePath, err)
-	}
-	versionPath := filepath.Join(root, "versions", "doc-writer", "v2", "SKILL.md")
+	versionPath := filepath.Join(root, "doc-writer", "v2", "SKILL.md")
 	if _, err := os.Stat(versionPath); err != nil {
 		t.Fatalf("version SKILL.md missing at %s: %v", versionPath, err)
 	}
@@ -111,8 +108,29 @@ func TestSkillServiceCreatePublishesActiveSkillRoot(t *testing.T) {
 	}
 }
 
+func TestSkillServiceCreateGeneratesTimestampVersionWhenMissing(t *testing.T) {
+	root := filepath.Join(t.TempDir(), "icoo_runtime", "skills")
+	svc := NewSkillService(root, &memorySkillRepo{})
+
+	skill, err := svc.Create(context.Background(), dto.CreateSkillRequest{
+		ID:          "skill_1",
+		Name:        "weather",
+		Description: "Query weather",
+		Path:        "tools/weather",
+	})
+	if err != nil {
+		t.Fatalf("create skill: %v", err)
+	}
+	if !regexp.MustCompile(`^\d{14}$`).MatchString(skill.Version) {
+		t.Fatalf("version = %q, want timestamp", skill.Version)
+	}
+	if _, err := os.Stat(filepath.Join(root, "weather", skill.Version, "SKILL.md")); err != nil {
+		t.Fatalf("timestamp version SKILL.md missing: %v", err)
+	}
+}
+
 func TestSkillServiceEnsureLayoutCreatesSkillsStructure(t *testing.T) {
-	root := filepath.Join(t.TempDir(), ".skills")
+	root := filepath.Join(t.TempDir(), "icoo_runtime", "skills")
 	svc := NewSkillService(root, &memorySkillRepo{})
 
 	if err := svc.EnsureLayout(); err != nil {
@@ -120,10 +138,7 @@ func TestSkillServiceEnsureLayoutCreatesSkillsStructure(t *testing.T) {
 	}
 	for _, path := range []string{
 		root,
-		filepath.Join(root, "active"),
-		filepath.Join(root, "active", ".agents", "skills"),
-		filepath.Join(root, "versions"),
-		filepath.Join(root, "agents"),
+		filepath.Join(root, "instances"),
 	} {
 		info, err := os.Stat(path)
 		if err != nil {
@@ -150,7 +165,7 @@ func TestSkillServiceRejectsInvalidSkillName(t *testing.T) {
 }
 
 func TestSkillServicePublishForInstanceFiltersBoundSkills(t *testing.T) {
-	root := filepath.Join(t.TempDir(), ".skills")
+	root := filepath.Join(t.TempDir(), "icoo_runtime", "skills")
 	repo := &memorySkillRepo{}
 	svc := NewSkillService(root, repo)
 
@@ -167,16 +182,34 @@ func TestSkillServicePublishForInstanceFiltersBoundSkills(t *testing.T) {
 	if err != nil {
 		t.Fatalf("publish for instance: %v", err)
 	}
-	if _, err := os.Stat(filepath.Join(instanceRoot, ".agents", "skills", "doc-writer", "SKILL.md")); err != nil {
+	docSkill := repo.items[0]
+	if _, err := os.Stat(filepath.Join(instanceRoot, "doc-writer", docSkill.Version, "SKILL.md")); err != nil {
 		t.Fatalf("bound skill missing: %v", err)
 	}
-	if _, err := os.Stat(filepath.Join(instanceRoot, ".agents", "skills", "docker-helper", "SKILL.md")); !os.IsNotExist(err) {
+	dockerSkill := repo.items[1]
+	if _, err := os.Stat(filepath.Join(instanceRoot, "docker-helper", dockerSkill.Version, "SKILL.md")); !os.IsNotExist(err) {
 		t.Fatalf("unbound skill should not be published, stat err = %v", err)
 	}
 }
 
+func TestSkillServicePublishForInstanceUsesGlobalRootWhenUnbound(t *testing.T) {
+	root := filepath.Join(t.TempDir(), "icoo_runtime", "skills")
+	svc := NewSkillService(root, &memorySkillRepo{})
+
+	instanceRoot, err := svc.PublishForInstance("inst_1", "")
+	if err != nil {
+		t.Fatalf("publish for instance: %v", err)
+	}
+	if instanceRoot != root {
+		t.Fatalf("instance root = %q, want global root %q", instanceRoot, root)
+	}
+	if _, err := os.Stat(filepath.Join(root, "instances", "inst_1")); !os.IsNotExist(err) {
+		t.Fatalf("unbound instance dir should not be created, stat err = %v", err)
+	}
+}
+
 func TestSkillServiceCreatePublishesSupportFiles(t *testing.T) {
-	root := filepath.Join(t.TempDir(), ".skills")
+	root := filepath.Join(t.TempDir(), "icoo_runtime", "skills")
 	svc := NewSkillService(root, &memorySkillRepo{})
 
 	if _, err := svc.Create(context.Background(), dto.CreateSkillRequest{
@@ -184,6 +217,7 @@ func TestSkillServiceCreatePublishesSupportFiles(t *testing.T) {
 		Name:        "doc-writer",
 		Description: "Write documents",
 		Path:        "doc-writer",
+		Version:     "20260530210600",
 		Files: []dto.SkillFile{
 			{Path: "references/guide.md", Content: "guide"},
 			{Path: "scripts/run.ps1", Content: "Write-Output ok"},
@@ -194,7 +228,7 @@ func TestSkillServiceCreatePublishesSupportFiles(t *testing.T) {
 	}
 
 	for _, rel := range []string{"references/guide.md", "scripts/run.ps1", "assets/sample.txt"} {
-		path := filepath.Join(root, "active", ".agents", "skills", "doc-writer", filepath.FromSlash(rel))
+		path := filepath.Join(root, "doc-writer", "20260530210600", filepath.FromSlash(rel))
 		data, err := os.ReadFile(path)
 		if err != nil {
 			t.Fatalf("read support file %s: %v", rel, err)
@@ -206,7 +240,7 @@ func TestSkillServiceCreatePublishesSupportFiles(t *testing.T) {
 }
 
 func TestSkillServiceRejectsEscapingSupportFilePath(t *testing.T) {
-	root := filepath.Join(t.TempDir(), ".skills")
+	root := filepath.Join(t.TempDir(), "icoo_runtime", "skills")
 	svc := NewSkillService(root, &memorySkillRepo{})
 
 	_, err := svc.Create(context.Background(), dto.CreateSkillRequest{

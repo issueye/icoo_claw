@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log"
 	"os"
 	"path/filepath"
 	"sort"
@@ -221,6 +222,17 @@ func buildSkillsRegistry(opts Options) (*skills.Registry, []error) {
 		}
 	}
 	return reg, errs
+}
+
+func (rt *Runtime) refreshSkillsForSessionStart() {
+	if rt == nil || rt.opts.skReg == nil {
+		return
+	}
+	reg, errs := buildSkillsRegistry(rt.opts)
+	for _, err := range errs {
+		log.Printf("skill loader warning: %v", err)
+	}
+	rt.opts.skReg.ReplaceWith(reg)
 }
 
 func pluginSkillDirs(registrations []plugins.Registration) []string {
@@ -506,6 +518,19 @@ func (s *historyStore) Loaded(id string) (*message.History, bool) {
 		s.lastUsed[id] = time.Now()
 	}
 	return hist, ok
+}
+
+func (s *historyStore) Has(id string) bool {
+	if s == nil {
+		return false
+	}
+	if strings.TrimSpace(id) == "" {
+		id = defaultSessionID(defaultEntrypoint)
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	_, ok := s.data[id]
+	return ok
 }
 
 func (s *historyStore) Snapshot(id string) ([]message.Message, bool) {

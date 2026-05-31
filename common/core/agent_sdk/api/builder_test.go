@@ -4,6 +4,7 @@ import (
 	"context"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"icoo_claw/common/core/agent_sdk/model"
@@ -168,6 +169,45 @@ Review the current change set.`), 0o644); err != nil {
 	}
 }
 
+func TestRuntimeScansSkillDirectoryAtSessionStart(t *testing.T) {
+	root := t.TempDir()
+	model := &capturingToolsModel{}
+	rt, err := NewRuntimeBuilder(root).
+		WithModel(model).
+		WithBuiltinTools("skill_execute").
+		Build(context.Background())
+	if err != nil {
+		t.Fatalf("Build: %v", err)
+	}
+	defer rt.Close()
+
+	if _, err := rt.Run(context.Background(), Request{SessionID: "sess_before", Prompt: "hello"}); err != nil {
+		t.Fatalf("run before skill: %v", err)
+	}
+	if model.lastSkillDescriptionContains("weather") {
+		t.Fatalf("skill was available before it existed")
+	}
+
+	skillDir := filepath.Join(root, "weather", "20260530210600")
+	if err := os.MkdirAll(skillDir, 0o755); err != nil {
+		t.Fatalf("mkdir skill dir: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(skillDir, "SKILL.md"), []byte(`---
+name: weather
+description: Query weather
+---
+Query the weather.`), 0o644); err != nil {
+		t.Fatalf("write skill: %v", err)
+	}
+
+	if _, err := rt.Run(context.Background(), Request{SessionID: "sess_after", Prompt: "hello again"}); err != nil {
+		t.Fatalf("run after skill: %v", err)
+	}
+	if !model.lastSkillDescriptionContains("weather") {
+		t.Fatalf("skill_execute description did not include newly scanned skill: %q", model.lastSkillDescription())
+	}
+}
+
 func TestRuntimeLoadsPluginSubagentCapability(t *testing.T) {
 	root := t.TempDir()
 	pluginRoot := filepath.Join(root, ".agents", "plugins", "reviewer")
@@ -234,6 +274,33 @@ func (builderModel) Complete(context.Context, model.Request) (*model.Response, e
 
 func (builderModel) CompleteStream(_ context.Context, _ model.Request, cb model.StreamHandler) error {
 	return cb(model.StreamResult{Final: true, Response: &model.Response{Message: model.Message{Role: "assistant", Content: "ok"}}})
+}
+
+type capturingToolsModel struct {
+	tools []model.ToolDefinition
+}
+
+func (m *capturingToolsModel) Complete(_ context.Context, req model.Request) (*model.Response, error) {
+	m.tools = append([]model.ToolDefinition(nil), req.Tools...)
+	return &model.Response{Message: model.Message{Role: "assistant", Content: "ok"}}, nil
+}
+
+func (m *capturingToolsModel) CompleteStream(_ context.Context, req model.Request, cb model.StreamHandler) error {
+	m.tools = append([]model.ToolDefinition(nil), req.Tools...)
+	return cb(model.StreamResult{Final: true, Response: &model.Response{Message: model.Message{Role: "assistant", Content: "ok"}}})
+}
+
+func (m *capturingToolsModel) lastSkillDescription() string {
+	for _, tool := range m.tools {
+		if tool.Name == "skill_execute" {
+			return tool.Description
+		}
+	}
+	return ""
+}
+
+func (m *capturingToolsModel) lastSkillDescriptionContains(value string) bool {
+	return strings.Contains(m.lastSkillDescription(), value)
 }
 
 type builderTool struct {

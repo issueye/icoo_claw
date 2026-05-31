@@ -207,6 +207,7 @@ func subagentToolAllow(rt *Runtime, whitelist []string, req subagents.Request) m
 		return allow
 	}
 	delete(allow, "skill")
+	delete(allow, "skill_create")
 	delete(allow, "skill_execute")
 	return allow
 }
@@ -239,7 +240,7 @@ func sessionIDFromMetadata(meta map[string]any) string {
 
 func isSkillExecutionTool(name string) bool {
 	switch canonicalToolName(name) {
-	case "skill", "skill_execute":
+	case "skill", "skill_create", "skill_execute":
 		return true
 	default:
 		return false

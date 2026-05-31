@@ -40,7 +40,7 @@ func TestSkillToolExecutesViaSubagentAndReturnsSummary(t *testing.T) {
 				},
 			},
 			Metadata: map[string]any{
-				"source":        "C:/gateway/.skills/active/.agents/skills/weather-zh/SKILL.md",
+				"source":        "C:/gateway/icoo_runtime/skills/weather-zh/v1/SKILL.md",
 				"allowed-tools": []string{"bash", "read", "skill", "skill_execute"},
 			},
 		}, nil

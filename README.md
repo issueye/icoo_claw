@@ -8,7 +8,7 @@ AI Agent platform prototype with two runtime Go services:
 ## Local Build
 
 ```powershell
-New-Item -ItemType Directory -Force .\bin, .\data
+New-Item -ItemType Directory -Force .\bin, .\icoo_runtime\config
 go build -o .\bin\claw.exe .\server\claw\cmd\claw
 go build -o .\bin\gateway.exe .\server\gateway\cmd\gateway
 ```
@@ -16,11 +16,11 @@ go build -o .\bin\gateway.exe .\server\gateway\cmd\gateway
 Copy the example TOML files before starting services:
 
 ```powershell
-Copy-Item .\config\gateway.toml.example .\config\gateway.toml
-Copy-Item .\config\claw.toml.example .\config\claw.toml
+Copy-Item .\config\gateway.toml.example .\icoo_runtime\config\gateway.toml
+Copy-Item .\config\claw.toml.example .\icoo_runtime\config\claw.toml
 ```
 
-Gateway can launch additional Claw instances using `claw_binary_path` from `config/gateway.toml`.
+Gateway can launch additional Claw instances using `claw_binary_path` from `icoo_runtime/config/gateway.toml`.
 By default Gateway connects to Claw through HTTP/SSE. To use ACP stdio, set the Agent connection mode to `acp` in Gateway Agent management, or pass `transport: "acp"` when starting an Agent instance through `/v1/agent-instances`.
 
 ## Local Run
@@ -28,7 +28,7 @@ By default Gateway connects to Claw through HTTP/SSE. To use ACP stdio, set the 
 Start Gateway:
 
 ```powershell
-.\bin\gateway.exe --config .\config\gateway.toml
+.\bin\gateway.exe --config .\icoo_runtime\config\gateway.toml
 ```
 
 Gateway can start Claw instances through:
@@ -40,7 +40,7 @@ POST /v1/agent-instances
 For direct Claw development:
 
 ```powershell
-.\bin\claw.exe --config .\config\claw.toml
+.\bin\claw.exe --config .\icoo_runtime\config\claw.toml
 ```
 
 ## Tests

@@ -7,6 +7,7 @@ import (
 
 	acp "github.com/coder/acp-go-sdk"
 	acpagent "icoo_claw/server/claw/internal/acp"
+	"icoo_claw/server/claw/internal/config"
 	"icoo_claw/server/claw/internal/di"
 )
 
@@ -16,7 +17,7 @@ var (
 )
 
 func main() {
-	flag.StringVar(&cfgPath, "config", "runtime/config/claw.toml", "config file path")
+	flag.StringVar(&cfgPath, "config", config.DefaultConfigPath, "config file path")
 	flag.BoolVar(&acpMode, "acp", false, "run as ACP stdio agent")
 	flag.Parse()
 

@@ -14,7 +14,6 @@ import (
 
 	"icoo_claw/common/id"
 	"icoo_claw/common/jsonutil"
-	"icoo_claw/common/stringutil"
 	"icoo_claw/server/gateway/internal/dto"
 	"icoo_claw/server/gateway/internal/model"
 	"icoo_claw/server/gateway/internal/repository"
@@ -37,10 +36,7 @@ func (s *SkillService) EnsureLayout() error {
 	}
 	for _, dir := range []string{
 		s.baseDir,
-		s.ActiveSkillPath(),
-		s.activeSkillsRoot(),
-		filepath.Join(s.baseDir, "versions"),
-		filepath.Join(s.baseDir, "agents"),
+		filepath.Join(s.baseDir, "instances"),
 	} {
 		if err := os.MkdirAll(dir, 0o755); err != nil {
 			return err
@@ -57,7 +53,7 @@ func (s *SkillService) Create(ctx context.Context, req dto.CreateSkillRequest) (
 		Description:      strings.TrimSpace(req.Description),
 		Path:             strings.TrimSpace(req.Path),
 		Content:          strings.TrimSpace(req.Content),
-		Version:          stringutil.Default(req.Version, "v1"),
+		Version:          normalizeSkillVersion(req.Version),
 		Status:           "active",
 		Source:           strings.TrimSpace(req.Source),
 		AllowedToolsJSON: mustStringSliceJSON(req.AllowedTools),
@@ -118,7 +114,7 @@ func (s *SkillService) Update(ctx context.Context, id string, req dto.UpdateSkil
 		skill.Content = strings.TrimSpace(*req.Content)
 	}
 	if req.Version != nil {
-		skill.Version = stringutil.Default(*req.Version, skill.Version)
+		skill.Version = normalizeSkillVersion(*req.Version)
 	}
 	if req.Status != nil {
 		skill.Status = normalizeSkillStatus(*req.Status)
@@ -161,7 +157,7 @@ func (s *SkillService) Download(ctx context.Context, id string) ([]byte, string,
 	if err != nil {
 		return nil, "", err
 	}
-	path := filepath.Join(s.activeSkillsRoot(), skill.Name, "SKILL.md")
+	path := filepath.Join(s.skillVersionPath(*skill), "SKILL.md")
 	data, err := os.ReadFile(path)
 	if err != nil {
 		return nil, "", err
@@ -188,9 +184,9 @@ func (s *SkillService) SyncSummary(ctx context.Context) (*dto.SkillSummary, erro
 	}, nil
 }
 
-// PublishForInstance publishes the named skills for a specific agent instance.
-// When skillNamesJSON is empty or contains no names, an empty skill directory is
-// created so the instance starts with zero skills (instead of inheriting all active skills).
+// PublishForInstance publishes explicitly bound skills for a specific agent instance.
+// When no skill names are bound, the instance uses the global skill root so new
+// sessions can pick up newly added skills without regenerating instance files.
 func (s *SkillService) PublishForInstance(instanceID, skillNamesJSON string) (string, error) {
 	if strings.TrimSpace(s.baseDir) == "" {
 		return "", nil
@@ -201,18 +197,27 @@ func (s *SkillService) PublishForInstance(instanceID, skillNamesJSON string) (st
 			return "", invalidSkillNameError(name)
 		}
 	}
+	if len(names) == 0 {
+		return s.ActiveSkillPath(), nil
+	}
 
 	root := s.instanceSkillPath(instanceID)
 	if err := os.RemoveAll(root); err != nil {
 		return "", err
 	}
-	skillsDir := filepath.Join(root, ".agents", "skills")
-	if err := os.MkdirAll(skillsDir, 0o755); err != nil {
+	if err := os.MkdirAll(root, 0o755); err != nil {
 		return "", fmt.Errorf("create instance skill dir for %s: %w", instanceID, err)
 	}
 	for _, name := range names {
-		source := filepath.Join(s.activeSkillsRoot(), name)
-		target := filepath.Join(skillsDir, name)
+		skill, err := s.repo.GetByName(context.Background(), name)
+		if err != nil {
+			return "", err
+		}
+		if skill.Status != "active" {
+			return "", fmt.Errorf("skill %s is not active", name)
+		}
+		source := s.skillVersionPath(*skill)
+		target := filepath.Join(root, skill.Name, skill.Version)
 		if err := copyDir(source, target); err != nil {
 			return "", fmt.Errorf("publish skill %s for instance %s: %w", name, instanceID, err)
 		}
@@ -235,14 +240,10 @@ func (s *SkillService) publishSkillFiles(skill model.SkillProfile, files []dto.S
 	if strings.TrimSpace(skill.Name) == "" || strings.TrimSpace(skill.Path) == "" {
 		return fmt.Errorf("skill name and path are required")
 	}
-	versionRoot := filepath.Join(s.baseDir, "versions", skill.Name, skill.Version)
-	if err := writeSkillPackage(versionRoot, skill, files); err != nil {
-		return err
-	}
 	if skill.Status != "active" {
-		return os.RemoveAll(filepath.Join(s.activeSkillsRoot(), skill.Name))
+		return os.RemoveAll(s.skillVersionPath(skill))
 	}
-	return writeSkillPackage(filepath.Join(s.activeSkillsRoot(), skill.Name), skill, files)
+	return writeSkillPackage(s.skillVersionPath(skill), skill, files)
 }
 
 func writeSkillPackage(root string, skill model.SkillProfile, files []dto.SkillFile) error {
@@ -317,8 +318,7 @@ func (s *SkillService) removeSkillFiles(skill model.SkillProfile) error {
 		return nil
 	}
 	return errorsJoin(
-		os.RemoveAll(filepath.Join(s.baseDir, "versions", skill.Name)),
-		os.RemoveAll(filepath.Join(s.activeSkillsRoot(), skill.Name)),
+		os.RemoveAll(filepath.Join(s.baseDir, skill.Name)),
 	)
 }
 
@@ -326,16 +326,16 @@ func (s *SkillService) ActiveSkillPath() string {
 	if strings.TrimSpace(s.baseDir) == "" {
 		return ""
 	}
-	return filepath.Clean(filepath.Join(s.baseDir, "active"))
-}
-
-func (s *SkillService) activeSkillsRoot() string {
-	return filepath.Join(s.ActiveSkillPath(), ".agents", "skills")
+	return filepath.Clean(s.baseDir)
 }
 
 func (s *SkillService) instanceSkillPath(instanceID string) string {
 	instanceID = sanitizePathComponent(instanceID)
-	return filepath.Clean(filepath.Join(s.baseDir, "agents", instanceID))
+	return filepath.Clean(filepath.Join(s.baseDir, "instances", instanceID))
+}
+
+func (s *SkillService) skillVersionPath(skill model.SkillProfile) string {
+	return filepath.Clean(filepath.Join(s.baseDir, sanitizePathComponent(skill.Name), normalizeSkillVersion(skill.Version)))
 }
 
 func copyFile(source, target string) error {
@@ -407,6 +407,30 @@ func sanitizePathComponent(value string) string {
 	out := strings.Trim(b.String(), "-")
 	if out == "" {
 		return "default"
+	}
+	return out
+}
+
+func normalizeSkillVersion(value string) string {
+	value = strings.TrimSpace(value)
+	if value == "" {
+		return time.Now().UTC().Format("20060102150405")
+	}
+	var b strings.Builder
+	for _, r := range value {
+		switch {
+		case r >= 'a' && r <= 'z',
+			r >= 'A' && r <= 'Z',
+			r >= '0' && r <= '9',
+			r == '-', r == '_', r == '.':
+			b.WriteRune(r)
+		default:
+			b.WriteByte('-')
+		}
+	}
+	out := strings.Trim(b.String(), "-_.")
+	if out == "" {
+		return time.Now().UTC().Format("20060102150405")
 	}
 	return out
 }

@@ -41,7 +41,7 @@ internal_token = "token"
 	if cfg.ClawWorkDir != filepath.Dir(path) || cfg.ClawConfigDir != filepath.Join(filepath.Dir(path), "tmp", "claw_configs") {
 		t.Fatalf("path config = %+v", cfg)
 	}
-	if cfg.GatewaySkillsRoot() != filepath.Join(cfg.GatewayWorkDir, ".skills") {
+	if cfg.GatewaySkillsRoot() != filepath.Join(cfg.GatewayWorkDir, "skills") {
 		t.Fatalf("gateway skills root = %q, work dir = %q", cfg.GatewaySkillsRoot(), cfg.GatewayWorkDir)
 	}
 	if cfg.ClawPortStart != 9101 || cfg.ClawPortEnd != 9199 || cfg.MaxAgentInstances != 8 {
@@ -67,6 +67,40 @@ func TestLoadFileIgnoresRemovedGatewaySkillsDir(t *testing.T) {
 	}
 	if strings.Contains(cfg.GatewaySkillsRoot(), "legacy_skills") {
 		t.Fatalf("gateway skills root = %q, removed config should be ignored", cfg.GatewaySkillsRoot())
+	}
+}
+
+func TestLoadFileDefaultsUseIcooRuntime(t *testing.T) {
+	dir := t.TempDir()
+	previous, err := os.Getwd()
+	if err != nil {
+		t.Fatalf("getwd: %v", err)
+	}
+	if err := os.Chdir(dir); err != nil {
+		t.Fatalf("chdir: %v", err)
+	}
+	defer func() {
+		if err := os.Chdir(previous); err != nil {
+			t.Fatalf("restore cwd: %v", err)
+		}
+	}()
+
+	cfg, err := LoadFile("")
+	if err != nil {
+		t.Fatalf("load defaults: %v", err)
+	}
+	runtimeRoot := filepath.Join(dir, "icoo_runtime")
+	if cfg.DBPath != filepath.Join(runtimeRoot, "gateway.sqlite") {
+		t.Fatalf("db path = %q", cfg.DBPath)
+	}
+	if cfg.ClawConfigDir != filepath.Join(runtimeRoot, "claw_configs") {
+		t.Fatalf("claw config dir = %q", cfg.ClawConfigDir)
+	}
+	if cfg.ClawWorkDir != runtimeRoot {
+		t.Fatalf("claw work dir = %q", cfg.ClawWorkDir)
+	}
+	if cfg.GatewaySkillsRoot() != filepath.Join(runtimeRoot, "skills") {
+		t.Fatalf("gateway skills root = %q", cfg.GatewaySkillsRoot())
 	}
 }
 

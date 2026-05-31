@@ -51,9 +51,13 @@ func (rt *Runtime) prepare(ctx context.Context, req Request) (preparedRun, error
 		normalized.RequestID = uuid.New().String()
 	}
 
+	sessionWasLoaded := rt.histories.Has(normalized.SessionID)
 	history, err := rt.histories.Get(normalized.SessionID)
 	if err != nil {
 		return preparedRun{}, err
+	}
+	if !sessionWasLoaded {
+		rt.refreshSkillsForSessionStart()
 	}
 
 	if rt.deferred != nil && rt.opts.SessionStore != nil {

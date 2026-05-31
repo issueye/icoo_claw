@@ -141,6 +141,7 @@ func builtinToolFactories(root string, networkAllow []string, sandboxDisabled bo
 		"web_search":    cfg.webSearch,
 		"grep":          cfg.grep,
 		"glob":          cfg.glob,
+		"skill_create":  cfg.skillCreate,
 		"skill_execute": cfg.skillExecute,
 	}
 }
@@ -234,9 +235,13 @@ func (c builtinToolFactoryConfig) skillExecute() tool.Tool {
 	return toolbuiltin.NewSkillExecuteToolWithSubagent(c.skReg, nil, c.subMgr)
 }
 
+func (c builtinToolFactoryConfig) skillCreate() tool.Tool {
+	return toolbuiltin.NewSkillCreateTool(c.root, c.skReg)
+}
+
 func builtinOrder(entry EntryPoint) []string {
 	_ = entry
-	return []string{"bash", "read", "write", "edit", "find", "fetch", "web_search", "glob", "grep", "skill_execute"}
+	return []string{"bash", "read", "write", "edit", "find", "fetch", "web_search", "glob", "grep", "skill_create", "skill_execute"}
 }
 
 func filterBuiltinNames(enabled []string, order []string) []string {

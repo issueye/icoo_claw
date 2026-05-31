@@ -2,3 +2,6 @@ http_addr = ":8081"
 session_api_url = "http://127.0.0.1:8080"
 internal_token = "dev-internal-token"
 runner_mode = "sdk"
+
+[gateway_skills]
+path = "../skills"

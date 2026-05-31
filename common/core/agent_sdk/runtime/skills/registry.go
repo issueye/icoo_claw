@@ -148,6 +148,26 @@ func (r *Registry) Register(def Definition, handler Handler) error {
 	return nil
 }
 
+// ReplaceWith swaps the registry contents while preserving the registry pointer.
+func (r *Registry) ReplaceWith(other *Registry) {
+	if r == nil {
+		return
+	}
+	replacement := map[string]*Skill{}
+	if other != nil {
+		for _, skill := range other.snapshot() {
+			if skill == nil {
+				continue
+			}
+			def := skill.Definition()
+			replacement[def.Name] = &Skill{definition: normalizeDefinition(def), handler: skill.Handler()}
+		}
+	}
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	r.skills = replacement
+}
+
 // Get fetches a skill by name.
 func (r *Registry) Get(name string) (*Skill, bool) {
 	key := strings.ToLower(strings.TrimSpace(name))

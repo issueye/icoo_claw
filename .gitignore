@@ -6,6 +6,7 @@ go_pkg/agentsdk-go/
 data/
 config/*.toml
 !config/*.toml.example
+icoo_runtime/
 .local/
 release/*
 desktop/frontend/dist/

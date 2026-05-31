@@ -1,12 +1,12 @@
 http_addr = ":8080"
-db_path = "./data/gateway.sqlite"
+db_path = "../gateway.sqlite"
 
 session_api_url = "http://127.0.0.1:8080"
 internal_token = "dev-internal-token"
 
-claw_binary_path = "./bin/claw.exe"
-claw_work_dir = "."
-claw_config_dir = "./data/claw_configs"
+claw_binary_path = "../../bin/claw.exe"
+claw_work_dir = ".."
+claw_config_dir = "../claw_configs"
 claw_runner_mode = "sdk"
 claw_port_start = 8101
 claw_port_end = 8199

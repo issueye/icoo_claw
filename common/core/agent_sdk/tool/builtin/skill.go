@@ -490,7 +490,7 @@ func skillLocation(def skills.Definition) string {
 
 func isSkillExecutionToolName(name string) bool {
 	switch strings.ToLower(strings.TrimSpace(name)) {
-	case "skill", "skill_execute":
+	case "skill", "skill_create", "skill_execute":
 		return true
 	default:
 		return false
