@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"os"
 	"strings"
 	"sync"
 
@@ -150,8 +151,9 @@ type ACPConnection struct {
 	callbacks  *acpCallbacks
 	stop       func() error
 
-	mu     sync.Mutex
-	active *acpActiveStream
+	mu       sync.Mutex
+	active   *acpActiveStream
+	sessions map[string]acp.SessionId
 }
 
 type acpActiveStream struct {
@@ -194,27 +196,56 @@ func (c *ACPConnection) Stream(ctx context.Context, req RunRequest) (<-chan Stre
 		go func() {
 			select {
 			case <-ctx.Done():
-				_ = c.conn.Cancel(context.Background(), acp.CancelNotification{SessionId: acp.SessionId(req.SessionID)})
+				if sessionID := c.lookupSession(req.SessionID); strings.TrimSpace(string(sessionID)) != "" {
+					_ = c.conn.Cancel(context.Background(), acp.CancelNotification{SessionId: sessionID})
+				}
 			case <-done:
 			}
 		}()
 		defer close(done)
 
+		acpSessionID, err := c.ensureSession(ctx, req.SessionID, req.Metadata)
+		if err != nil {
+			if ctx.Err() != nil {
+				return
+			}
+			sendACPEvent(ctx, out, StreamEvent{
+				Type:      "session/error",
+				SessionID: req.SessionID,
+				RequestID: req.RequestID,
+				Error:     &StreamError{Message: err.Error(), Code: "acp_error"},
+			})
+			return
+		}
+
 		messageID := req.RequestID
 		promptReq := acp.PromptRequest{
-			SessionId: acp.SessionId(req.SessionID),
+			SessionId: acpSessionID,
 			Prompt:    []acp.ContentBlock{acp.TextBlock(req.Prompt)},
 			Meta: map[string]any{
-				"request_id":     req.RequestID,
-				"agent":          req.Agent,
-				"tool_whitelist": req.ToolWhitelist,
-				"metadata":       req.Metadata,
+				"gateway_session_id": req.SessionID,
+				"request_id":         req.RequestID,
+				"agent":              req.Agent,
+				"tool_whitelist":     req.ToolWhitelist,
+				"metadata":           req.Metadata,
 			},
 		}
 		if strings.TrimSpace(messageID) != "" {
 			promptReq.MessageId = &messageID
 		}
 		resp, err := c.conn.Prompt(ctx, promptReq)
+		if err != nil {
+			if ctx.Err() != nil {
+				return
+			}
+			if isACPResourceNotFound(err) {
+				c.forgetSession(req.SessionID)
+				if retrySessionID, retryErr := c.ensureSession(ctx, req.SessionID, req.Metadata); retryErr == nil {
+					promptReq.SessionId = retrySessionID
+					resp, err = c.conn.Prompt(ctx, promptReq)
+				}
+			}
+		}
 		if err != nil {
 			if ctx.Err() != nil {
 				return
@@ -236,6 +267,84 @@ func (c *ACPConnection) Stream(ctx context.Context, req RunRequest) (<-chan Stre
 	}()
 
 	return out, nil
+}
+
+func (c *ACPConnection) ensureSession(ctx context.Context, gatewaySessionID string, metadata map[string]any) (acp.SessionId, error) {
+	gatewaySessionID = strings.TrimSpace(gatewaySessionID)
+	if gatewaySessionID == "" {
+		gatewaySessionID = "default"
+	}
+	c.mu.Lock()
+	if c.sessions == nil {
+		c.sessions = make(map[string]acp.SessionId)
+	}
+	if sessionID := c.sessions[gatewaySessionID]; strings.TrimSpace(string(sessionID)) != "" {
+		c.mu.Unlock()
+		return sessionID, nil
+	}
+	c.mu.Unlock()
+
+	resp, err := c.conn.NewSession(ctx, acp.NewSessionRequest{
+		Cwd:        acpSessionCwd(metadata),
+		McpServers: []acp.McpServer{},
+	})
+	if err != nil {
+		return "", fmt.Errorf("create acp session: %w", err)
+	}
+	if strings.TrimSpace(string(resp.SessionId)) == "" {
+		return "", errors.New("create acp session: empty session id")
+	}
+
+	c.mu.Lock()
+	if c.sessions == nil {
+		c.sessions = make(map[string]acp.SessionId)
+	}
+	c.sessions[gatewaySessionID] = resp.SessionId
+	c.mu.Unlock()
+	return resp.SessionId, nil
+}
+
+func (c *ACPConnection) lookupSession(gatewaySessionID string) acp.SessionId {
+	gatewaySessionID = strings.TrimSpace(gatewaySessionID)
+	if gatewaySessionID == "" {
+		gatewaySessionID = "default"
+	}
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	return c.sessions[gatewaySessionID]
+}
+
+func (c *ACPConnection) forgetSession(gatewaySessionID string) {
+	gatewaySessionID = strings.TrimSpace(gatewaySessionID)
+	if gatewaySessionID == "" {
+		gatewaySessionID = "default"
+	}
+	c.mu.Lock()
+	delete(c.sessions, gatewaySessionID)
+	c.mu.Unlock()
+}
+
+func acpSessionCwd(metadata map[string]any) string {
+	if len(metadata) > 0 {
+		if value, ok := metadata["project_root"].(string); ok && strings.TrimSpace(value) != "" {
+			return strings.TrimSpace(value)
+		}
+		if value, ok := metadata["cwd"].(string); ok && strings.TrimSpace(value) != "" {
+			return strings.TrimSpace(value)
+		}
+	}
+	if cwd, err := os.Getwd(); err == nil && strings.TrimSpace(cwd) != "" {
+		return cwd
+	}
+	return "."
+}
+
+func isACPResourceNotFound(err error) bool {
+	var requestErr *acp.RequestError
+	if errors.As(err, &requestErr) {
+		return requestErr.Code == -32002
+	}
+	return strings.Contains(err.Error(), "Resource not found")
 }
 
 func (c *ACPConnection) Close() error {

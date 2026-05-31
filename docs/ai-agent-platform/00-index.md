@@ -10,6 +10,7 @@
 - [04-development-plan.md](04-development-plan.md): 多 worker 并行开发计划、依赖关系与验收标准。
 - [05-mvp.md](05-mvp.md): MVP 范围、交付清单、接口、数据模型与不做事项。
 - [06-acp-protocol-design.md](06-acp-protocol-design.md): 基于 `github.com/coder/acp-go-sdk` 的 ACP 协议适配设计、事件映射与实施计划。
+- [07-acp-go-ui-client-interaction-analysis.md](07-acp-go-ui-client-interaction-analysis.md): `acp_go_ui` 客户端 ACP 交互、权限确认流程与对本项目的参考建议。
 - [gateway-session-gorm-models.md](gateway-session-gorm-models.md): Gateway Session API GORM + SQLite(no cgo) 明细模型设计。
 
 ## 关键结论
