@@ -3,6 +3,7 @@ package service
 import (
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 
@@ -35,6 +36,36 @@ func TestResolveExecutablePathUsesCurrentDirectoryBinary(t *testing.T) {
 	}
 	if resolved != filepath.Join(dir, name) {
 		t.Fatalf("resolved = %q, want %q", resolved, filepath.Join(dir, name))
+	}
+}
+
+func TestResolveExecutablePathUsesExtraExecutableDirectory(t *testing.T) {
+	dir := t.TempDir()
+	name := "claw.exe"
+	if err := os.WriteFile(filepath.Join(dir, name), []byte(""), 0o755); err != nil {
+		t.Fatalf("write binary: %v", err)
+	}
+
+	commandName := name
+	if runtime.GOOS == "windows" {
+		commandName = "claw"
+	}
+	resolved, err := resolveExecutablePath(commandName, "", dir)
+	if err != nil {
+		t.Fatalf("resolve executable: %v", err)
+	}
+	if filepath.Dir(resolved) != dir {
+		t.Fatalf("resolved = %q, want directory %q", resolved, dir)
+	}
+}
+
+func TestAgentProcessEnvPrependsBinDirToPath(t *testing.T) {
+	got := agentProcessEnv([]string{"Path=C:\\Windows"}, "C:\\pkg\\bin")
+	if len(got) != 1 {
+		t.Fatalf("env = %+v", got)
+	}
+	if got[0] != "Path=C:\\pkg\\bin;C:\\Windows" {
+		t.Fatalf("Path env = %q", got[0])
 	}
 }
 
@@ -75,6 +106,45 @@ func TestWriteClawConfigReturnsAbsolutePath(t *testing.T) {
 	}
 	if strings.Contains(string(payload), "json =") {
 		t.Fatalf("gateway skills JSON should not be written: %s", payload)
+	}
+}
+
+func TestACPCommandArgvSplitsSingleLineCommand(t *testing.T) {
+	got, err := acpCommandArgv([]string{`npx @zed-industries/codex-acp --flag "two words"`})
+	if err != nil {
+		t.Fatalf("parse acp command: %v", err)
+	}
+	want := []string{"npx", "@zed-industries/codex-acp", "--flag", "two words"}
+	if !stringSlicesEqual(got, want) {
+		t.Fatalf("argv = %+v, want %+v", got, want)
+	}
+}
+
+func TestACPCommandArgvKeepsWindowsPathBackslashes(t *testing.T) {
+	got, err := acpCommandArgv([]string{`"C:\Program Files\Claw\claw.exe" --acp`})
+	if err != nil {
+		t.Fatalf("parse acp command: %v", err)
+	}
+	want := []string{`C:\Program Files\Claw\claw.exe`, "--acp"}
+	if !stringSlicesEqual(got, want) {
+		t.Fatalf("argv = %+v, want %+v", got, want)
+	}
+}
+
+func TestACPCommandArgvKeepsMultiLineCommandParts(t *testing.T) {
+	got, err := acpCommandArgv([]string{" claw ", " --acp ", ""})
+	if err != nil {
+		t.Fatalf("parse acp command: %v", err)
+	}
+	want := []string{"claw", "--acp"}
+	if !stringSlicesEqual(got, want) {
+		t.Fatalf("argv = %+v, want %+v", got, want)
+	}
+}
+
+func TestACPCommandArgvRequiresCommand(t *testing.T) {
+	if _, err := acpCommandArgv(nil); err == nil {
+		t.Fatal("expected missing command error")
 	}
 }
 

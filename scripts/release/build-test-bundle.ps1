@@ -131,7 +131,6 @@ New-CleanDirectory $bundleRoot
 
 $binDir = Join-Path $bundleRoot "bin"
 $configDir = Join-Path $bundleRoot "config"
-$binConfigDir = Join-Path $binDir "config"
 $runtimeDir = Join-Path $bundleRoot "icoo_runtime"
 $runtimeConfigDir = Join-Path $runtimeDir "config"
 $runtimeDataDir = Join-Path $runtimeDir "data"
@@ -141,7 +140,6 @@ $scriptDir = Join-Path $bundleRoot "scripts"
 
 foreach ($dir in @(
   $binDir,
-  $binConfigDir,
   $configDir,
   $runtimeConfigDir,
   $runtimeDataDir,
@@ -158,7 +156,7 @@ Write-Host "Building claw.exe..."
 Invoke-Native -FilePath "go" -ArgumentList @("build", "-o", (Join-Path $binDir "claw.exe"), "./server/claw/cmd/claw")
 
 Write-Host "Building gateway.exe..."
-Invoke-Native -FilePath "go" -ArgumentList @("build", "-o", (Join-Path $binDir "gateway.exe"), "./server/gateway/cmd/gateway")
+Invoke-Native -FilePath "go" -ArgumentList @("build", "-o", (Join-Path $bundleRoot "gateway.exe"), "./server/gateway/cmd/gateway")
 
 Write-Host "Building desktop.exe..."
 Invoke-Native -FilePath "wails3" -ArgumentList @("build") -WorkingDirectory (Join-Path $repoRoot "desktop")
@@ -167,7 +165,7 @@ $desktopExe = Join-Path $repoRoot "desktop\bin\desktop.exe"
 if (-not (Test-Path $desktopExe)) {
   throw "desktop.exe not found after Wails build: $desktopExe"
 }
-Copy-Item -LiteralPath $desktopExe -Destination (Join-Path $binDir "desktop.exe") -Force
+Copy-Item -LiteralPath $desktopExe -Destination (Join-Path $bundleRoot "desktop.exe") -Force
 
 $manualRootGatewayConfig = @"
 http_addr = "127.0.0.1:8080"
@@ -187,25 +185,6 @@ health_interval_seconds = 10
 shutdown_timeout_seconds = 10
 "@
 Write-Utf8NoBom -Path (Join-Path $configDir "gateway.toml") -Content $manualRootGatewayConfig
-
-$manualBinGatewayConfig = @"
-http_addr = "127.0.0.1:8080"
-db_path = "../../icoo_runtime/data/gateway.sqlite"
-
-session_api_url = "http://127.0.0.1:8080"
-internal_token = "dev-internal-token"
-
-claw_binary_path = "../claw.exe"
-claw_work_dir = "../.."
-claw_config_dir = "../../icoo_runtime/data/claw-configs"
-claw_runner_mode = "sdk"
-claw_port_start = 8101
-claw_port_end = 8199
-max_agent_instances = 4
-health_interval_seconds = 10
-shutdown_timeout_seconds = 10
-"@
-Write-Utf8NoBom -Path (Join-Path $binConfigDir "gateway.toml") -Content $manualBinGatewayConfig
 
 $startStackScript = @'
 Set-StrictMode -Version Latest
@@ -228,6 +207,7 @@ $agentId = "agent_desktop_default"
 foreach ($dir in @($binDir, $configDir, $dataDir, $logDir, $runDir)) {
   New-Item -ItemType Directory -Force -Path $dir | Out-Null
 }
+$env:Path = $binDir + [System.IO.Path]::PathSeparator + $env:Path
 
 function Write-Utf8NoBom {
   param(
@@ -325,7 +305,7 @@ Write-Utf8NoBom -Path $gatewayConfigPath -Content $gatewayConfig
 
 Write-Host "Starting gateway..."
 $gatewayProc = Start-Process `
-  -FilePath (Join-Path $binDir "gateway.exe") `
+  -FilePath (Join-Path $packageRoot "gateway.exe") `
   -ArgumentList @("--config", $gatewayConfigPath) `
   -WorkingDirectory $packageRoot `
   -WindowStyle Hidden `
@@ -388,7 +368,8 @@ Write-Host ""
 Write-Host "Test stack is ready."
 Write-Host "Gateway:       http://127.0.0.1:$gatewayPort"
 Write-Host "Default Agent: $agentId"
-Write-Host "Desktop exe:   $(Join-Path $binDir "desktop.exe")"
+Write-Host "Desktop exe:   $(Join-Path $packageRoot "desktop.exe")"
+Write-Host "Claw PATH:     $binDir"
 '@
 Write-Utf8NoBom -Path (Join-Path $scriptDir "start-stack.ps1") -Content $startStackScript
 
@@ -432,7 +413,7 @@ function Stop-PackageClawProcesses {
 function Stop-DesktopProcess {
   Stop-ByPidFile "desktop"
 
-  $expectedPath = Join-Path $binDir "desktop.exe"
+  $expectedPath = Join-Path $packageRoot "desktop.exe"
   Get-Process desktop -ErrorAction SilentlyContinue |
     Where-Object { $_.Path -eq $expectedPath } |
     ForEach-Object {
@@ -452,7 +433,7 @@ Set-StrictMode -Version Latest
 $ErrorActionPreference = "Stop"
 
 $packageRoot = (Resolve-Path (Join-Path $PSScriptRoot "..")).Path
-$desktopExe = Join-Path $packageRoot "bin\desktop.exe"
+$desktopExe = Join-Path $packageRoot "desktop.exe"
 $runDir = Join-Path $packageRoot "icoo_runtime\run"
 
 if (-not (Test-Path $desktopExe)) {
@@ -621,8 +602,8 @@ Windows test package for the chat-first desktop client and local gateway stack.
 
 ## Included
 
-- `bin/desktop.exe`
-- `bin/gateway.exe`
+- `desktop.exe`
+- `gateway.exe`
 - `bin/claw.exe`
 - `start-test-app.cmd`
 - `stop-test-app.cmd`
@@ -640,6 +621,7 @@ Windows test package for the chat-first desktop client and local gateway stack.
 3. The desktop app will open with:
    - Gateway URL: `http://127.0.0.1:8080`
    - Default Agent: `agent_desktop_default`
+   - `bin/` is added to `PATH` so ACP commands like `claw --acp` work
 
 ## Stop
 
@@ -654,12 +636,6 @@ After the stack is up, run `.\scripts\smoke-chat-flow.ps1`.
 From this package root:
 
 ```powershell
-.\bin\gateway.exe --config .\config\gateway.toml
-```
-
-From `bin\`:
-
-```powershell
 .\gateway.exe --config .\config\gateway.toml
 ```
 
@@ -667,6 +643,7 @@ From `bin\`:
 
 - The desktop app writes settings to `%APPDATA%\icoo-claw\settings.toml`.
 - Runtime databases, generated configs, logs, and pid files live under `icoo_runtime/`.
+- `scripts/start-stack.ps1` adds `bin/` to `PATH`, so ACP agents can use `claw --acp`.
 - Configure a provider API Key, Base URL, and model in the desktop app before starting Agent instances.
 - Windows WebView2 runtime is required for the desktop window.
 - If the client shows that the gateway cannot be reached, start the package through `start-test-app.cmd` instead of opening `desktop.exe` by itself.

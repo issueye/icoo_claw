@@ -53,6 +53,18 @@ const transportOptions = [
   { label: 'ACP stdio', value: 'acp' },
 ]
 
+const commandArgsLabel = computed(() => (form.transport === 'acp' ? 'ACP 启动命令' : '命令参数'))
+const commandArgsHelper = computed(() =>
+  form.transport === 'acp'
+    ? '填写完整命令。可一行写完整命令，也可每行一个命令片段。例如 claw --acp 或 npx @zed-industries/codex-acp。'
+    : '每行一个参数，会追加到网关自动生成的启动参数之后。',
+)
+const commandArgsPlaceholder = computed(() =>
+  form.transport === 'acp'
+    ? 'claw --acp'
+    : '例如：--runner-mode\nsdk',
+)
+
 const readyInstances = computed(() => agentInstancesStore.items.filter((item) => item.status === 'ready'))
 const activeInstances = computed(() =>
   agentInstancesStore.items.filter((item) => ['ready', 'starting', 'draining'].includes(item.status)),
@@ -525,12 +537,12 @@ onMounted(() => {
           </QqFormField>
         </div>
 
-        <QqFormField label="连接方式" helper="HTTP/SSE 使用本地端口；ACP 通过标准输入输出连接 Agent。">
+        <QqFormField label="连接方式" helper="HTTP/SSE 使用内置 claw 服务；ACP 通过标准输入输出连接外部 Agent。">
           <QqSelect v-model="form.transport" :options="transportOptions" />
         </QqFormField>
 
-        <QqFormField label="命令参数" helper="每行一个参数，会追加到网关自动生成的启动参数之后。">
-          <QqTextarea v-model="form.commandArgs" :rows="3" placeholder="例如：--runner-mode&#10;sdk" />
+        <QqFormField :label="commandArgsLabel" :helper="commandArgsHelper">
+          <QqTextarea v-model="form.commandArgs" :rows="3" :placeholder="commandArgsPlaceholder" />
         </QqFormField>
 
         <QqFormField label="系统提示词">

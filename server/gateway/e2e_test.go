@@ -165,6 +165,7 @@ shutdown_timeout_seconds = 1
 		"model_provider": "openai",
 		"model_name":     "fake",
 		"transport":      "acp",
+		"command_args":   []string{slashPath(clawBin), "--acp"},
 		"max_iterations": 1,
 		"tool_whitelist": []string{},
 		"enabled":        true,

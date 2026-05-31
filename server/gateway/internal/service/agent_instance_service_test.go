@@ -210,7 +210,13 @@ func TestAgentInstanceServiceStartRequestTransportOverridesAgent(t *testing.T) {
 	supervisor := &captureSupervisor{}
 	svc := NewAgentInstanceService(
 		config.Config{ClawPortStart: 8101, ClawPortEnd: 8101, MaxAgentInstances: 1},
-		instanceAgentRepo{agent: model.AgentProfile{ID: "agent_1", Name: "Default", Enabled: true, Transport: "http"}},
+		instanceAgentRepo{agent: model.AgentProfile{
+			ID:              "agent_1",
+			Name:            "Default",
+			Enabled:         true,
+			Transport:       "http",
+			CommandArgsJSON: `["claw --acp"]`,
+		}},
 		nil,
 		repo,
 		supervisor,
@@ -225,6 +231,9 @@ func TestAgentInstanceServiceStartRequestTransportOverridesAgent(t *testing.T) {
 	}
 	if started.BaseURL != "acp://"+started.ID {
 		t.Fatalf("baseURL = %q, want acp instance URL", started.BaseURL)
+	}
+	if !stringSlicesEqual(supervisor.spec.CommandArgs, []string{"claw --acp"}) {
+		t.Fatalf("spec command args = %+v", supervisor.spec.CommandArgs)
 	}
 }
 

@@ -86,6 +86,9 @@ func configPath(fallback string) string {
 			return value
 		}
 	}
+	if value := strings.TrimSpace(os.Getenv("ICOO_CLAW_CONFIG")); value != "" {
+		return value
+	}
 	return fallback
 }
 

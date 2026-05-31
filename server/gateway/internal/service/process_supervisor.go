@@ -8,7 +8,9 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"strconv"
+	"strings"
 	"time"
 
 	"icoo_claw/common/agentproto"
@@ -59,31 +61,44 @@ func NewLocalProcessSupervisor(acpRegistry ...*client.ACPRegistry) *LocalProcess
 }
 
 func (s *LocalProcessSupervisor) Start(ctx context.Context, spec StartAgentInstanceSpec) (*AgentProcess, error) {
-	if spec.BinaryPath == "" {
+	transport := normalizeTransport(spec.Transport)
+	if spec.BinaryPath == "" && transport != "acp" {
 		return nil, errors.New("claw binary path is required")
 	}
 	if err := ctx.Err(); err != nil {
-		return nil, err
-	}
-	binaryPath, err := resolveExecutablePath(spec.BinaryPath, spec.WorkDir)
-	if err != nil {
 		return nil, err
 	}
 	configPath, err := writeClawConfig(spec)
 	if err != nil {
 		return nil, err
 	}
-	args := []string{"--config", configPath}
-	if normalizeTransport(spec.Transport) == "acp" {
-		args = []string{"--acp", "--config", configPath}
+
+	var binaryPath string
+	var args []string
+	if transport == "acp" {
+		command, err := acpCommandArgv(spec.CommandArgs)
+		if err != nil {
+			return nil, err
+		}
+		binaryPath, err = resolveExecutablePath(command[0], spec.WorkDir, executableDir(spec.BinaryPath))
+		if err != nil {
+			return nil, err
+		}
+		args = command[1:]
+	} else {
+		binaryPath, err = resolveExecutablePath(spec.BinaryPath, spec.WorkDir)
+		if err != nil {
+			return nil, err
+		}
+		args = []string{"--config", configPath}
+		args = append(args, spec.CommandArgs...)
 	}
-	args = append(args, spec.CommandArgs...)
 	cmd := exec.Command(binaryPath, args...)
 	if spec.WorkDir != "" {
 		cmd.Dir = spec.WorkDir
 	}
-	cmd.Env = append(os.Environ(), agentLaunchEnv(spec.Agent)...)
-	if normalizeTransport(spec.Transport) == "acp" {
+	cmd.Env = append(agentProcessEnv(os.Environ(), executableDir(spec.BinaryPath)), agentLaunchEnv(spec.Agent, configPath)...)
+	if transport == "acp" {
 		if s.acp == nil {
 			return nil, errors.New("acp registry is required for acp transport")
 		}
@@ -158,7 +173,66 @@ func (s *LocalProcessSupervisor) Probe(ctx context.Context, instance model.Agent
 	return nil
 }
 
-func resolveExecutablePath(path string, workDir string) (string, error) {
+func acpCommandArgv(commandArgs []string) ([]string, error) {
+	cleaned := make([]string, 0, len(commandArgs))
+	for _, item := range commandArgs {
+		item = strings.TrimSpace(item)
+		if item != "" {
+			cleaned = append(cleaned, item)
+		}
+	}
+	if len(cleaned) == 0 {
+		return nil, errors.New("acp command is required")
+	}
+	if len(cleaned) > 1 {
+		return cleaned, nil
+	}
+	return splitCommandLine(cleaned[0])
+}
+
+func splitCommandLine(command string) ([]string, error) {
+	command = strings.TrimSpace(command)
+	if command == "" {
+		return nil, errors.New("command is required")
+	}
+	var out []string
+	var current strings.Builder
+	var quote rune
+	for _, ch := range command {
+		if quote != 0 {
+			if ch == quote {
+				quote = 0
+				continue
+			}
+			current.WriteRune(ch)
+			continue
+		}
+		if ch == '\'' || ch == '"' {
+			quote = ch
+			continue
+		}
+		if ch == ' ' || ch == '\t' || ch == '\r' || ch == '\n' {
+			if current.Len() > 0 {
+				out = append(out, current.String())
+				current.Reset()
+			}
+			continue
+		}
+		current.WriteRune(ch)
+	}
+	if quote != 0 {
+		return nil, errors.New("unterminated quote in command")
+	}
+	if current.Len() > 0 {
+		out = append(out, current.String())
+	}
+	if len(out) == 0 {
+		return nil, errors.New("command is required")
+	}
+	return out, nil
+}
+
+func resolveExecutablePath(path string, workDir string, extraDirs ...string) (string, error) {
 	if filepath.IsAbs(path) {
 		return path, nil
 	}
@@ -170,6 +244,12 @@ func resolveExecutablePath(path string, workDir string) (string, error) {
 	if workDir != "" {
 		candidates = append(candidates, filepath.Join(workDir, path))
 	}
+	for _, dir := range extraDirs {
+		dir = strings.TrimSpace(dir)
+		if dir != "" {
+			candidates = append(candidates, filepath.Join(dir, path))
+		}
+	}
 	if cwd, err := os.Getwd(); err == nil {
 		candidates = append(candidates, filepath.Join(cwd, path))
 	}
@@ -178,12 +258,14 @@ func resolveExecutablePath(path string, workDir string) (string, error) {
 		if candidate == "" {
 			continue
 		}
-		abs, err := filepath.Abs(candidate)
-		if err != nil {
-			continue
-		}
-		if info, err := os.Stat(abs); err == nil && !info.IsDir() {
-			return abs, nil
+		for _, expanded := range executablePathCandidates(candidate) {
+			abs, err := filepath.Abs(expanded)
+			if err != nil {
+				continue
+			}
+			if info, err := os.Stat(abs); err == nil && !info.IsDir() {
+				return abs, nil
+			}
 		}
 	}
 
@@ -192,6 +274,41 @@ func resolveExecutablePath(path string, workDir string) (string, error) {
 		return "", err
 	}
 	return filepath.Abs(found)
+}
+
+func executablePathCandidates(path string) []string {
+	if runtime.GOOS != "windows" || filepath.Ext(path) != "" {
+		return []string{path}
+	}
+	extensions := []string{".exe", ".cmd", ".bat", ".com"}
+	if value := strings.TrimSpace(os.Getenv("PATHEXT")); value != "" {
+		extensions = nil
+		for _, ext := range strings.Split(value, ";") {
+			ext = strings.TrimSpace(ext)
+			if ext != "" {
+				extensions = append(extensions, ext)
+			}
+		}
+	}
+	out := make([]string, 0, len(extensions)+1)
+	out = append(out, path)
+	for _, ext := range extensions {
+		out = append(out, path+ext)
+	}
+	return out
+}
+
+func executableDir(path string) string {
+	path = strings.TrimSpace(path)
+	if path == "" {
+		return ""
+	}
+	if !filepath.IsAbs(path) {
+		if abs, err := filepath.Abs(path); err == nil {
+			path = abs
+		}
+	}
+	return filepath.Dir(path)
 }
 
 func processSpecFromConfig(cfg config.Config, instanceID, agentID string, port int) StartAgentInstanceSpec {
@@ -246,14 +363,36 @@ func writeClawConfig(spec StartAgentInstanceSpec) (string, error) {
 	return absPath, nil
 }
 
-func agentLaunchEnv(agent agentproto.AgentLaunchConfig) []string {
+func agentLaunchEnv(agent agentproto.AgentLaunchConfig, configPath string) []string {
 	return []string{
 		"ICOO_AGENT_PROVIDER_ID=" + agent.ProviderID,
 		"ICOO_AGENT_MODEL_PROVIDER=" + agent.ModelProvider,
 		"ICOO_AGENT_MODEL_NAME=" + agent.ModelName,
 		"ICOO_AGENT_BASE_URL=" + agent.BaseURL,
 		"ICOO_AGENT_API_KEY=" + agent.APIKey,
+		"ICOO_CLAW_CONFIG=" + configPath,
 	}
+}
+
+func agentProcessEnv(base []string, binDir string) []string {
+	binDir = strings.TrimSpace(binDir)
+	if binDir == "" {
+		return append([]string(nil), base...)
+	}
+	out := append([]string(nil), base...)
+	pathKey := "PATH"
+	if runtime.GOOS == "windows" {
+		pathKey = "Path"
+	}
+	prefix := binDir + string(os.PathListSeparator)
+	for i, entry := range out {
+		key, value, ok := strings.Cut(entry, "=")
+		if ok && strings.EqualFold(key, "PATH") {
+			out[i] = pathKey + "=" + prefix + value
+			return out
+		}
+	}
+	return append(out, pathKey+"="+binDir)
 }
 
 func normalizeTransport(value string) string {

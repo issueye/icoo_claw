@@ -4,6 +4,7 @@ import (
 	"flag"
 	"log"
 	"os"
+	"strings"
 
 	acp "github.com/coder/acp-go-sdk"
 	acpagent "icoo_claw/server/claw/internal/acp"
@@ -20,6 +21,17 @@ func main() {
 	flag.StringVar(&cfgPath, "config", config.DefaultConfigPath, "config file path")
 	flag.BoolVar(&acpMode, "acp", false, "run as ACP stdio agent")
 	flag.Parse()
+	configFlagSet := false
+	flag.Visit(func(f *flag.Flag) {
+		if f.Name == "config" {
+			configFlagSet = true
+		}
+	})
+	if !configFlagSet {
+		if value := strings.TrimSpace(os.Getenv("ICOO_CLAW_CONFIG")); value != "" {
+			cfgPath = value
+		}
+	}
 
 	container, err := di.NewContainer(cfgPath)
 	if err != nil {
