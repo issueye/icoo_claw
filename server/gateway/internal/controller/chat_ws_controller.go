@@ -7,9 +7,12 @@ import (
 	"net/http"
 	"strings"
 	"sync"
+	"time"
 
+	"icoo_claw/common/id"
 	"icoo_claw/server/gateway/internal/client"
 	"icoo_claw/server/gateway/internal/dto"
+	"icoo_claw/server/gateway/internal/service"
 
 	"github.com/gin-gonic/gin"
 	"github.com/gorilla/websocket"
@@ -21,12 +24,20 @@ type ChatStreamer interface {
 
 type ChatWSController struct {
 	chat     ChatStreamer
+	sync     service.SyncPublisher
 	upgrader websocket.Upgrader
 }
 
-func NewChatWSController(chat ChatStreamer) *ChatWSController {
+const syncPublishTimeout = 500 * time.Millisecond
+
+func NewChatWSController(chat ChatStreamer, syncPublisher ...service.SyncPublisher) *ChatWSController {
+	publisher := service.NewNoopSyncPublisher()
+	if len(syncPublisher) > 0 && syncPublisher[0] != nil {
+		publisher = syncPublisher[0]
+	}
 	return &ChatWSController{
 		chat: chat,
+		sync: publisher,
 		upgrader: websocket.Upgrader{
 			CheckOrigin: func(r *http.Request) bool {
 				return true
@@ -43,6 +54,7 @@ func (c *ChatWSController) Serve(ctx *gin.Context) {
 
 	session := &chatWSSession{
 		chat: c.chat,
+		sync: c.sync,
 		conn: conn,
 	}
 	session.run(ctx.Request.Context())
@@ -50,6 +62,7 @@ func (c *ChatWSController) Serve(ctx *gin.Context) {
 
 type chatWSSession struct {
 	chat ChatStreamer
+	sync service.SyncPublisher
 	conn *websocket.Conn
 
 	writeMu sync.Mutex
@@ -88,12 +101,32 @@ func (s *chatWSSession) run(ctx context.Context) {
 			continue
 		}
 
+		s.publishRequest(ctx, req)
 		if err := s.handleRequest(ctx, req); err != nil {
 			if writeErr := s.writeErrorResponse(req, err); writeErr != nil {
 				return
 			}
 		}
 	}
+}
+
+func (s *chatWSSession) publishRequest(ctx context.Context, req dto.ChatWSRequest) {
+	if s.sync == nil {
+		return
+	}
+	publishCtx, cancel := syncContext(ctx)
+	defer cancel()
+	_ = s.sync.Publish(publishCtx, dto.SyncEvent{
+		ID:             "sync_" + id.Random(),
+		Time:           time.Now().UTC(),
+		Source:         "gateway-ws",
+		Protocol:       "acp",
+		Direction:      "outbound",
+		Type:           req.Type,
+		ConversationID: req.ConversationID,
+		RequestID:      req.RequestID,
+		Payload:        req,
+	})
 }
 
 func (s *chatWSSession) handleRequest(ctx context.Context, req dto.ChatWSRequest) error {
@@ -434,9 +467,36 @@ func (s *chatWSSession) writeErrorResponse(req dto.ChatWSRequest, err error) err
 }
 
 func (s *chatWSSession) writeJSON(payload dto.ChatWSResponse) error {
+	s.publishResponse(payload)
 	s.writeMu.Lock()
 	defer s.writeMu.Unlock()
 	return s.conn.WriteJSON(payload)
+}
+
+func (s *chatWSSession) publishResponse(payload dto.ChatWSResponse) {
+	if s.sync == nil {
+		return
+	}
+	publishCtx, cancel := syncContext(context.Background())
+	defer cancel()
+	_ = s.sync.Publish(publishCtx, dto.SyncEvent{
+		Time:           time.Now().UTC(),
+		Source:         "gateway-ws",
+		Protocol:       "acp",
+		Direction:      "inbound",
+		Type:           payload.Type,
+		ConversationID: payload.ConversationID,
+		SessionID:      payload.SessionID,
+		RequestID:      payload.RequestID,
+		Payload:        payload,
+	})
+}
+
+func syncContext(parent context.Context) (context.Context, context.CancelFunc) {
+	if parent == nil {
+		parent = context.Background()
+	}
+	return context.WithTimeout(parent, syncPublishTimeout)
 }
 
 func defaultOutput(value, fallback string) string {

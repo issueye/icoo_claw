@@ -42,6 +42,10 @@ describe('gateway websocket helpers', () => {
         rawInput: null,
         rawOutput: null,
         usage: null,
+        entries: [],
+        configOptions: [],
+        currentModeId: '',
+        availableModes: [],
       },
       permission: null,
       stopReason: '',
@@ -49,6 +53,51 @@ describe('gateway websocket helpers', () => {
       error: '',
       metadata: {},
     })
+  })
+
+  it('normalizes ACP plan and config option updates', () => {
+    const plan = normalizeWSMessage({
+      type: 'session/update',
+      update: {
+        sessionUpdate: 'plan',
+        entries: [{ content: 'Inspect files', priority: 'high', status: 'in_progress' }],
+      },
+    })
+    expect(plan.update.entries).toEqual([
+      { content: 'Inspect files', priority: 'high', status: 'in_progress', metadata: {} },
+    ])
+
+    const config = normalizeWSMessage({
+      type: 'session/update',
+      update: {
+        sessionUpdate: 'config_option_update',
+        configOptions: [
+          {
+            id: 'mode',
+            name: 'Session Mode',
+            category: 'mode',
+            type: 'select',
+            currentValue: 'code',
+            options: [{ value: 'ask', name: 'Ask' }],
+          },
+        ],
+      },
+    })
+    expect(config.update.configOptions[0]).toMatchObject({
+      id: 'mode',
+      category: 'mode',
+      currentValue: 'code',
+      options: [{ value: 'ask', name: 'Ask', description: '', metadata: {} }],
+    })
+
+    const mode = normalizeWSMessage({
+      type: 'session/update',
+      update: {
+        sessionUpdate: 'current_mode_update',
+        currentModeId: 'architect',
+      },
+    })
+    expect(mode.update.currentModeId).toBe('architect')
   })
 
   it('normalizes ACP permission request frames', () => {

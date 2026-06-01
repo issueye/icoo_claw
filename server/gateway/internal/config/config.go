@@ -30,22 +30,48 @@ type Config struct {
 	ShutdownTimeout   time.Duration
 	SessionAPIURL     string
 	InternalToken     string
+	MQTT              MQTTConfig
+}
+
+type MQTTConfig struct {
+	Enabled        bool
+	BrokerURL      string
+	ClientID       string
+	Username       string
+	Password       string
+	TopicPrefix    string
+	QoS            int
+	Retained       bool
+	ConnectTimeout time.Duration
 }
 
 type fileConfig struct {
-	HTTPAddr           string `toml:"http_addr"`
-	DBPath             string `toml:"db_path"`
-	ClawBinaryPath     string `toml:"claw_binary_path"`
-	ClawWorkDir        string `toml:"claw_work_dir"`
-	ClawConfigDir      string `toml:"claw_config_dir"`
-	ClawRunnerMode     string `toml:"claw_runner_mode"`
-	ClawPortStart      int    `toml:"claw_port_start"`
-	ClawPortEnd        int    `toml:"claw_port_end"`
-	MaxAgentInstances  int    `toml:"max_agent_instances"`
-	HealthIntervalSec  int    `toml:"health_interval_seconds"`
-	ShutdownTimeoutSec int    `toml:"shutdown_timeout_seconds"`
-	SessionAPIURL      string `toml:"session_api_url"`
-	InternalToken      string `toml:"internal_token"`
+	HTTPAddr           string         `toml:"http_addr"`
+	DBPath             string         `toml:"db_path"`
+	ClawBinaryPath     string         `toml:"claw_binary_path"`
+	ClawWorkDir        string         `toml:"claw_work_dir"`
+	ClawConfigDir      string         `toml:"claw_config_dir"`
+	ClawRunnerMode     string         `toml:"claw_runner_mode"`
+	ClawPortStart      int            `toml:"claw_port_start"`
+	ClawPortEnd        int            `toml:"claw_port_end"`
+	MaxAgentInstances  int            `toml:"max_agent_instances"`
+	HealthIntervalSec  int            `toml:"health_interval_seconds"`
+	ShutdownTimeoutSec int            `toml:"shutdown_timeout_seconds"`
+	SessionAPIURL      string         `toml:"session_api_url"`
+	InternalToken      string         `toml:"internal_token"`
+	MQTT               fileMQTTConfig `toml:"mqtt"`
+}
+
+type fileMQTTConfig struct {
+	Enabled           *bool  `toml:"enabled"`
+	BrokerURL         string `toml:"broker_url"`
+	ClientID          string `toml:"client_id"`
+	Username          string `toml:"username"`
+	Password          string `toml:"password"`
+	TopicPrefix       string `toml:"topic_prefix"`
+	QoS               *int   `toml:"qos"`
+	Retained          *bool  `toml:"retained"`
+	ConnectTimeoutSec int    `toml:"connect_timeout_seconds"`
 }
 
 func Load() Config {
@@ -106,6 +132,10 @@ func defaults() Config {
 		HealthInterval:    10 * time.Second,
 		ShutdownTimeout:   10 * time.Second,
 		SessionAPIURL:     "http://127.0.0.1:8080",
+		MQTT: MQTTConfig{
+			TopicPrefix:    "icoo/gateway",
+			ConnectTimeout: 5 * time.Second,
+		},
 	}
 }
 
@@ -149,6 +179,7 @@ func applyFile(cfg *Config, file fileConfig) {
 	if file.InternalToken != "" {
 		cfg.InternalToken = file.InternalToken
 	}
+	applyMQTTFile(&cfg.MQTT, file.MQTT)
 }
 
 func applyEnv(cfg *Config) {
@@ -190,6 +221,70 @@ func applyEnv(cfg *Config) {
 	}
 	if value := os.Getenv("INTERNAL_TOKEN"); value != "" {
 		cfg.InternalToken = value
+	}
+	applyMQTTEnv(&cfg.MQTT)
+}
+
+func applyMQTTFile(cfg *MQTTConfig, file fileMQTTConfig) {
+	if file.Enabled != nil {
+		cfg.Enabled = *file.Enabled
+	}
+	if file.BrokerURL != "" {
+		cfg.BrokerURL = file.BrokerURL
+	}
+	if file.ClientID != "" {
+		cfg.ClientID = file.ClientID
+	}
+	if file.Username != "" {
+		cfg.Username = file.Username
+	}
+	if file.Password != "" {
+		cfg.Password = file.Password
+	}
+	if file.TopicPrefix != "" {
+		cfg.TopicPrefix = file.TopicPrefix
+	}
+	if file.QoS != nil {
+		cfg.QoS = normalizeMQTTQoS(*file.QoS)
+	}
+	if file.Retained != nil {
+		cfg.Retained = *file.Retained
+	}
+	if file.ConnectTimeoutSec > 0 {
+		cfg.ConnectTimeout = time.Duration(file.ConnectTimeoutSec) * time.Second
+	}
+}
+
+func applyMQTTEnv(cfg *MQTTConfig) {
+	if value := os.Getenv("MQTT_ENABLED"); value != "" {
+		cfg.Enabled = envBool(value)
+	}
+	if value := os.Getenv("MQTT_BROKER_URL"); value != "" {
+		cfg.BrokerURL = value
+	}
+	if value := os.Getenv("MQTT_CLIENT_ID"); value != "" {
+		cfg.ClientID = value
+	}
+	if value := os.Getenv("MQTT_USERNAME"); value != "" {
+		cfg.Username = value
+	}
+	if value := os.Getenv("MQTT_PASSWORD"); value != "" {
+		cfg.Password = value
+	}
+	if value := os.Getenv("MQTT_TOPIC_PREFIX"); value != "" {
+		cfg.TopicPrefix = value
+	}
+	if value := os.Getenv("MQTT_QOS"); value != "" {
+		parsed, err := strconv.Atoi(value)
+		if err == nil {
+			cfg.QoS = normalizeMQTTQoS(parsed)
+		}
+	}
+	if value := os.Getenv("MQTT_RETAINED"); value != "" {
+		cfg.Retained = envBool(value)
+	}
+	if value := envInt("MQTT_CONNECT_TIMEOUT_SECONDS"); value > 0 {
+		cfg.ConnectTimeout = time.Duration(value) * time.Second
 	}
 }
 
@@ -268,4 +363,23 @@ func envInt(key string) int {
 		return 0
 	}
 	return parsed
+}
+
+func envBool(value string) bool {
+	switch strings.ToLower(strings.TrimSpace(value)) {
+	case "1", "true", "yes", "y", "on", "enabled":
+		return true
+	default:
+		return false
+	}
+}
+
+func normalizeMQTTQoS(value int) int {
+	if value < 0 {
+		return 0
+	}
+	if value > 2 {
+		return 2
+	}
+	return value
 }

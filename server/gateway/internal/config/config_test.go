@@ -23,6 +23,17 @@ health_interval_seconds = 3
 shutdown_timeout_seconds = 4
 session_api_url = "http://127.0.0.1:18080"
 internal_token = "token"
+
+[mqtt]
+enabled = true
+broker_url = "tcp://127.0.0.1:1883"
+client_id = "gateway-test"
+username = "user"
+password = "pass"
+topic_prefix = "icoo/test"
+qos = 1
+retained = true
+connect_timeout_seconds = 2
 `), 0o600); err != nil {
 		t.Fatalf("write config: %v", err)
 	}
@@ -52,6 +63,15 @@ internal_token = "token"
 	}
 	if cfg.SessionAPIURL != "http://127.0.0.1:18080" || cfg.InternalToken != "token" {
 		t.Fatalf("remote config = %+v", cfg)
+	}
+	if !cfg.MQTT.Enabled || cfg.MQTT.BrokerURL != "tcp://127.0.0.1:1883" || cfg.MQTT.ClientID != "gateway-test" {
+		t.Fatalf("mqtt config = %+v", cfg.MQTT)
+	}
+	if cfg.MQTT.Username != "user" || cfg.MQTT.Password != "pass" || cfg.MQTT.TopicPrefix != "icoo/test" {
+		t.Fatalf("mqtt credentials/topic = %+v", cfg.MQTT)
+	}
+	if cfg.MQTT.QoS != 1 || !cfg.MQTT.Retained || cfg.MQTT.ConnectTimeout != 2*time.Second {
+		t.Fatalf("mqtt publish config = %+v", cfg.MQTT)
 	}
 }
 

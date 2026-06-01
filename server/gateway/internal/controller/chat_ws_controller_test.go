@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -21,6 +22,28 @@ type fakeChatStreamer struct {
 
 func (f fakeChatStreamer) StreamMessage(ctx context.Context, conversationID string, req dto.SendMessageRequest) (<-chan client.StreamEvent, error) {
 	return f.stream(ctx, conversationID, req)
+}
+
+type recordingSyncPublisher struct {
+	mu     sync.Mutex
+	events []dto.SyncEvent
+}
+
+func (p *recordingSyncPublisher) Publish(_ context.Context, event dto.SyncEvent) error {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	p.events = append(p.events, event)
+	return nil
+}
+
+func (p *recordingSyncPublisher) Close() error {
+	return nil
+}
+
+func (p *recordingSyncPublisher) snapshot() []dto.SyncEvent {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	return append([]dto.SyncEvent(nil), p.events...)
 }
 
 func TestChatWSControllerStreamsEvents(t *testing.T) {
@@ -69,6 +92,52 @@ func TestChatWSControllerStreamsEvents(t *testing.T) {
 	completed := mustReadWSMessage(t, conn)
 	if completed.Type != "session/completed" || completed.StopReason != "end_turn" {
 		t.Fatalf("completed = %+v", completed)
+	}
+}
+
+func TestChatWSControllerPublishesSyncEvents(t *testing.T) {
+	gin.SetMode(gin.ReleaseMode)
+	publisher := &recordingSyncPublisher{}
+	engine := gin.New()
+	engine.GET("/v1/ws/chat", NewChatWSController(fakeChatStreamer{
+		stream: func(ctx context.Context, conversationID string, req dto.SendMessageRequest) (<-chan client.StreamEvent, error) {
+			out := make(chan client.StreamEvent, 1)
+			out <- client.StreamEvent{Type: "session/completed", SessionID: "sess_1", RequestID: req.RequestID, StopReason: "end_turn"}
+			close(out)
+			return out, nil
+		},
+	}, publisher).Serve)
+
+	server := httptest.NewServer(engine)
+	defer server.Close()
+
+	conn := mustDialWS(t, server.URL+"/v1/ws/chat")
+	defer conn.Close()
+
+	if err := conn.WriteJSON(dto.ChatWSRequest{
+		Type:           "chat.start",
+		ConversationID: "conv_1",
+		RequestID:      "req_sync",
+		Prompt:         "hello",
+	}); err != nil {
+		t.Fatalf("write request: %v", err)
+	}
+
+	_ = mustReadWSMessage(t, conn)
+	_ = mustReadWSMessage(t, conn)
+
+	events := publisher.snapshot()
+	if len(events) != 3 {
+		t.Fatalf("sync events len = %d, events = %+v", len(events), events)
+	}
+	if events[0].Direction != "outbound" || events[0].Type != "chat.start" || events[0].ConversationID != "conv_1" {
+		t.Fatalf("request sync event = %+v", events[0])
+	}
+	if events[1].Direction != "inbound" || events[1].Type != "session/accepted" {
+		t.Fatalf("accepted sync event = %+v", events[1])
+	}
+	if events[2].Direction != "inbound" || events[2].Type != "session/completed" || events[2].SessionID != "sess_1" {
+		t.Fatalf("completed sync event = %+v", events[2])
 	}
 }
 

@@ -29,6 +29,7 @@ type Container struct {
 	Router          *gin.Engine
 	instanceService *service.AgentInstanceService
 	taskService     *service.ScheduledTaskService
+	syncPublisher   service.SyncPublisher
 }
 
 func NewContainer(cfgPath string) (*Container, error) {
@@ -73,6 +74,10 @@ func NewContainer(cfgPath string) (*Container, error) {
 	agentRunner := client.NewAgentRunner(client.NewClawClient(nil, cfg.InternalToken), acpRegistry)
 	instanceService := service.NewAgentInstanceService(cfg, agentRepository, providerRepository, instanceRepository, service.NewLocalProcessSupervisor(acpRegistry), skillService)
 	taskService := service.NewScheduledTaskService(taskRepository, taskRunRepository, agentRepository, providerRepository, instanceRepository, instanceService, agentRunner, skillService)
+	syncPublisher, err := service.NewGatewaySyncPublisher(cfg)
+	if err != nil {
+		return nil, fmt.Errorf("create mqtt sync service: %w", err)
+	}
 	routerPolicy := service.NewDefaultRouterPolicy(conversationRepository, instanceRepository, instanceService)
 	chatService := service.NewChatService(
 		conversationRepository,
@@ -91,7 +96,7 @@ func NewContainer(cfgPath string) (*Container, error) {
 	taskController := controller.NewScheduledTaskController(taskService)
 	sessionController := controller.NewSessionController(sessionService)
 	chatController := controller.NewChatController(chatService)
-	chatWSController := controller.NewChatWSController(chatService)
+	chatWSController := controller.NewChatWSController(chatService, syncPublisher)
 	engine := router.New(router.Controllers{
 		Health:        healthController,
 		Provider:      providerController,
@@ -111,6 +116,7 @@ func NewContainer(cfgPath string) (*Container, error) {
 		Router:          engine,
 		instanceService: instanceService,
 		taskService:     taskService,
+		syncPublisher:   syncPublisher,
 	}, nil
 }
 
@@ -121,6 +127,11 @@ func (c *Container) Run() error {
 	if c.taskService != nil {
 		c.taskService.StartLoop(context.Background())
 	}
+	if c.syncPublisher != nil {
+		defer func() {
+			_ = c.syncPublisher.Close()
+		}()
+	}
 	c.printStartupBanner()
 	return c.Router.Run(c.Config.HTTPAddr)
 }
@@ -130,6 +141,10 @@ func (c *Container) printStartupBanner() {
 	tokenState := "not set"
 	if strings.TrimSpace(c.Config.InternalToken) != "" {
 		tokenState = "set"
+	}
+	mqttState := "disabled"
+	if c.Config.MQTT.Enabled {
+		mqttState = displayValue(c.Config.MQTT.BrokerURL, "enabled")
 	}
 
 	fmt.Printf(`
@@ -158,6 +173,7 @@ func (c *Container) printStartupBanner() {
  Shutdown timeout   %s
  Scheduler          enabled, scans every 30s
  Internal token     %s
+ MQTT sync          %s
  ------------------------------------------------------------
  Press Ctrl+C to stop the gateway.
 `,
@@ -179,6 +195,7 @@ func (c *Container) printStartupBanner() {
 		c.Config.HealthInterval,
 		c.Config.ShutdownTimeout,
 		tokenState,
+		mqttState,
 	)
 }
 

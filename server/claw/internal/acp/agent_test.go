@@ -5,10 +5,12 @@ import (
 	"encoding/json"
 	"io"
 	"strings"
+	"sync"
 	"testing"
 
 	acp "github.com/coder/acp-go-sdk"
 	"icoo_claw/common/core/agent_sdk/api"
+	sdkmessage "icoo_claw/common/core/agent_sdk/message"
 	"icoo_claw/server/claw/pkg/agent_sdk"
 )
 
@@ -132,6 +134,96 @@ func (c *permissionClient) ReleaseTerminal(context.Context, acp.ReleaseTerminalR
 }
 func (c *permissionClient) WaitForTerminalExit(context.Context, acp.WaitForTerminalExitRequest) (acp.WaitForTerminalExitResponse, error) {
 	return acp.WaitForTerminalExitResponse{}, nil
+}
+
+type loadReplayClient struct {
+	mu      sync.Mutex
+	updates []acp.SessionUpdate
+}
+
+func (c *loadReplayClient) SessionUpdate(_ context.Context, params acp.SessionNotification) error {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	c.updates = append(c.updates, params.Update)
+	return nil
+}
+
+func (c *loadReplayClient) RequestPermission(context.Context, acp.RequestPermissionRequest) (acp.RequestPermissionResponse, error) {
+	return acp.RequestPermissionResponse{Outcome: acp.RequestPermissionOutcome{Cancelled: &acp.RequestPermissionOutcomeCancelled{}}}, nil
+}
+
+func (c *loadReplayClient) ReadTextFile(context.Context, acp.ReadTextFileRequest) (acp.ReadTextFileResponse, error) {
+	return acp.ReadTextFileResponse{}, nil
+}
+func (c *loadReplayClient) WriteTextFile(context.Context, acp.WriteTextFileRequest) (acp.WriteTextFileResponse, error) {
+	return acp.WriteTextFileResponse{}, nil
+}
+func (c *loadReplayClient) CreateTerminal(context.Context, acp.CreateTerminalRequest) (acp.CreateTerminalResponse, error) {
+	return acp.CreateTerminalResponse{}, nil
+}
+func (c *loadReplayClient) KillTerminal(context.Context, acp.KillTerminalRequest) (acp.KillTerminalResponse, error) {
+	return acp.KillTerminalResponse{}, nil
+}
+func (c *loadReplayClient) TerminalOutput(context.Context, acp.TerminalOutputRequest) (acp.TerminalOutputResponse, error) {
+	return acp.TerminalOutputResponse{}, nil
+}
+func (c *loadReplayClient) ReleaseTerminal(context.Context, acp.ReleaseTerminalRequest) (acp.ReleaseTerminalResponse, error) {
+	return acp.ReleaseTerminalResponse{}, nil
+}
+func (c *loadReplayClient) WaitForTerminalExit(context.Context, acp.WaitForTerminalExitRequest) (acp.WaitForTerminalExitResponse, error) {
+	return acp.WaitForTerminalExitResponse{}, nil
+}
+
+type staticHistoryLoader struct {
+	messages []sdkmessage.Message
+}
+
+func (h staticHistoryLoader) Load(context.Context, string) ([]sdkmessage.Message, error) {
+	return h.messages, nil
+}
+
+func TestLoadSessionReplaysHistoryBeforeReturning(t *testing.T) {
+	clientRead, agentWrite := io.Pipe()
+	agentRead, clientWrite := io.Pipe()
+	t.Cleanup(func() {
+		_ = clientRead.Close()
+		_ = agentWrite.Close()
+		_ = agentRead.Close()
+		_ = clientWrite.Close()
+	})
+
+	agent := NewAgent(nil)
+	agent.SetHistoryLoader(staticHistoryLoader{messages: []sdkmessage.Message{
+		{Role: "user", Content: "hello"},
+		{Role: "assistant", Content: "hi"},
+	}})
+	agentConn := acp.NewAgentSideConnection(agent, agentWrite, agentRead)
+	agent.SetAgentConnection(agentConn)
+	go func() { <-agentConn.Done() }()
+
+	client := &loadReplayClient{}
+	clientConn := acp.NewClientSideConnection(client, clientWrite, clientRead)
+
+	_, err := clientConn.LoadSession(context.Background(), acp.LoadSessionRequest{
+		SessionId:  "sess_loaded",
+		Cwd:        "/tmp/project",
+		McpServers: []acp.McpServer{},
+	})
+	if err != nil {
+		t.Fatalf("load session: %v", err)
+	}
+
+	client.mu.Lock()
+	defer client.mu.Unlock()
+	if len(client.updates) != 2 {
+		t.Fatalf("updates = %+v, want user and assistant history chunks", client.updates)
+	}
+	if client.updates[0].UserMessageChunk == nil || client.updates[0].UserMessageChunk.Content.Text.Text != "hello" {
+		t.Fatalf("first update = %+v, want user message hello", client.updates[0])
+	}
+	if client.updates[1].AgentMessageChunk == nil || client.updates[1].AgentMessageChunk.Content.Text.Text != "hi" {
+		t.Fatalf("second update = %+v, want agent message hi", client.updates[1])
+	}
 }
 
 func TestPromptPermissionBridgesToACPClient(t *testing.T) {
@@ -340,6 +432,43 @@ func TestSessionMethodsStoreACPStateForPromptMetadata(t *testing.T) {
 	}
 	if runner.req.Metadata["request_source"] != "desktop" {
 		t.Fatalf("metadata = %#v, want request_source", runner.req.Metadata)
+	}
+}
+
+func TestSessionConfigOptionResponseReturnsCompleteState(t *testing.T) {
+	agent := NewAgent(nil)
+	resp, err := agent.NewSession(context.Background(), acp.NewSessionRequest{
+		Cwd:        "/tmp/project",
+		McpServers: []acp.McpServer{},
+	})
+	if err != nil {
+		t.Fatalf("new session: %v", err)
+	}
+	if len(resp.ConfigOptions) == 0 || resp.ConfigOptions[0].Select == nil {
+		t.Fatalf("config options = %+v, want mode select option", resp.ConfigOptions)
+	}
+	if resp.Modes == nil || resp.Modes.CurrentModeId != "ask" {
+		t.Fatalf("modes = %+v, want ask mode", resp.Modes)
+	}
+
+	configResp, err := agent.SetSessionConfigOption(context.Background(), acp.SetSessionConfigOptionRequest{
+		ValueId: &acp.SetSessionConfigOptionValueId{
+			SessionId: resp.SessionId,
+			ConfigId:  acp.SessionConfigId("mode"),
+			Value:     acp.SessionConfigValueId("code"),
+		},
+	})
+	if err != nil {
+		t.Fatalf("set config option: %v", err)
+	}
+	if len(configResp.ConfigOptions) == 0 || configResp.ConfigOptions[0].Select == nil {
+		t.Fatalf("config options = %+v, want complete mode select state", configResp.ConfigOptions)
+	}
+	if got := configResp.ConfigOptions[0].Select.CurrentValue; got != "code" {
+		t.Fatalf("current value = %q, want code", got)
+	}
+	if len(*configResp.ConfigOptions[0].Select.Options.Ungrouped) < 3 {
+		t.Fatalf("mode options = %+v, want full selectable state", configResp.ConfigOptions[0].Select.Options)
 	}
 }
 

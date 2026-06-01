@@ -37,17 +37,21 @@ const (
 )
 
 type SessionUpdate struct {
-	SessionUpdate string             `json:"sessionUpdate"`
-	Content       *ContentBlock      `json:"content,omitempty"`
-	MessageID     string             `json:"messageId,omitempty"`
-	ToolCallID    string             `json:"toolCallId,omitempty"`
-	Title         string             `json:"title,omitempty"`
-	Kind          string             `json:"kind,omitempty"`
-	Status        string             `json:"status,omitempty"`
-	Locations     []ToolCallLocation `json:"locations,omitempty"`
-	RawInput      any                `json:"rawInput,omitempty"`
-	RawOutput     any                `json:"rawOutput,omitempty"`
-	Usage         *UsageUpdate       `json:"usage,omitempty"`
+	SessionUpdate  string                `json:"sessionUpdate"`
+	Content        *ContentBlock         `json:"content,omitempty"`
+	MessageID      string                `json:"messageId,omitempty"`
+	ToolCallID     string                `json:"toolCallId,omitempty"`
+	Title          string                `json:"title,omitempty"`
+	Kind           string                `json:"kind,omitempty"`
+	Status         string                `json:"status,omitempty"`
+	Locations      []ToolCallLocation    `json:"locations,omitempty"`
+	RawInput       any                   `json:"rawInput,omitempty"`
+	RawOutput      any                   `json:"rawOutput,omitempty"`
+	Usage          *UsageUpdate          `json:"usage,omitempty"`
+	PlanEntries    []PlanEntry           `json:"entries,omitempty"`
+	ConfigOptions  []SessionConfigOption `json:"configOptions,omitempty"`
+	CurrentModeID  string                `json:"currentModeId,omitempty"`
+	AvailableModes []SessionMode         `json:"availableModes,omitempty"`
 }
 
 type ContentBlock struct {
@@ -67,6 +71,45 @@ type UsageUpdate struct {
 	InputTokens  int `json:"inputTokens,omitempty"`
 	OutputTokens int `json:"outputTokens,omitempty"`
 	TotalTokens  int `json:"totalTokens,omitempty"`
+}
+
+type PlanEntry struct {
+	Content  string         `json:"content"`
+	Priority string         `json:"priority"`
+	Status   string         `json:"status"`
+	Metadata map[string]any `json:"_meta,omitempty"`
+}
+
+type SessionConfigOption struct {
+	ID           string                      `json:"id"`
+	Name         string                      `json:"name"`
+	Description  string                      `json:"description,omitempty"`
+	Category     string                      `json:"category,omitempty"`
+	Type         string                      `json:"type"`
+	CurrentValue any                         `json:"currentValue"`
+	Options      []SessionConfigSelectOption `json:"options,omitempty"`
+	Groups       []SessionConfigSelectGroup  `json:"groups,omitempty"`
+	Metadata     map[string]any              `json:"_meta,omitempty"`
+}
+
+type SessionConfigSelectOption struct {
+	Value       string         `json:"value"`
+	Name        string         `json:"name"`
+	Description string         `json:"description,omitempty"`
+	Metadata    map[string]any `json:"_meta,omitempty"`
+}
+
+type SessionConfigSelectGroup struct {
+	Group    string                      `json:"group"`
+	Name     string                      `json:"name"`
+	Options  []SessionConfigSelectOption `json:"options"`
+	Metadata map[string]any              `json:"_meta,omitempty"`
+}
+
+type SessionMode struct {
+	ID          string `json:"id"`
+	Name        string `json:"name"`
+	Description string `json:"description,omitempty"`
 }
 
 type StreamError struct {

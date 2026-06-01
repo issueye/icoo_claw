@@ -148,6 +148,54 @@ func TestACPConnectionPermissionRequestReturnsCancelledWhenContextCancels(t *tes
 	}
 }
 
+func TestMapACPUpdatePreservesPlanConfigAndModeUpdates(t *testing.T) {
+	planEvent := mapACPUpdate(acp.UpdatePlan(acp.PlanEntry{
+		Content:  "Check files",
+		Priority: acp.PlanEntryPriorityHigh,
+		Status:   acp.PlanEntryStatusInProgress,
+	}), "sess_1", "req_1")
+	if planEvent.Update == nil || len(planEvent.Update.PlanEntries) != 1 {
+		t.Fatalf("plan event = %+v, want plan entries", planEvent.Update)
+	}
+	if planEvent.Update.PlanEntries[0].Content != "Check files" || planEvent.Update.PlanEntries[0].Status != "in_progress" {
+		t.Fatalf("plan entries = %+v", planEvent.Update.PlanEntries)
+	}
+
+	category := acp.SessionConfigOptionCategoryMode
+	configEvent := mapACPUpdate(acp.SessionUpdate{
+		ConfigOptionUpdate: &acp.SessionConfigOptionUpdate{
+			ConfigOptions: []acp.SessionConfigOption{{
+				Select: &acp.SessionConfigOptionSelect{
+					Id:           acp.SessionConfigId("mode"),
+					Name:         "Session Mode",
+					Category:     &category,
+					Type:         "select",
+					CurrentValue: acp.SessionConfigValueId("code"),
+					Options: acp.SessionConfigSelectOptions{
+						Ungrouped: &acp.SessionConfigSelectOptionsUngrouped{
+							{Value: acp.SessionConfigValueId("ask"), Name: "Ask"},
+							{Value: acp.SessionConfigValueId("code"), Name: "Code"},
+						},
+					},
+				},
+			}},
+		},
+	}, "sess_1", "req_1")
+	if configEvent.Update == nil || len(configEvent.Update.ConfigOptions) != 1 {
+		t.Fatalf("config event = %+v, want config options", configEvent.Update)
+	}
+	if got := configEvent.Update.ConfigOptions[0]; got.ID != "mode" || got.CurrentValue != "code" || len(got.Options) != 2 {
+		t.Fatalf("config option = %+v", got)
+	}
+
+	modeEvent := mapACPUpdate(acp.SessionUpdate{
+		CurrentModeUpdate: &acp.SessionCurrentModeUpdate{CurrentModeId: acp.SessionModeId("architect")},
+	}, "sess_1", "req_1")
+	if modeEvent.Update == nil || modeEvent.Update.CurrentModeID != "architect" {
+		t.Fatalf("mode event = %+v, want current mode", modeEvent.Update)
+	}
+}
+
 func (a *strictACPAgent) Cancel(context.Context, acp.CancelNotification) error { return nil }
 func (a *strictACPAgent) CloseSession(context.Context, acp.CloseSessionRequest) (acp.CloseSessionResponse, error) {
 	return acp.CloseSessionResponse{}, nil

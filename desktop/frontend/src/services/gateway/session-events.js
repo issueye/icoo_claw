@@ -8,6 +8,9 @@ export const SESSION_UPDATE_AGENT_MESSAGE = 'agent_message_chunk'
 export const SESSION_UPDATE_TOOL_CALL = 'tool_call'
 export const SESSION_UPDATE_TOOL_CALL_UPDATE = 'tool_call_update'
 export const SESSION_UPDATE_USAGE = 'usage_update'
+export const SESSION_UPDATE_PLAN = 'plan'
+export const SESSION_UPDATE_CONFIG_OPTION = 'config_option_update'
+export const SESSION_UPDATE_CURRENT_MODE = 'current_mode_update'
 
 export function normalizeSessionFrame(raw = {}) {
   return {
@@ -40,6 +43,14 @@ export function normalizeSessionUpdate(update = null) {
     rawInput: update.rawInput ?? update.raw_input ?? null,
     rawOutput: update.rawOutput ?? update.raw_output ?? null,
     usage: normalizeUsage(update.usage),
+    entries: Array.isArray(update.entries) ? update.entries.map(normalizePlanEntry) : [],
+    configOptions: Array.isArray(update.configOptions || update.config_options)
+      ? (update.configOptions || update.config_options).map(normalizeConfigOption)
+      : [],
+    currentModeId: update.currentModeId || update.current_mode_id || update.modeId || update.mode_id || '',
+    availableModes: Array.isArray(update.availableModes || update.available_modes)
+      ? (update.availableModes || update.available_modes).map(normalizeSessionMode)
+      : [],
   }
 }
 
@@ -117,6 +128,9 @@ export function isDisplayableSessionUpdate(update = null) {
     SESSION_UPDATE_TOOL_CALL,
     SESSION_UPDATE_TOOL_CALL_UPDATE,
     SESSION_UPDATE_USAGE,
+    SESSION_UPDATE_PLAN,
+    SESSION_UPDATE_CONFIG_OPTION,
+    SESSION_UPDATE_CURRENT_MODE,
   ].includes(update?.sessionUpdate)
 }
 
@@ -141,5 +155,54 @@ function normalizeUsage(usage = null) {
     inputTokens: Number(usage.inputTokens ?? usage.input_tokens ?? 0),
     outputTokens: Number(usage.outputTokens ?? usage.output_tokens ?? 0),
     totalTokens: Number(usage.totalTokens ?? usage.total_tokens ?? 0),
+  }
+}
+
+function normalizePlanEntry(entry = {}) {
+  return {
+    content: entry.content || '',
+    priority: entry.priority || '',
+    status: entry.status || '',
+    metadata: entry._meta || entry.metadata || {},
+  }
+}
+
+function normalizeConfigOption(option = {}) {
+  return {
+    id: option.id || '',
+    name: option.name || '',
+    description: option.description || '',
+    category: option.category || '',
+    type: option.type || '',
+    currentValue: option.currentValue ?? option.current_value ?? null,
+    options: Array.isArray(option.options) ? option.options.map(normalizeConfigOptionValue) : [],
+    groups: Array.isArray(option.groups) ? option.groups.map(normalizeConfigOptionGroup) : [],
+    metadata: option._meta || option.metadata || {},
+  }
+}
+
+function normalizeConfigOptionValue(option = {}) {
+  return {
+    value: option.value || '',
+    name: option.name || '',
+    description: option.description || '',
+    metadata: option._meta || option.metadata || {},
+  }
+}
+
+function normalizeConfigOptionGroup(group = {}) {
+  return {
+    group: group.group || '',
+    name: group.name || '',
+    options: Array.isArray(group.options) ? group.options.map(normalizeConfigOptionValue) : [],
+    metadata: group._meta || group.metadata || {},
+  }
+}
+
+function normalizeSessionMode(mode = {}) {
+  return {
+    id: mode.id || '',
+    name: mode.name || '',
+    description: mode.description || '',
   }
 }

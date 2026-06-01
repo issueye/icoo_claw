@@ -442,13 +442,125 @@ func mapACPUpdate(update acp.SessionUpdate, sessionID string, requestID string) 
 			Usage:         &UsageUpdate{TotalTokens: update.UsageUpdate.Used},
 		}
 	case update.Plan != nil:
-		base.Update = &SessionUpdate{SessionUpdate: "plan"}
+		base.Update = &SessionUpdate{
+			SessionUpdate: "plan",
+			PlanEntries:   acpPlanEntries(update.Plan.Entries),
+		}
+	case update.CurrentModeUpdate != nil:
+		base.Update = &SessionUpdate{
+			SessionUpdate: "current_mode_update",
+			CurrentModeID: string(update.CurrentModeUpdate.CurrentModeId),
+		}
+	case update.ConfigOptionUpdate != nil:
+		base.Update = &SessionUpdate{
+			SessionUpdate: "config_option_update",
+			ConfigOptions: acpConfigOptions(update.ConfigOptionUpdate.ConfigOptions),
+		}
 	case update.AgentThoughtChunk != nil:
 		base.Update = &SessionUpdate{SessionUpdate: "agent_thought_chunk", Content: acpContentBlock(update.AgentThoughtChunk.Content)}
 	default:
 		return StreamEvent{}
 	}
 	return base
+}
+
+func acpPlanEntries(entries []acp.PlanEntry) []PlanEntry {
+	if len(entries) == 0 {
+		return nil
+	}
+	out := make([]PlanEntry, 0, len(entries))
+	for _, entry := range entries {
+		out = append(out, PlanEntry{
+			Content:  entry.Content,
+			Priority: string(entry.Priority),
+			Status:   string(entry.Status),
+			Metadata: entry.Meta,
+		})
+	}
+	return out
+}
+
+func acpConfigOptions(options []acp.SessionConfigOption) []SessionConfigOption {
+	if len(options) == 0 {
+		return nil
+	}
+	out := make([]SessionConfigOption, 0, len(options))
+	for _, option := range options {
+		if option.Select != nil {
+			out = append(out, SessionConfigOption{
+				ID:           string(option.Select.Id),
+				Name:         option.Select.Name,
+				Description:  stringValuePtr(option.Select.Description),
+				Category:     stringSessionConfigCategory(option.Select.Category),
+				Type:         option.Select.Type,
+				CurrentValue: string(option.Select.CurrentValue),
+				Options:      acpConfigSelectOptions(option.Select.Options),
+				Groups:       acpConfigSelectGroups(option.Select.Options),
+				Metadata:     option.Select.Meta,
+			})
+			continue
+		}
+		if option.Boolean != nil {
+			out = append(out, SessionConfigOption{
+				ID:           string(option.Boolean.Id),
+				Name:         option.Boolean.Name,
+				Description:  stringValuePtr(option.Boolean.Description),
+				Category:     stringSessionConfigCategory(option.Boolean.Category),
+				Type:         option.Boolean.Type,
+				CurrentValue: option.Boolean.CurrentValue,
+				Metadata:     option.Boolean.Meta,
+			})
+		}
+	}
+	return out
+}
+
+func acpConfigSelectOptions(options acp.SessionConfigSelectOptions) []SessionConfigSelectOption {
+	if options.Ungrouped == nil || len(*options.Ungrouped) == 0 {
+		return nil
+	}
+	out := make([]SessionConfigSelectOption, 0, len(*options.Ungrouped))
+	for _, option := range *options.Ungrouped {
+		out = append(out, SessionConfigSelectOption{
+			Value:       string(option.Value),
+			Name:        option.Name,
+			Description: stringValuePtr(option.Description),
+			Metadata:    option.Meta,
+		})
+	}
+	return out
+}
+
+func acpConfigSelectGroups(options acp.SessionConfigSelectOptions) []SessionConfigSelectGroup {
+	if options.Grouped == nil || len(*options.Grouped) == 0 {
+		return nil
+	}
+	out := make([]SessionConfigSelectGroup, 0, len(*options.Grouped))
+	for _, group := range *options.Grouped {
+		items := make([]SessionConfigSelectOption, 0, len(group.Options))
+		for _, option := range group.Options {
+			items = append(items, SessionConfigSelectOption{
+				Value:       string(option.Value),
+				Name:        option.Name,
+				Description: stringValuePtr(option.Description),
+				Metadata:    option.Meta,
+			})
+		}
+		out = append(out, SessionConfigSelectGroup{
+			Group:    string(group.Group),
+			Name:     group.Name,
+			Options:  items,
+			Metadata: group.Meta,
+		})
+	}
+	return out
+}
+
+func stringSessionConfigCategory(value *acp.SessionConfigOptionCategory) string {
+	if value == nil {
+		return ""
+	}
+	return string(*value)
 }
 
 func acpContentBlock(content acp.ContentBlock) *ContentBlock {

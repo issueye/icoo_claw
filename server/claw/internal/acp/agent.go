@@ -14,15 +14,21 @@ import (
 	"icoo_claw/common/agentproto"
 	"icoo_claw/common/agentproto/agentruntime"
 	"icoo_claw/common/core/agent_sdk/api"
+	sdkmessage "icoo_claw/common/core/agent_sdk/message"
 	"icoo_claw/server/claw/pkg/agent_sdk"
 )
 
 type Agent struct {
-	runner agent_sdk.Runner
-	conn   *acp.AgentSideConnection
+	runner  agent_sdk.Runner
+	history historyLoader
+	conn    *acp.AgentSideConnection
 
 	mu       sync.Mutex
 	sessions map[string]*sessionState
+}
+
+type historyLoader interface {
+	Load(ctx context.Context, sessionID string) ([]sdkmessage.Message, error)
 }
 
 type sessionState struct {
@@ -52,6 +58,10 @@ func NewAgent(runner agent_sdk.Runner) *Agent {
 
 func (a *Agent) SetRunner(runner agent_sdk.Runner) {
 	a.runner = runner
+}
+
+func (a *Agent) SetHistoryLoader(loader historyLoader) {
+	a.history = loader
 }
 
 func (a *Agent) SetAgentConnection(conn *acp.AgentSideConnection) {
@@ -92,11 +102,17 @@ func (a *Agent) NewSession(ctx context.Context, params acp.NewSessionRequest) (a
 		cwd:                   params.Cwd,
 		additionalDirectories: cloneStringSlice(params.AdditionalDirectories),
 		mcpServers:            cloneMCPServers(params.McpServers),
+		modeID:                defaultSessionModeID(),
 		meta:                  cloneMap(params.Meta),
 		updatedAt:             time.Now().UTC(),
 	}
 	a.mu.Unlock()
-	return acp.NewSessionResponse{SessionId: acp.SessionId(sid)}, nil
+	modeID := defaultSessionModeID()
+	return acp.NewSessionResponse{
+		SessionId:     acp.SessionId(sid),
+		ConfigOptions: sessionConfigOptions(modeID),
+		Modes:         sessionModes(modeID),
+	}, nil
 }
 
 func (a *Agent) LoadSession(ctx context.Context, params acp.LoadSessionRequest) (acp.LoadSessionResponse, error) {
@@ -109,11 +125,116 @@ func (a *Agent) LoadSession(ctx context.Context, params acp.LoadSessionRequest) 
 		cwd:                   params.Cwd,
 		additionalDirectories: cloneStringSlice(params.AdditionalDirectories),
 		mcpServers:            cloneMCPServers(params.McpServers),
+		modeID:                defaultSessionModeID(),
 		meta:                  cloneMap(params.Meta),
 		updatedAt:             time.Now().UTC(),
 	}
 	a.mu.Unlock()
-	return acp.LoadSessionResponse{}, nil
+	modeID := defaultSessionModeID()
+	if err := a.replaySessionHistory(ctx, acp.SessionId(sessionID)); err != nil {
+		return acp.LoadSessionResponse{}, err
+	}
+	return acp.LoadSessionResponse{
+		ConfigOptions: sessionConfigOptions(modeID),
+		Modes:         sessionModes(modeID),
+	}, nil
+}
+
+func (a *Agent) replaySessionHistory(ctx context.Context, sessionID acp.SessionId) error {
+	if a == nil || a.conn == nil || a.history == nil {
+		return nil
+	}
+	messages, err := a.history.Load(ctx, string(sessionID))
+	if err != nil {
+		return fmt.Errorf("load session history: %w", err)
+	}
+	for _, msg := range messages {
+		updates := historyMessageUpdates(msg)
+		for _, update := range updates {
+			if err := a.conn.SessionUpdate(ctx, acp.SessionNotification{
+				SessionId: sessionID,
+				Update:    update,
+			}); err != nil {
+				return fmt.Errorf("replay session history: %w", err)
+			}
+		}
+	}
+	return nil
+}
+
+func historyMessageUpdates(msg sdkmessage.Message) []acp.SessionUpdate {
+	updates := make([]acp.SessionUpdate, 0, 1+len(msg.ToolCalls))
+	switch strings.ToLower(strings.TrimSpace(msg.Role)) {
+	case "user":
+		for _, block := range historyContentBlocks(msg) {
+			updates = append(updates, acp.UpdateUserMessage(block))
+		}
+	case "assistant":
+		for _, block := range historyContentBlocks(msg) {
+			updates = append(updates, acp.UpdateAgentMessage(block))
+		}
+		for _, call := range msg.ToolCalls {
+			toolCallID := strings.TrimSpace(call.ID)
+			if toolCallID == "" {
+				toolCallID = "history_tool_" + randomID()
+			}
+			kind := acp.ToolKind(agentruntime.ToolKind(call.Name))
+			if kind == "" {
+				kind = acp.ToolKindOther
+			}
+			status := acp.ToolCallStatusCompleted
+			if strings.TrimSpace(call.Result) == "" {
+				status = acp.ToolCallStatusPending
+			}
+			updates = append(updates, acp.StartToolCall(
+				acp.ToolCallId(toolCallID),
+				defaultString(call.Name, "Tool call"),
+				acp.WithStartKind(kind),
+				acp.WithStartStatus(status),
+				acp.WithStartRawInput(call.Arguments),
+			))
+			if strings.TrimSpace(call.Result) != "" {
+				updates = append(updates, acp.UpdateToolCall(
+					acp.ToolCallId(toolCallID),
+					acp.WithUpdateStatus(acp.ToolCallStatusCompleted),
+					acp.WithUpdateRawOutput(call.Result),
+				))
+			}
+		}
+	case "tool":
+		for _, call := range msg.ToolCalls {
+			toolCallID := strings.TrimSpace(call.ID)
+			if toolCallID == "" {
+				continue
+			}
+			updates = append(updates, acp.UpdateToolCall(
+				acp.ToolCallId(toolCallID),
+				acp.WithUpdateStatus(acp.ToolCallStatusCompleted),
+				acp.WithUpdateRawOutput(firstNonEmpty(call.Result, msg.Content)),
+			))
+		}
+	}
+	return updates
+}
+
+func historyContentBlocks(msg sdkmessage.Message) []acp.ContentBlock {
+	if len(msg.ContentBlocks) == 0 {
+		if strings.TrimSpace(msg.Content) == "" {
+			return nil
+		}
+		return []acp.ContentBlock{acp.TextBlock(msg.Content)}
+	}
+	blocks := make([]acp.ContentBlock, 0, len(msg.ContentBlocks))
+	for _, block := range msg.ContentBlocks {
+		if strings.TrimSpace(block.Text) != "" {
+			blocks = append(blocks, acp.TextBlock(block.Text))
+			continue
+		}
+		if strings.TrimSpace(block.URL) != "" {
+			blocks = append(blocks, acp.ResourceLinkBlock(block.URL, block.URL))
+		}
+	}
+	return blocks
 }
 
 func (a *Agent) Prompt(ctx context.Context, params acp.PromptRequest) (acp.PromptResponse, error) {
@@ -235,7 +356,7 @@ func (a *Agent) ResumeSession(ctx context.Context, params acp.ResumeSessionReque
 	a.mu.Lock()
 	state, ok := a.sessions[sessionID]
 	if !ok {
-		state = &sessionState{}
+		state = &sessionState{modeID: defaultSessionModeID()}
 		a.sessions[sessionID] = state
 	}
 	state.cwd = params.Cwd
@@ -243,10 +364,12 @@ func (a *Agent) ResumeSession(ctx context.Context, params acp.ResumeSessionReque
 	state.mcpServers = cloneMCPServers(params.McpServers)
 	state.meta = cloneMap(params.Meta)
 	state.updatedAt = time.Now().UTC()
-	modes := sessionModes(state.modeID)
+	modeID := currentSessionModeID(state)
+	modes := sessionModes(modeID)
+	configOptions := sessionConfigOptions(modeID)
 	a.mu.Unlock()
 
-	return acp.ResumeSessionResponse{Modes: modes}, nil
+	return acp.ResumeSessionResponse{ConfigOptions: configOptions, Modes: modes}, nil
 }
 
 func (a *Agent) SetSessionConfigOption(ctx context.Context, params acp.SetSessionConfigOptionRequest) (acp.SetSessionConfigOptionResponse, error) {
@@ -263,9 +386,15 @@ func (a *Agent) SetSessionConfigOption(ctx context.Context, params acp.SetSessio
 		state.configOptions = map[string]any{}
 	}
 	state.configOptions[configID] = value
+	if configID == "mode" {
+		if modeID, ok := value.(string); ok && strings.TrimSpace(modeID) != "" {
+			state.modeID = strings.TrimSpace(modeID)
+		}
+	}
+	modeID := currentSessionModeID(state)
 	state.updatedAt = time.Now().UTC()
 	a.mu.Unlock()
-	return acp.SetSessionConfigOptionResponse{ConfigOptions: []acp.SessionConfigOption{}}, nil
+	return acp.SetSessionConfigOptionResponse{ConfigOptions: sessionConfigOptions(modeID)}, nil
 }
 
 func (a *Agent) SetSessionMode(ctx context.Context, params acp.SetSessionModeRequest) (acp.SetSessionModeResponse, error) {
@@ -279,6 +408,12 @@ func (a *Agent) SetSessionMode(ctx context.Context, params acp.SetSessionModeReq
 	}
 	a.mu.Lock()
 	state.modeID = strings.TrimSpace(string(params.ModeId))
+	if state.configOptions == nil {
+		state.configOptions = map[string]any{}
+	}
+	if state.modeID != "" {
+		state.configOptions["mode"] = state.modeID
+	}
 	state.updatedAt = time.Now().UTC()
 	a.mu.Unlock()
 	return acp.SetSessionModeResponse{}, nil
@@ -466,17 +601,60 @@ func sessionConfigOptionValue(params acp.SetSessionConfigOptionRequest) (string,
 	return "", "", nil
 }
 
+func defaultSessionModeID() string {
+	return "ask"
+}
+
+func currentSessionModeID(state *sessionState) string {
+	if state == nil {
+		return defaultSessionModeID()
+	}
+	if value, ok := state.configOptions["mode"].(string); ok && strings.TrimSpace(value) != "" {
+		return strings.TrimSpace(value)
+	}
+	if strings.TrimSpace(state.modeID) != "" {
+		return strings.TrimSpace(state.modeID)
+	}
+	return defaultSessionModeID()
+}
+
+func sessionConfigOptions(modeID string) []acp.SessionConfigOption {
+	modeID = strings.TrimSpace(modeID)
+	if modeID == "" {
+		modeID = defaultSessionModeID()
+	}
+	category := acp.SessionConfigOptionCategoryMode
+	return []acp.SessionConfigOption{{
+		Select: &acp.SessionConfigOptionSelect{
+			Id:           acp.SessionConfigId("mode"),
+			Name:         "Session Mode",
+			Description:  acp.Ptr("Controls how the agent requests permission before changing files or running tools"),
+			Category:     &category,
+			Type:         "select",
+			CurrentValue: acp.SessionConfigValueId(modeID),
+			Options: acp.SessionConfigSelectOptions{
+				Ungrouped: &acp.SessionConfigSelectOptionsUngrouped{
+					{Value: acp.SessionConfigValueId("ask"), Name: "Ask", Description: acp.Ptr("Request permission before making changes")},
+					{Value: acp.SessionConfigValueId("code"), Name: "Code", Description: acp.Ptr("Allow code edits and tool use with fewer prompts")},
+					{Value: acp.SessionConfigValueId("architect"), Name: "Architect", Description: acp.Ptr("Plan and design without implementation")},
+				},
+			},
+		},
+	}}
+}
+
 func sessionModes(current string) *acp.SessionModeState {
 	current = strings.TrimSpace(current)
 	if current == "" {
-		return nil
+		current = defaultSessionModeID()
 	}
 	return &acp.SessionModeState{
 		CurrentModeId: acp.SessionModeId(current),
-		AvailableModes: []acp.SessionMode{{
-			Id:   acp.SessionModeId(current),
-			Name: current,
-		}},
+		AvailableModes: []acp.SessionMode{
+			{Id: acp.SessionModeId("ask"), Name: "Ask", Description: acp.Ptr("Request permission before making changes")},
+			{Id: acp.SessionModeId("code"), Name: "Code", Description: acp.Ptr("Allow code edits and tool use with fewer prompts")},
+			{Id: acp.SessionModeId("architect"), Name: "Architect", Description: acp.Ptr("Plan and design without implementation")},
+		},
 	}
 }
 
@@ -626,6 +804,13 @@ func stringPtr(v *string) string {
 		return ""
 	}
 	return *v
+}
+
+func defaultString(value string, fallback string) string {
+	if strings.TrimSpace(value) == "" {
+		return fallback
+	}
+	return value
 }
 
 func firstNonEmpty(values ...string) string {

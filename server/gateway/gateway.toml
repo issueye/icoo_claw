@@ -13,3 +13,12 @@ claw_port_end = 8199
 max_agent_instances = 4
 health_interval_seconds = 10
 shutdown_timeout_seconds = 10
+
+[mqtt]
+enabled = false
+broker_url = "tcp://127.0.0.1:1883"
+client_id = "icoo-gateway"
+topic_prefix = "icoo/gateway"
+qos = 0
+retained = false
+connect_timeout_seconds = 5
