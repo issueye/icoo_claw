@@ -24,26 +24,22 @@ func (f fakeChatStreamer) StreamMessage(ctx context.Context, conversationID stri
 	return f.stream(ctx, conversationID, req)
 }
 
-type recordingSyncPublisher struct {
+type recordingEventPublisher struct {
 	mu     sync.Mutex
-	events []dto.SyncEvent
+	events []dto.EventBusEvent
 }
 
-func (p *recordingSyncPublisher) Publish(_ context.Context, event dto.SyncEvent) error {
+func (p *recordingEventPublisher) Publish(_ context.Context, event dto.EventBusEvent) error {
 	p.mu.Lock()
 	defer p.mu.Unlock()
 	p.events = append(p.events, event)
 	return nil
 }
 
-func (p *recordingSyncPublisher) Close() error {
-	return nil
-}
-
-func (p *recordingSyncPublisher) snapshot() []dto.SyncEvent {
+func (p *recordingEventPublisher) snapshot() []dto.EventBusEvent {
 	p.mu.Lock()
 	defer p.mu.Unlock()
-	return append([]dto.SyncEvent(nil), p.events...)
+	return append([]dto.EventBusEvent(nil), p.events...)
 }
 
 func TestChatWSControllerStreamsEvents(t *testing.T) {
@@ -95,9 +91,9 @@ func TestChatWSControllerStreamsEvents(t *testing.T) {
 	}
 }
 
-func TestChatWSControllerPublishesSyncEvents(t *testing.T) {
+func TestChatWSControllerPublishesEventBusEvents(t *testing.T) {
 	gin.SetMode(gin.ReleaseMode)
-	publisher := &recordingSyncPublisher{}
+	publisher := &recordingEventPublisher{}
 	engine := gin.New()
 	engine.GET("/v1/ws/chat", NewChatWSController(fakeChatStreamer{
 		stream: func(ctx context.Context, conversationID string, req dto.SendMessageRequest) (<-chan client.StreamEvent, error) {
@@ -128,16 +124,16 @@ func TestChatWSControllerPublishesSyncEvents(t *testing.T) {
 
 	events := publisher.snapshot()
 	if len(events) != 3 {
-		t.Fatalf("sync events len = %d, events = %+v", len(events), events)
+		t.Fatalf("event bus events len = %d, events = %+v", len(events), events)
 	}
 	if events[0].Direction != "outbound" || events[0].Type != "chat.start" || events[0].ConversationID != "conv_1" {
-		t.Fatalf("request sync event = %+v", events[0])
+		t.Fatalf("request event = %+v", events[0])
 	}
 	if events[1].Direction != "inbound" || events[1].Type != "session/accepted" {
-		t.Fatalf("accepted sync event = %+v", events[1])
+		t.Fatalf("accepted event = %+v", events[1])
 	}
 	if events[2].Direction != "inbound" || events[2].Type != "session/completed" || events[2].SessionID != "sess_1" {
-		t.Fatalf("completed sync event = %+v", events[2])
+		t.Fatalf("completed event = %+v", events[2])
 	}
 }
 

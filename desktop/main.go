@@ -25,12 +25,14 @@ func main() {
 		log.Fatal(err)
 	}
 
+	windowService := NewWindowService()
 	app := application.New(application.Options{
 		Name:        appName,
 		Description: appDescription,
 		Services: []application.Service{
 			application.NewService(NewConfigService(store)),
 			application.NewService(NewSystemService()),
+			application.NewService(windowService),
 		},
 		Assets: application.AssetOptions{
 			Handler: application.AssetFileServerFS(assets),
@@ -39,6 +41,7 @@ func main() {
 			ApplicationShouldTerminateAfterLastWindowClosed: true,
 		},
 	})
+	windowService.SetApp(app)
 
 	app.Window.NewWithOptions(application.WebviewWindowOptions{
 		Title:     appName,

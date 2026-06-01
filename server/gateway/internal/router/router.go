@@ -18,6 +18,7 @@ type Controllers struct {
 	Session       *controller.SessionController
 	Chat          *controller.ChatController
 	ChatWS        *controller.ChatWSController
+	EventBusWS    *controller.EventBusWSController
 }
 
 func New(controllers Controllers) *gin.Engine {
@@ -83,6 +84,9 @@ func New(controllers Controllers) *gin.Engine {
 	engine.POST("/v1/conversations/:id/messages", controllers.Chat.SendMessage)
 	if controllers.ChatWS != nil {
 		engine.GET("/v1/ws/chat", controllers.ChatWS.Serve)
+	}
+	if controllers.EventBusWS != nil {
+		engine.GET("/v1/ws/events", controllers.EventBusWS.Serve)
 	}
 	engine.DELETE("/v1/conversations/:id", controllers.Chat.DeleteConversation)
 

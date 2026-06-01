@@ -4,9 +4,11 @@
 
 import * as ConfigService from "./configservice.js";
 import * as SystemService from "./systemservice.js";
+import * as WindowService from "./windowservice.js";
 export {
     ConfigService,
-    SystemService
+    SystemService,
+    WindowService
 };
 
 export {

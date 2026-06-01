@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it } from 'vitest'
 import { createPinia, setActivePinia } from 'pinia'
+import { eventBusEventToMonitorInput } from '@/services/acp/event-bus-monitor'
 import { useAcpMonitorStore } from '@/stores/acpMonitor'
 
 describe('ACP monitor store', () => {
@@ -47,5 +48,38 @@ describe('ACP monitor store', () => {
     expect(store.total).toBe(1)
     store.clear()
     expect(store.total).toBe(0)
+  })
+
+  it('normalizes event bus events into monitor records', () => {
+    const store = useAcpMonitorStore()
+
+    store.record(
+      eventBusEventToMonitorInput({
+        id: 'evt_1',
+        time: '2026-06-01T00:00:00Z',
+        source: 'gateway-ws',
+        protocol: 'acp',
+        direction: 'inbound',
+        type: 'session/update',
+        conversation_id: 'conv_1',
+        session_id: 'sess_1',
+        request_id: 'req_1',
+        payload: {
+          type: 'session/update',
+          update: { content: { text: 'hello' } },
+        },
+      }),
+    )
+
+    expect(store.total).toBe(1)
+    expect(store.events[0]).toMatchObject({
+      id: 'evt_1',
+      source: 'gateway-ws',
+      direction: 'inbound',
+      type: 'session/update',
+      conversationId: 'conv_1',
+      sessionId: 'sess_1',
+      requestId: 'req_1',
+    })
   })
 })

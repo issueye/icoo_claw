@@ -36,9 +36,13 @@ export const useAcpMonitorStore = defineStore('acpMonitor', {
       }
 
       const type = String(input.type || input.payload?.type || '').trim()
+      const id = String(input.id || '').trim() || buildEventId()
+      if (this.events.some((event) => event.id === id)) {
+        return id
+      }
       const event = {
-        id: buildEventId(),
-        time: Date.now(),
+        id,
+        time: normalizeTime(input.time),
         direction: input.direction === 'outbound' ? 'outbound' : 'inbound',
         type: type || 'unknown',
         conversationId: String(input.conversationId || input.payload?.conversationId || input.payload?.conversation_id || ''),
@@ -61,6 +65,17 @@ export const useAcpMonitorStore = defineStore('acpMonitor', {
 
 function buildEventId() {
   return `acp_evt_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`
+}
+
+function normalizeTime(value) {
+  if (!value) {
+    return Date.now()
+  }
+  if (typeof value === 'number') {
+    return value
+  }
+  const parsed = Date.parse(value)
+  return Number.isNaN(parsed) ? Date.now() : parsed
 }
 
 function clonePayload(payload) {

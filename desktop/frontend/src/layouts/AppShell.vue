@@ -3,7 +3,6 @@ import { computed, reactive, ref, watch } from 'vue'
 import { RouterView, useRoute, useRouter } from 'vue-router'
 import { Activity, Bot, CalendarClock, Check, KeyRound, MessageSquareText, Minus, Palette, PlugZap, RefreshCw, Search, Settings2, Square, Wrench, X } from 'lucide-vue-next'
 import { Window } from '@wailsio/runtime'
-import AcpMonitorWindow from '@/components/acp/AcpMonitorWindow.vue'
 import AppSidebar from '@/components/chrome/AppSidebar.vue'
 import ConversationList from '@/components/conversation/ConversationList.vue'
 import { THEME_OPTIONS, applyTheme } from '@/services/theme'
@@ -11,6 +10,7 @@ import QqButton from '@/components/ued/QqButton.vue'
 import QqFormField from '@/components/ued/QqFormField.vue'
 import QqInput from '@/components/ued/QqInput.vue'
 import QqModal from '@/components/ued/QqModal.vue'
+import { openACPMonitorWindow } from '@/services/wails/windows'
 import { useAgentsStore } from '@/stores/agents'
 import { useAcpMonitorStore } from '@/stores/acpMonitor'
 import { useAppStore } from '@/stores/app'
@@ -321,10 +321,9 @@ watch(
         </QqButton>
         <button
           class="relative inline-flex h-9 w-9 items-center justify-center rounded-[4px] border border-white/10 bg-[var(--qq-fill-medium)] text-[color:var(--qq-text-secondary)] transition hover:border-white/20 hover:bg-[var(--qq-fill-strong)] hover:text-[color:var(--qq-accent)]"
-          :class="acpMonitorStore.open ? 'text-[color:var(--qq-accent)] border-[color:var(--qq-border-strong)]' : ''"
           type="button"
           title="ACP 事件监控"
-          @click="acpMonitorStore.toggleOpen()"
+          @click="openACPMonitorWindow"
         >
           <Activity class="h-4 w-4" />
           <span
@@ -472,8 +471,6 @@ watch(
         <span class="opacity-60">{{ lastRefreshedLabel }}</span>
       </div>
     </footer>
-
-    <AcpMonitorWindow />
 
     <QqModal
       v-model="gatewayDialog.open"

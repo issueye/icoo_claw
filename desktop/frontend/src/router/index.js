@@ -1,5 +1,6 @@
 import { createRouter, createWebHistory } from 'vue-router'
 import AppShell from '@/layouts/AppShell.vue'
+import AcpMonitorView from '@/views/AcpMonitorView.vue'
 import AgentsView from '@/views/AgentsView.vue'
 import ChatConversationView from '@/views/ChatConversationView.vue'
 import ChatHomeView from '@/views/ChatHomeView.vue'
@@ -13,6 +14,7 @@ import SkillsView from '@/views/SkillsView.vue'
 const router = createRouter({
   history: createWebHistory(),
   routes: [
+    { path: '/acp-monitor', name: 'acp-monitor', component: AcpMonitorView },
     {
       path: '/',
       component: AppShell,

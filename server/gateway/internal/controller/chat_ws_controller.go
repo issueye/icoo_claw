@@ -7,7 +7,6 @@ import (
 	"net/http"
 	"strings"
 	"sync"
-	"time"
 
 	"icoo_claw/common/id"
 	"icoo_claw/server/gateway/internal/client"
@@ -24,20 +23,18 @@ type ChatStreamer interface {
 
 type ChatWSController struct {
 	chat     ChatStreamer
-	sync     service.SyncPublisher
+	events   service.EventPublisher
 	upgrader websocket.Upgrader
 }
 
-const syncPublishTimeout = 500 * time.Millisecond
-
-func NewChatWSController(chat ChatStreamer, syncPublisher ...service.SyncPublisher) *ChatWSController {
-	publisher := service.NewNoopSyncPublisher()
-	if len(syncPublisher) > 0 && syncPublisher[0] != nil {
-		publisher = syncPublisher[0]
+func NewChatWSController(chat ChatStreamer, eventPublisher ...service.EventPublisher) *ChatWSController {
+	var publisher service.EventPublisher
+	if len(eventPublisher) > 0 {
+		publisher = eventPublisher[0]
 	}
 	return &ChatWSController{
-		chat: chat,
-		sync: publisher,
+		chat:   chat,
+		events: publisher,
 		upgrader: websocket.Upgrader{
 			CheckOrigin: func(r *http.Request) bool {
 				return true
@@ -53,17 +50,17 @@ func (c *ChatWSController) Serve(ctx *gin.Context) {
 	}
 
 	session := &chatWSSession{
-		chat: c.chat,
-		sync: c.sync,
-		conn: conn,
+		chat:   c.chat,
+		events: c.events,
+		conn:   conn,
 	}
 	session.run(ctx.Request.Context())
 }
 
 type chatWSSession struct {
-	chat ChatStreamer
-	sync service.SyncPublisher
-	conn *websocket.Conn
+	chat   ChatStreamer
+	events service.EventPublisher
+	conn   *websocket.Conn
 
 	writeMu sync.Mutex
 	stateMu sync.Mutex
@@ -111,14 +108,11 @@ func (s *chatWSSession) run(ctx context.Context) {
 }
 
 func (s *chatWSSession) publishRequest(ctx context.Context, req dto.ChatWSRequest) {
-	if s.sync == nil {
+	if s.events == nil {
 		return
 	}
-	publishCtx, cancel := syncContext(ctx)
-	defer cancel()
-	_ = s.sync.Publish(publishCtx, dto.SyncEvent{
-		ID:             "sync_" + id.Random(),
-		Time:           time.Now().UTC(),
+	_ = s.events.Publish(ctx, dto.EventBusEvent{
+		ID:             "evt_" + id.Random(),
 		Source:         "gateway-ws",
 		Protocol:       "acp",
 		Direction:      "outbound",
@@ -474,13 +468,11 @@ func (s *chatWSSession) writeJSON(payload dto.ChatWSResponse) error {
 }
 
 func (s *chatWSSession) publishResponse(payload dto.ChatWSResponse) {
-	if s.sync == nil {
+	if s.events == nil {
 		return
 	}
-	publishCtx, cancel := syncContext(context.Background())
-	defer cancel()
-	_ = s.sync.Publish(publishCtx, dto.SyncEvent{
-		Time:           time.Now().UTC(),
+	_ = s.events.Publish(context.Background(), dto.EventBusEvent{
+		ID:             "evt_" + id.Random(),
 		Source:         "gateway-ws",
 		Protocol:       "acp",
 		Direction:      "inbound",
@@ -490,13 +482,6 @@ func (s *chatWSSession) publishResponse(payload dto.ChatWSResponse) {
 		RequestID:      payload.RequestID,
 		Payload:        payload,
 	})
-}
-
-func syncContext(parent context.Context) (context.Context, context.CancelFunc) {
-	if parent == nil {
-		parent = context.Background()
-	}
-	return context.WithTimeout(parent, syncPublishTimeout)
 }
 
 func defaultOutput(value, fallback string) string {

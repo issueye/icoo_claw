@@ -5,6 +5,16 @@ import QqButton from '@/components/ued/QqButton.vue'
 import { useAcpMonitorStore } from '@/stores/acpMonitor'
 
 const monitorStore = useAcpMonitorStore()
+const props = defineProps({
+  standalone: {
+    type: Boolean,
+    default: false,
+  },
+  connectionLabel: {
+    type: String,
+    default: '',
+  },
+})
 const selectedId = ref('')
 const directionFilter = ref('all')
 const typeFilter = ref('all')
@@ -57,6 +67,10 @@ watch(
 )
 
 function close() {
+  if (props.standalone) {
+    window.close()
+    return
+  }
   monitorStore.setOpen(false)
 }
 
@@ -99,8 +113,9 @@ async function copyPayload() {
 
 <template>
   <aside
-    v-if="monitorStore.open"
-    class="acp-monitor qq-panel-strong fixed right-4 top-16 z-[190] flex h-[min(720px,calc(100vh-6rem))] w-[min(1040px,calc(100vw-2rem))] flex-col rounded-[8px] border border-[color:var(--qq-border-strong)] shadow-[0_24px_90px_rgba(0,0,0,0.45)]"
+    v-if="standalone || monitorStore.open"
+    class="acp-monitor qq-panel-strong flex flex-col border border-[color:var(--qq-border-strong)]"
+    :class="standalone ? 'h-full w-full rounded-none' : 'fixed right-4 top-16 z-[190] h-[min(720px,calc(100vh-6rem))] w-[min(1040px,calc(100vw-2rem))] rounded-[8px] shadow-[0_24px_90px_rgba(0,0,0,0.45)]'"
   >
     <header class="flex h-12 shrink-0 items-center justify-between border-b border-[color:var(--qq-border)] px-4">
       <div class="flex min-w-0 items-center gap-3">
@@ -111,6 +126,7 @@ async function copyPayload() {
           <h2 class="truncate text-sm font-semibold text-[color:var(--qq-text-primary)]">ACP 事件监控</h2>
           <p class="truncate text-xs text-[color:var(--qq-text-tertiary)]">
             {{ monitorStore.total }} 条事件 · 接收 {{ monitorStore.inboundCount }} · 发送 {{ monitorStore.outboundCount }} · 权限 {{ monitorStore.permissionCount }}
+            <template v-if="connectionLabel"> · {{ connectionLabel }}</template>
           </p>
         </div>
       </div>
@@ -124,6 +140,7 @@ async function copyPayload() {
           清空
         </QqButton>
         <button
+          v-if="!standalone"
           class="inline-flex h-8 w-8 items-center justify-center rounded-[4px] text-[color:var(--qq-text-tertiary)] hover:bg-[var(--qq-fill-soft)] hover:text-[color:var(--qq-text-primary)]"
           type="button"
           title="关闭监控"

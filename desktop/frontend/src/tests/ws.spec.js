@@ -12,6 +12,9 @@ describe('gateway websocket helpers', () => {
   it('converts http urls to websocket urls', () => {
     expect(toWebSocketURL('http://127.0.0.1:8080')).toBe('ws://127.0.0.1:8080/v1/ws/chat')
     expect(toWebSocketURL('https://gateway.example.com')).toBe('wss://gateway.example.com/v1/ws/chat')
+    expect(toWebSocketURL('http://127.0.0.1:8080', '/v1/ws/events?protocol=acp')).toBe(
+      'ws://127.0.0.1:8080/v1/ws/events?protocol=acp',
+    )
   })
 
   it('normalizes gateway frames into camelCase', () => {

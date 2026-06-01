@@ -2,7 +2,7 @@ package dto
 
 import "time"
 
-type SyncEvent struct {
+type EventBusEvent struct {
 	ID             string         `json:"id"`
 	Time           time.Time      `json:"time"`
 	Source         string         `json:"source"`
