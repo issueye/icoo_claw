@@ -101,6 +101,12 @@ function cancelPermission() {
       <ChatMessageList :messages="messages" :show-timestamps="settingsStore.settings.ui.showTimestamps" />
     </div>
 
+    <ChatPermissionDialog
+      :permission="pendingPermission"
+      @cancel="cancelPermission"
+      @select="selectPermissionOption"
+    />
+
     <ChatComposer
       v-model="draft"
       :busy="isConversationStreaming"
@@ -108,12 +114,6 @@ function cancelPermission() {
       :project-context="currentProjectContext"
       @cancel="chatStore.cancelStream(conversationId)"
       @send="submit"
-    />
-
-    <ChatPermissionDialog
-      :permission="pendingPermission"
-      @cancel="cancelPermission"
-      @select="selectPermissionOption"
     />
   </section>
 </template>

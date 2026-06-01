@@ -2,7 +2,6 @@
 import { computed } from 'vue'
 import { Check, ShieldAlert, ShieldCheck, X } from 'lucide-vue-next'
 import QqButton from '@/components/ued/QqButton.vue'
-import QqModal from '@/components/ued/QqModal.vue'
 
 const props = defineProps({
   permission: {
@@ -13,7 +12,6 @@ const props = defineProps({
 
 const emit = defineEmits(['select', 'cancel'])
 
-const open = computed(() => Boolean(props.permission))
 const toolCall = computed(() => props.permission?.toolCall || {})
 const title = computed(() => toolCall.value.title || toolCall.value.kind || '工具权限请求')
 const rawInput = computed(() => formatPayload(toolCall.value.rawInput))
@@ -89,13 +87,29 @@ function optionIcon(option) {
 </script>
 
 <template>
-  <QqModal
-    :model-value="open"
-    title="需要授权"
-    description="Agent 想执行一个受保护的操作。"
-    @update:model-value="(value) => { if (!value) cancel() }"
+  <section
+    v-if="permission"
+    class="permission-card mx-auto mb-3 w-[min(920px,calc(100%-2rem))] rounded-[8px] border border-[color:var(--qq-border-strong)] bg-[var(--qq-surface)] p-3 shadow-[0_18px_48px_rgba(0,0,0,0.28)] backdrop-blur-xl"
   >
-    <div v-if="permission" class="permission-dialog-body space-y-3">
+    <div class="mb-3 flex items-start justify-between gap-3">
+      <div>
+        <div class="flex items-center gap-2">
+          <ShieldAlert class="h-4 w-4 text-[var(--qq-accent)]" />
+          <h3 class="text-sm font-semibold text-[color:var(--qq-text-primary)]">需要授权</h3>
+        </div>
+        <p class="mt-1 text-xs leading-5 text-[color:var(--qq-text-tertiary)]">Agent 想执行一个受保护的操作，请在当前对话中确认。</p>
+      </div>
+      <button
+        class="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-[4px] text-[color:var(--qq-text-tertiary)] transition hover:bg-[var(--qq-fill-soft)] hover:text-[color:var(--qq-text-primary)]"
+        type="button"
+        title="取消授权"
+        @click="cancel"
+      >
+        <X class="h-4 w-4" />
+      </button>
+    </div>
+
+    <div class="permission-dialog-body grid gap-3 md:grid-cols-[minmax(0,1fr)_minmax(16rem,0.8fr)]">
       <div class="flex items-start gap-3 rounded-[6px] border border-[color:var(--qq-border)] bg-[var(--qq-fill-medium)] p-3">
         <ShieldAlert class="mt-0.5 h-5 w-5 shrink-0 text-[var(--qq-accent)]" />
         <div class="min-w-0 flex-1">
@@ -128,55 +142,66 @@ function optionIcon(option) {
 
       <div
         v-if="rawInput"
-        class="rounded-[6px] border border-[color:var(--qq-border)] bg-[rgba(3,24,22,0.34)]"
+        class="rounded-[6px] border border-[color:var(--qq-border)] bg-[rgba(3,24,22,0.34)] md:col-span-2"
       >
         <div class="border-b border-[color:var(--qq-border)] px-3 py-2 text-xs font-semibold text-[color:var(--qq-text-primary)]">
           操作参数
         </div>
-        <pre class="max-h-56 overflow-auto p-3 text-xs leading-5 text-[color:var(--qq-text-secondary)]">{{ rawInput }}</pre>
+        <pre class="max-h-40 overflow-auto p-3 text-xs leading-5 text-[color:var(--qq-text-secondary)]">{{ rawInput }}</pre>
       </div>
     </div>
 
-    <template #footer>
-      <div class="flex flex-1 flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div class="flex flex-wrap gap-2">
-          <QqButton
-            v-for="option in rejectOptions"
-            :key="option.optionId"
-            variant="ghost"
-            :title="option.name || option.optionId"
-            @click="choose(option)"
-          >
-            <component :is="optionIcon(option)" class="h-4 w-4" />
-            {{ shortOptionLabel(option) }}
-          </QqButton>
-          <QqButton v-if="rejectOptions.length === 0" variant="ghost" @click="cancel">取消</QqButton>
-        </div>
-        <div class="flex flex-wrap gap-2">
-          <QqButton
-            v-for="option in allowOptions"
-            :key="option.optionId"
-            :title="option.name || option.optionId"
-            @click="choose(option)"
-          >
-            <component :is="optionIcon(option)" class="h-4 w-4" />
-            {{ shortOptionLabel(option) }}
-          </QqButton>
-        </div>
+    <div class="mt-3 flex flex-col gap-3 border-t border-[color:var(--qq-border)] pt-3 sm:flex-row sm:items-center sm:justify-between">
+      <div class="flex flex-wrap gap-2">
+        <QqButton
+          v-for="option in rejectOptions"
+          :key="option.optionId"
+          variant="ghost"
+          :title="option.name || option.optionId"
+          @click="choose(option)"
+        >
+          <component :is="optionIcon(option)" class="h-4 w-4" />
+          {{ shortOptionLabel(option) }}
+        </QqButton>
+        <QqButton v-if="rejectOptions.length === 0" variant="ghost" @click="cancel">取消</QqButton>
       </div>
-    </template>
-  </QqModal>
+      <div class="flex flex-wrap gap-2">
+        <QqButton
+          v-for="option in allowOptions"
+          :key="option.optionId"
+          :title="option.name || option.optionId"
+          @click="choose(option)"
+        >
+          <component :is="optionIcon(option)" class="h-4 w-4" />
+          {{ shortOptionLabel(option) }}
+        </QqButton>
+      </div>
+    </div>
+  </section>
 </template>
 
 <style scoped>
+.permission-card {
+  animation: permission-card-enter 180ms ease-out both;
+}
+
 .permission-dialog-body {
-  max-height: min(56vh, 520px);
-  overflow: hidden auto;
   padding-right: 0.15rem;
 }
 
 .permission-dialog-body pre {
   white-space: pre-wrap;
   word-break: break-word;
+}
+
+@keyframes permission-card-enter {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 </style>
