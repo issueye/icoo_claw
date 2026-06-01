@@ -1,8 +1,9 @@
 <script setup>
 import { computed, reactive, ref, watch } from 'vue'
 import { RouterView, useRoute, useRouter } from 'vue-router'
-import { Bot, CalendarClock, Check, KeyRound, MessageSquareText, Minus, Palette, PlugZap, RefreshCw, Search, Settings2, Square, Wrench, X } from 'lucide-vue-next'
+import { Activity, Bot, CalendarClock, Check, KeyRound, MessageSquareText, Minus, Palette, PlugZap, RefreshCw, Search, Settings2, Square, Wrench, X } from 'lucide-vue-next'
 import { Window } from '@wailsio/runtime'
+import AcpMonitorWindow from '@/components/acp/AcpMonitorWindow.vue'
 import AppSidebar from '@/components/chrome/AppSidebar.vue'
 import ConversationList from '@/components/conversation/ConversationList.vue'
 import { THEME_OPTIONS, applyTheme } from '@/services/theme'
@@ -11,6 +12,7 @@ import QqFormField from '@/components/ued/QqFormField.vue'
 import QqInput from '@/components/ued/QqInput.vue'
 import QqModal from '@/components/ued/QqModal.vue'
 import { useAgentsStore } from '@/stores/agents'
+import { useAcpMonitorStore } from '@/stores/acpMonitor'
 import { useAppStore } from '@/stores/app'
 import { useChatStore } from '@/stores/chat'
 import { useConversationsStore } from '@/stores/conversations'
@@ -19,6 +21,7 @@ import { useProjectsStore } from '@/stores/projects'
 import { useSettingsStore } from '@/stores/settings'
 
 const appStore = useAppStore()
+const acpMonitorStore = useAcpMonitorStore()
 const agentsStore = useAgentsStore()
 const chatStore = useChatStore()
 const conversationsStore = useConversationsStore()
@@ -316,6 +319,21 @@ watch(
         <QqButton variant="secondary" size="sm" @click="openGatewayDialog">
           网关管理
         </QqButton>
+        <button
+          class="relative inline-flex h-9 w-9 items-center justify-center rounded-[4px] border border-white/10 bg-[var(--qq-fill-medium)] text-[color:var(--qq-text-secondary)] transition hover:border-white/20 hover:bg-[var(--qq-fill-strong)] hover:text-[color:var(--qq-accent)]"
+          :class="acpMonitorStore.open ? 'text-[color:var(--qq-accent)] border-[color:var(--qq-border-strong)]' : ''"
+          type="button"
+          title="ACP 事件监控"
+          @click="acpMonitorStore.toggleOpen()"
+        >
+          <Activity class="h-4 w-4" />
+          <span
+            v-if="acpMonitorStore.total"
+            class="absolute -right-1 -top-1 min-w-4 rounded-full bg-[var(--qq-accent)] px-1 text-[10px] font-semibold leading-4 text-slate-950"
+          >
+            {{ acpMonitorStore.total > 99 ? '99+' : acpMonitorStore.total }}
+          </span>
+        </button>
         <div class="relative">
           <button
             class="inline-flex h-9 w-9 items-center justify-center rounded-[4px] border border-white/10 bg-[var(--qq-fill-medium)] text-[color:var(--qq-text-secondary)] transition hover:border-white/20 hover:bg-[var(--qq-fill-strong)] hover:text-[color:var(--qq-accent)]"
@@ -454,6 +472,8 @@ watch(
         <span class="opacity-60">{{ lastRefreshedLabel }}</span>
       </div>
     </footer>
+
+    <AcpMonitorWindow />
 
     <QqModal
       v-model="gatewayDialog.open"

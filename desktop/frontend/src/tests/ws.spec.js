@@ -1,8 +1,14 @@
-import { describe, expect, it } from 'vitest'
+import { beforeEach, describe, expect, it } from 'vitest'
+import { createPinia, setActivePinia } from 'pinia'
 import { toWebSocketURL } from '@/services/gateway/http'
-import { normalizeWSMessage } from '@/services/gateway/ws'
+import { GatewayChatSocket, normalizeWSMessage } from '@/services/gateway/ws'
+import { useAcpMonitorStore } from '@/stores/acpMonitor'
 
 describe('gateway websocket helpers', () => {
+  beforeEach(() => {
+    setActivePinia(createPinia())
+  })
+
   it('converts http urls to websocket urls', () => {
     expect(toWebSocketURL('http://127.0.0.1:8080')).toBe('ws://127.0.0.1:8080/v1/ws/chat')
     expect(toWebSocketURL('https://gateway.example.com')).toBe('wss://gateway.example.com/v1/ws/chat')
@@ -83,5 +89,27 @@ describe('gateway websocket helpers', () => {
       ],
       metadata: {},
     })
+  })
+
+  it('records outbound websocket payloads in the ACP monitor', async () => {
+    const monitorStore = useAcpMonitorStore()
+    const socket = new GatewayChatSocket('http://127.0.0.1:8080')
+    socket.socket = {
+      readyState: WebSocket.OPEN,
+      send: () => {},
+    }
+
+    socket.sendPermissionDecision({
+      conversationId: 'conv_1',
+      requestId: 'req_1',
+      permissionId: 'perm_1',
+      outcome: 'selected',
+      optionId: 'allow_once',
+    })
+
+    expect(monitorStore.total).toBe(1)
+    expect(monitorStore.events[0].direction).toBe('outbound')
+    expect(monitorStore.events[0].type).toBe('chat.permission_decision')
+    expect(monitorStore.events[0].conversationId).toBe('conv_1')
   })
 })

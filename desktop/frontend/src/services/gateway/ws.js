@@ -1,5 +1,6 @@
 import { toWebSocketURL } from './http'
 import { normalizeSessionFrame } from './session-events'
+import { useAcpMonitorStore } from '@/stores/acpMonitor'
 
 export class GatewayChatSocket {
   constructor(baseUrl, handlers = {}) {
@@ -37,7 +38,9 @@ export class GatewayChatSocket {
       socket.addEventListener('message', (event) => {
         try {
           const raw = JSON.parse(event.data)
-          this.handlers.onMessage?.(normalizeWSMessage(raw))
+          const message = normalizeWSMessage(raw)
+          recordACPEvent('inbound', message)
+          this.handlers.onMessage?.(message)
         } catch {
           this.handlers.onError?.(new Error('invalid websocket message'))
         }
@@ -113,10 +116,25 @@ export class GatewayChatSocket {
     if (!this.socket || this.socket.readyState !== WebSocket.OPEN) {
       throw new Error('chat socket is not connected')
     }
+    recordACPEvent('outbound', payload)
     this.socket.send(JSON.stringify(payload))
   }
 }
 
 export function normalizeWSMessage(raw = {}) {
   return normalizeSessionFrame(raw)
+}
+
+function recordACPEvent(direction, payload) {
+  try {
+    useAcpMonitorStore().record({
+      direction,
+      payload,
+      conversationId: payload.conversationId || payload.conversation_id,
+      sessionId: payload.sessionId || payload.session_id,
+      requestId: payload.requestId || payload.request_id,
+    })
+  } catch {
+    // Store may be unavailable in isolated helper tests before Pinia is active.
+  }
 }
