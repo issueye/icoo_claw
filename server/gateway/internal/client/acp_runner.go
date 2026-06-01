@@ -510,9 +510,9 @@ func (c *acpCallbacks) WriteTextFile(context.Context, acp.WriteTextFileRequest) 
 	return acp.WriteTextFileResponse{}, errors.New("gateway acp client does not expose filesystem writes")
 }
 
-func (c *acpCallbacks) RequestPermission(_ context.Context, params acp.RequestPermissionRequest) (acp.RequestPermissionResponse, error) {
+func (c *acpCallbacks) RequestPermission(ctx context.Context, params acp.RequestPermissionRequest) (acp.RequestPermissionResponse, error) {
 	if c != nil && c.conn != nil {
-		return c.conn.requestPermission(context.TODO(), params)
+		return c.conn.requestPermission(ctx, params)
 	}
 	return rejectACPPermission(params), nil
 }

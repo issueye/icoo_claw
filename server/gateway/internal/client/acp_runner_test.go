@@ -119,6 +119,35 @@ func TestACPConnectionEmitsAgentPermissionRequestInProtocol(t *testing.T) {
 	}
 }
 
+func TestACPConnectionPermissionRequestReturnsCancelledWhenContextCancels(t *testing.T) {
+	conn := &ACPConnection{}
+	events := make(chan StreamEvent, 1)
+	conn.active = &acpActiveStream{
+		sessionID: "gateway-session",
+		requestID: "req_cancel",
+		events:    events,
+	}
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+
+	resp, err := conn.requestPermission(ctx, acp.RequestPermissionRequest{
+		SessionId: acp.SessionId("external-session"),
+		ToolCall: acp.ToolCallUpdate{
+			ToolCallId: acp.ToolCallId("tool_1"),
+			Title:      acp.Ptr("Sensitive action"),
+		},
+		Options: []acp.PermissionOption{
+			{Kind: acp.PermissionOptionKindAllowOnce, Name: "Allow", OptionId: acp.PermissionOptionId("allow_once")},
+		},
+	})
+	if err != nil {
+		t.Fatalf("request permission: %v", err)
+	}
+	if resp.Outcome.Cancelled == nil {
+		t.Fatalf("outcome = %+v, want cancelled", resp.Outcome)
+	}
+}
+
 func (a *strictACPAgent) Cancel(context.Context, acp.CancelNotification) error { return nil }
 func (a *strictACPAgent) CloseSession(context.Context, acp.CloseSessionRequest) (acp.CloseSessionResponse, error) {
 	return acp.CloseSessionResponse{}, nil

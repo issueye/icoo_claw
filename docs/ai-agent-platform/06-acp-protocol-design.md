@@ -112,16 +112,16 @@ func main() {
 
 | ACP 方法 | 第一阶段处理 | 说明 |
 | --- | --- | --- |
-| `initialize` | 返回协议版本和能力 | 声明文本 prompt、会话关闭能力；不声明未实现能力。 |
+| `initialize` | 返回协议版本和能力 | 声明文本 prompt、会话关闭、list、resume 和 additionalDirectories 能力；不声明未实现的文件/终端能力。 |
 | `authenticate` | 返回空响应 | 模型鉴权由 Provider 配置或环境变量处理。 |
 | `session/new` | 创建本地 ACP session | 保存 `cwd`、`additionalDirectories`、`mcpServers`、默认 agent profile。 |
 | `session/prompt` | 调用 `Runner.RunStream` | 通过事件处理实时发送 `session/update`，结束后返回 `PromptResponse`。 |
 | `session/cancel` | 取消当前 turn | 调用 session 内保存的 `context.CancelFunc`。 |
 | `session/close` | 取消并释放 session | 需要在 `initialize` 中声明 close 能力。 |
-| `session/list` | 暂不支持 | 返回 `acp.NewMethodNotFound`，不声明 list 能力。 |
-| `session/resume` | 暂不支持 | 后续可接入 Gateway 会话列表和历史恢复。 |
-| `session/set_config_option` | 暂不支持 | 后续用于模型、工具白名单、sandbox 等配置。 |
-| `session/set_mode` | 暂不支持 | 后续可映射到 planning / normal / readonly 等模式。 |
+| `session/list` | 支持内存会话列表 | 返回当前进程内 ACP session 的 `sessionId`、`cwd`、`additionalDirectories`、标题和更新时间。 |
+| `session/resume` | 支持内存恢复 | 恢复或创建同名 ACP session，并刷新 `cwd`、`additionalDirectories`、`mcpServers` 和 meta；历史消息仍由现有 runtime 存储链路负责。 |
+| `session/set_config_option` | 支持记录当前 session 配置 | 记录 boolean / valueId 配置并传入后续 `RunRequest.Metadata["acp_config_options"]`。 |
+| `session/set_mode` | 支持记录当前 session mode | 记录 `modeId` 并传入后续 `RunRequest.Metadata["acp_session_mode"]`。 |
 | unstable providers | 暂不支持 | Gateway 已有供应商管理，后续再桥接。 |
 
 ## 会话状态模型
@@ -307,12 +307,13 @@ ACP 支持 Agent 向 Client 请求能力：
 第一阶段策略：
 
 - 不依赖 ACP client 的文件和终端能力，继续使用 `claw` 现有工具执行链路。
-- 不主动调用 `RequestPermission`，沿用 runtime 当前 sandbox / tool policy。
+- runtime 权限策略需要确认时，通过 ACP `session/request_permission` 转给 Client，支持 `allow_once`、`allow_always`、`reject_once`、`reject_always`。
+- `allow_always` / `reject_always` 当前为 session 内记忆，不写入持久配置。
 - 在 `initialize` 中不声明超出实际实现的能力。
 
 后续增强：
 
-- 将敏感工具调用前置为 `RequestPermission`。
+- 增加权限超时、过期 UI、审计日志和持久策略管理。
 - 对编辑器工作区文件读取优先使用 `ReadTextFile`，减少路径权限差异。
 - 对 shell/terminal 工具可选代理到 ACP terminal API，让编辑器显示真实终端。
 
@@ -384,12 +385,12 @@ $env:ICOO_AGENT_BASE_URL="https://api.openai.com/v1"
 ### 阶段 3: 配置与模型能力
 
 - 支持 ACP session 扩展配置模型供应商、base_url、api_key、model。
-- 可选实现 `session/set_config_option`，用于工具白名单、强制 skills、最大迭代次数。
+- 扩展 `session/set_config_option` 到真实 runtime 设置，用于工具白名单、强制 skills、最大迭代次数。
 - API Key 脱敏，禁止写入日志和历史。
 
 ### 阶段 4: ACP client 能力桥接
 
-- 按需接入 `RequestPermission`。
+- 增加 `RequestPermission` 的持久策略、超时过期、审计与回滚能力。
 - 按需接入 `ReadTextFile`、`WriteTextFile`。
 - 按需接入 terminal API。
 - 评估 unstable MCP / providers 方法是否与 Gateway 管理能力打通。

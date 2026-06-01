@@ -26,9 +26,21 @@ type Agent struct {
 }
 
 type sessionState struct {
-	cancel context.CancelFunc
-	cwd    string
-	meta   map[string]any
+	cancel                context.CancelFunc
+	cwd                   string
+	additionalDirectories []string
+	mcpServers            []acp.McpServer
+	modeID                string
+	configOptions         map[string]any
+	permissionRules       map[permissionRuleKey]bool
+	meta                  map[string]any
+	updatedAt             time.Time
+	title                 string
+}
+
+type permissionRuleKey struct {
+	toolName string
+	target   string
 }
 
 func NewAgent(runner agent_sdk.Runner) *Agent {
@@ -52,9 +64,10 @@ func (a *Agent) Initialize(ctx context.Context, _ acp.InitializeRequest) (acp.In
 		AgentCapabilities: acp.AgentCapabilities{
 			LoadSession: true,
 			SessionCapabilities: acp.SessionCapabilities{
-				Close:  &acp.SessionCloseCapabilities{},
-				List:   nil,
-				Resume: nil,
+				Close:                 &acp.SessionCloseCapabilities{},
+				List:                  &acp.SessionListCapabilities{},
+				Resume:                &acp.SessionResumeCapabilities{},
+				AdditionalDirectories: &acp.SessionAdditionalDirectoriesCapabilities{},
 			},
 			PromptCapabilities: acp.PromptCapabilities{
 				EmbeddedContext: true,
@@ -75,7 +88,13 @@ func (a *Agent) Authenticate(ctx context.Context, _ acp.AuthenticateRequest) (ac
 func (a *Agent) NewSession(ctx context.Context, params acp.NewSessionRequest) (acp.NewSessionResponse, error) {
 	sid := "sess_" + randomID()
 	a.mu.Lock()
-	a.sessions[sid] = &sessionState{cwd: params.Cwd, meta: cloneMap(params.Meta)}
+	a.sessions[sid] = &sessionState{
+		cwd:                   params.Cwd,
+		additionalDirectories: cloneStringSlice(params.AdditionalDirectories),
+		mcpServers:            cloneMCPServers(params.McpServers),
+		meta:                  cloneMap(params.Meta),
+		updatedAt:             time.Now().UTC(),
+	}
 	a.mu.Unlock()
 	return acp.NewSessionResponse{SessionId: acp.SessionId(sid)}, nil
 }
@@ -86,7 +105,13 @@ func (a *Agent) LoadSession(ctx context.Context, params acp.LoadSessionRequest) 
 		return acp.LoadSessionResponse{}, fmt.Errorf("sessionId is required")
 	}
 	a.mu.Lock()
-	a.sessions[sessionID] = &sessionState{cwd: params.Cwd, meta: cloneMap(params.Meta)}
+	a.sessions[sessionID] = &sessionState{
+		cwd:                   params.Cwd,
+		additionalDirectories: cloneStringSlice(params.AdditionalDirectories),
+		mcpServers:            cloneMCPServers(params.McpServers),
+		meta:                  cloneMap(params.Meta),
+		updatedAt:             time.Now().UTC(),
+	}
 	a.mu.Unlock()
 	return acp.LoadSessionResponse{}, nil
 }
@@ -110,6 +135,10 @@ func (a *Agent) Prompt(ctx context.Context, params acp.PromptRequest) (acp.Promp
 		Agent:         metaAgentProfile(params.Meta, "agent"),
 		ToolWhitelist: metaStringSlice(params.Meta, "tool_whitelist"),
 		Metadata:      runMetadata(params.Meta, state),
+	}
+	state.updatedAt = time.Now().UTC()
+	if strings.TrimSpace(req.Prompt) != "" && strings.TrimSpace(state.title) == "" {
+		state.title = summarizePromptTitle(req.Prompt)
 	}
 	events, err := a.runner.RunStream(runCtx, req)
 	if err != nil {
@@ -169,25 +198,100 @@ func (a *Agent) CloseSession(ctx context.Context, params acp.CloseSessionRequest
 	return acp.CloseSessionResponse{}, nil
 }
 
-func (a *Agent) ListSessions(ctx context.Context, _ acp.ListSessionsRequest) (acp.ListSessionsResponse, error) {
-	return acp.ListSessionsResponse{}, acp.NewMethodNotFound(acp.AgentMethodSessionList)
+func (a *Agent) ListSessions(ctx context.Context, params acp.ListSessionsRequest) (acp.ListSessionsResponse, error) {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+
+	sessions := make([]acp.SessionInfo, 0, len(a.sessions))
+	for id, state := range a.sessions {
+		if !matchesSessionListFilters(state, params) {
+			continue
+		}
+		updatedAt := state.updatedAt.Format(time.RFC3339)
+		if state.updatedAt.IsZero() {
+			updatedAt = time.Now().UTC().Format(time.RFC3339)
+		}
+		var title *string
+		if strings.TrimSpace(state.title) != "" {
+			value := state.title
+			title = &value
+		}
+		sessions = append(sessions, acp.SessionInfo{
+			SessionId:             acp.SessionId(id),
+			Cwd:                   state.cwd,
+			AdditionalDirectories: cloneStringSlice(state.additionalDirectories),
+			Title:                 title,
+			UpdatedAt:             &updatedAt,
+		})
+	}
+	return acp.ListSessionsResponse{Sessions: sessions}, nil
 }
 
-func (a *Agent) ResumeSession(ctx context.Context, _ acp.ResumeSessionRequest) (acp.ResumeSessionResponse, error) {
-	return acp.ResumeSessionResponse{}, acp.NewMethodNotFound(acp.AgentMethodSessionResume)
+func (a *Agent) ResumeSession(ctx context.Context, params acp.ResumeSessionRequest) (acp.ResumeSessionResponse, error) {
+	sessionID := strings.TrimSpace(string(params.SessionId))
+	if sessionID == "" {
+		return acp.ResumeSessionResponse{}, fmt.Errorf("sessionId is required")
+	}
+	a.mu.Lock()
+	state, ok := a.sessions[sessionID]
+	if !ok {
+		state = &sessionState{}
+		a.sessions[sessionID] = state
+	}
+	state.cwd = params.Cwd
+	state.additionalDirectories = cloneStringSlice(params.AdditionalDirectories)
+	state.mcpServers = cloneMCPServers(params.McpServers)
+	state.meta = cloneMap(params.Meta)
+	state.updatedAt = time.Now().UTC()
+	modes := sessionModes(state.modeID)
+	a.mu.Unlock()
+
+	return acp.ResumeSessionResponse{Modes: modes}, nil
 }
 
-func (a *Agent) SetSessionConfigOption(ctx context.Context, _ acp.SetSessionConfigOptionRequest) (acp.SetSessionConfigOptionResponse, error) {
-	return acp.SetSessionConfigOptionResponse{}, acp.NewMethodNotFound(acp.AgentMethodSessionSetConfigOption)
+func (a *Agent) SetSessionConfigOption(ctx context.Context, params acp.SetSessionConfigOptionRequest) (acp.SetSessionConfigOptionResponse, error) {
+	sessionID, configID, value := sessionConfigOptionValue(params)
+	if sessionID == "" || configID == "" {
+		return acp.SetSessionConfigOptionResponse{}, fmt.Errorf("sessionId and configId are required")
+	}
+	state := a.getOrCreateSession(sessionID)
+	if state == nil {
+		return acp.SetSessionConfigOptionResponse{}, fmt.Errorf("session %s not found", sessionID)
+	}
+	a.mu.Lock()
+	if state.configOptions == nil {
+		state.configOptions = map[string]any{}
+	}
+	state.configOptions[configID] = value
+	state.updatedAt = time.Now().UTC()
+	a.mu.Unlock()
+	return acp.SetSessionConfigOptionResponse{ConfigOptions: []acp.SessionConfigOption{}}, nil
 }
 
-func (a *Agent) SetSessionMode(ctx context.Context, _ acp.SetSessionModeRequest) (acp.SetSessionModeResponse, error) {
-	return acp.SetSessionModeResponse{}, acp.NewMethodNotFound(acp.AgentMethodSessionSetMode)
+func (a *Agent) SetSessionMode(ctx context.Context, params acp.SetSessionModeRequest) (acp.SetSessionModeResponse, error) {
+	sessionID := strings.TrimSpace(string(params.SessionId))
+	if sessionID == "" {
+		return acp.SetSessionModeResponse{}, fmt.Errorf("sessionId is required")
+	}
+	state := a.getOrCreateSession(sessionID)
+	if state == nil {
+		return acp.SetSessionModeResponse{}, fmt.Errorf("session %s not found", sessionID)
+	}
+	a.mu.Lock()
+	state.modeID = strings.TrimSpace(string(params.ModeId))
+	state.updatedAt = time.Now().UTC()
+	a.mu.Unlock()
+	return acp.SetSessionModeResponse{}, nil
 }
 
 func (a *Agent) PromptPermission(ctx context.Context, req api.PermissionRequest) (bool, error) {
 	if a == nil || a.conn == nil {
 		return false, fmt.Errorf("acp permission prompt unavailable")
+	}
+	sessionID := firstNonEmpty(api.SessionIDFromContext(ctx), "default")
+	ruleKey := permissionKey(req)
+	if allowed, ok := a.rememberedPermission(sessionID, ruleKey); ok {
+		return allowed, nil
 	}
 	toolCallID := strings.TrimSpace(req.ToolCallID)
 	if toolCallID == "" {
@@ -202,7 +306,7 @@ func (a *Agent) PromptPermission(ctx context.Context, req api.PermissionRequest)
 	locations := permissionLocations(req.Target)
 
 	resp, err := a.conn.RequestPermission(ctx, acp.RequestPermissionRequest{
-		SessionId: acp.SessionId(firstNonEmpty(api.SessionIDFromContext(ctx), "default")),
+		SessionId: acp.SessionId(sessionID),
 		ToolCall: acp.ToolCallUpdate{
 			ToolCallId: acp.ToolCallId(toolCallID),
 			Title:      &title,
@@ -218,8 +322,10 @@ func (a *Agent) PromptPermission(ctx context.Context, req api.PermissionRequest)
 			},
 		},
 		Options: []acp.PermissionOption{
-			{Kind: acp.PermissionOptionKindAllowOnce, Name: "Allow once", OptionId: acp.PermissionOptionId("allow_once")},
-			{Kind: acp.PermissionOptionKindRejectOnce, Name: "Reject once", OptionId: acp.PermissionOptionId("reject_once")},
+			{Kind: acp.PermissionOptionKindAllowOnce, Name: "允许本次", OptionId: acp.PermissionOptionId("allow_once")},
+			{Kind: acp.PermissionOptionKindAllowAlways, Name: "当前会话始终允许", OptionId: acp.PermissionOptionId("allow_always")},
+			{Kind: acp.PermissionOptionKindRejectOnce, Name: "拒绝本次", OptionId: acp.PermissionOptionId("reject_once")},
+			{Kind: acp.PermissionOptionKindRejectAlways, Name: "当前会话始终拒绝", OptionId: acp.PermissionOptionId("reject_always")},
 		},
 	})
 	if err != nil {
@@ -232,7 +338,13 @@ func (a *Agent) PromptPermission(ctx context.Context, req api.PermissionRequest)
 		return false, nil
 	}
 	switch resp.Outcome.Selected.OptionId {
-	case acp.PermissionOptionId("allow_once"), acp.PermissionOptionId("allow_always"):
+	case acp.PermissionOptionId("allow_always"):
+		a.rememberPermission(sessionID, ruleKey, true)
+		return true, nil
+	case acp.PermissionOptionId("reject_always"):
+		a.rememberPermission(sessionID, ruleKey, false)
+		return false, nil
+	case acp.PermissionOptionId("allow_once"):
 		return true, nil
 	default:
 		return false, nil
@@ -268,6 +380,18 @@ func runMetadata(meta map[string]any, state *sessionState) map[string]any {
 				out["project_root"] = state.cwd
 			}
 		}
+		if len(state.additionalDirectories) > 0 {
+			out["additional_directories"] = cloneStringSlice(state.additionalDirectories)
+		}
+		if len(state.mcpServers) > 0 {
+			out["mcp_servers"] = state.mcpServers
+		}
+		if strings.TrimSpace(state.modeID) != "" {
+			out["acp_session_mode"] = state.modeID
+		}
+		if len(state.configOptions) > 0 {
+			out["acp_config_options"] = cloneAnyMap(state.configOptions)
+		}
 		for key, value := range state.meta {
 			if _, ok := out[key]; !ok {
 				out[key] = value
@@ -275,6 +399,93 @@ func runMetadata(meta map[string]any, state *sessionState) map[string]any {
 		}
 	}
 	return out
+}
+
+func (a *Agent) rememberedPermission(sessionID string, key permissionRuleKey) (bool, bool) {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	state := a.sessions[sessionID]
+	if state == nil || state.permissionRules == nil {
+		return false, false
+	}
+	allowed, ok := state.permissionRules[key]
+	return allowed, ok
+}
+
+func (a *Agent) rememberPermission(sessionID string, key permissionRuleKey, allowed bool) {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	state := a.sessions[sessionID]
+	if state == nil {
+		state = &sessionState{}
+		a.sessions[sessionID] = state
+	}
+	if state.permissionRules == nil {
+		state.permissionRules = map[permissionRuleKey]bool{}
+	}
+	state.permissionRules[key] = allowed
+	state.updatedAt = time.Now().UTC()
+}
+
+func permissionKey(req api.PermissionRequest) permissionRuleKey {
+	target := strings.TrimSpace(req.Target)
+	if target == "" {
+		target = strings.TrimSpace(req.Rule)
+	}
+	if target == "" && len(req.Arguments) > 0 {
+		if payload, err := json.Marshal(req.Arguments); err == nil {
+			target = string(payload)
+		}
+	}
+	return permissionRuleKey{
+		toolName: strings.TrimSpace(req.ToolName),
+		target:   target,
+	}
+}
+
+func matchesSessionListFilters(state *sessionState, params acp.ListSessionsRequest) bool {
+	if state == nil {
+		return false
+	}
+	if params.Cwd != nil && strings.TrimSpace(*params.Cwd) != strings.TrimSpace(state.cwd) {
+		return false
+	}
+	if len(params.AdditionalDirectories) > 0 && !equalStringSlices(params.AdditionalDirectories, state.additionalDirectories) {
+		return false
+	}
+	return true
+}
+
+func sessionConfigOptionValue(params acp.SetSessionConfigOptionRequest) (string, string, any) {
+	if params.Boolean != nil {
+		return strings.TrimSpace(string(params.Boolean.SessionId)), strings.TrimSpace(string(params.Boolean.ConfigId)), params.Boolean.Value
+	}
+	if params.ValueId != nil {
+		return strings.TrimSpace(string(params.ValueId.SessionId)), strings.TrimSpace(string(params.ValueId.ConfigId)), string(params.ValueId.Value)
+	}
+	return "", "", nil
+}
+
+func sessionModes(current string) *acp.SessionModeState {
+	current = strings.TrimSpace(current)
+	if current == "" {
+		return nil
+	}
+	return &acp.SessionModeState{
+		CurrentModeId: acp.SessionModeId(current),
+		AvailableModes: []acp.SessionMode{{
+			Id:   acp.SessionModeId(current),
+			Name: current,
+		}},
+	}
+}
+
+func summarizePromptTitle(prompt string) string {
+	prompt = strings.TrimSpace(strings.ReplaceAll(prompt, "\n", " "))
+	if len(prompt) <= 64 {
+		return prompt
+	}
+	return strings.TrimSpace(prompt[:64])
 }
 
 func cloneMap(src map[string]any) map[string]any {
@@ -286,6 +497,43 @@ func cloneMap(src map[string]any) map[string]any {
 		out[key] = value
 	}
 	return out
+}
+
+func cloneAnyMap(src map[string]any) map[string]any {
+	if len(src) == 0 {
+		return nil
+	}
+	out := make(map[string]any, len(src))
+	for key, value := range src {
+		out[key] = value
+	}
+	return out
+}
+
+func cloneStringSlice(src []string) []string {
+	if len(src) == 0 {
+		return nil
+	}
+	return append([]string(nil), src...)
+}
+
+func cloneMCPServers(src []acp.McpServer) []acp.McpServer {
+	if len(src) == 0 {
+		return nil
+	}
+	return append([]acp.McpServer(nil), src...)
+}
+
+func equalStringSlices(a, b []string) bool {
+	if len(a) != len(b) {
+		return false
+	}
+	for i := range a {
+		if strings.TrimSpace(a[i]) != strings.TrimSpace(b[i]) {
+			return false
+		}
+	}
+	return true
 }
 
 func permissionTitle(req api.PermissionRequest) string {
