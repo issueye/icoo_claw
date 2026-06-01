@@ -9,6 +9,7 @@ import QqModal from '@/components/ued/QqModal.vue'
 import QqSelect from '@/components/ued/QqSelect.vue'
 import QqSwitch from '@/components/ued/QqSwitch.vue'
 import { mergeSettings } from '@/services/settings/schema'
+import { THEME_OPTIONS, applyTheme } from '@/services/theme'
 import { useAgentsStore } from '@/stores/agents'
 import { useAppStore } from '@/stores/app'
 import { useSettingsStore } from '@/stores/settings'
@@ -186,6 +187,14 @@ function agentOptions() {
     })),
   ]
 }
+
+function themeOptions() {
+  return THEME_OPTIONS
+}
+
+function selectTheme(value) {
+  form.ui.theme = applyTheme(value)
+}
 </script>
 
 <template>
@@ -306,6 +315,18 @@ function agentOptions() {
 
         <QqFormSection title="界面行为">
           <div class="grid gap-3">
+            <QqFormField label="界面主题" helper="选择后会立即预览，保存设置后下次启动继续使用。">
+              <QqSelect :model-value="form.ui.theme" :options="themeOptions()" @update:model-value="selectTheme" />
+            </QqFormField>
+
+            <div class="grid grid-cols-5 overflow-hidden rounded-[8px] border border-[color:var(--qq-border)]">
+              <div class="h-12 bg-[var(--qq-palette-1)]" />
+              <div class="h-12 bg-[var(--qq-palette-2)]" />
+              <div class="h-12 bg-[var(--qq-palette-3)]" />
+              <div class="h-12 bg-[var(--qq-palette-4)]" />
+              <div class="h-12 bg-[var(--qq-palette-5)]" />
+            </div>
+
             <QqSwitch
               v-model="form.ui.showTimestamps"
               label="显示消息时间"

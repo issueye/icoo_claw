@@ -2,23 +2,32 @@
 import { onMounted, watch } from 'vue'
 import { RouterView } from 'vue-router'
 import AppNotifications from '@/components/common/AppNotifications.vue'
+import { applyTheme, getStoredTheme } from '@/services/theme'
 import { useAgentsStore } from '@/stores/agents'
 import { useAppStore } from './stores/app'
 import { useChatStore } from './stores/chat'
 import { useConversationsStore } from './stores/conversations'
 import { useNotificationsStore } from './stores/notifications'
+import { useSettingsStore } from './stores/settings'
 
 const appStore = useAppStore()
 const agentsStore = useAgentsStore()
 const chatStore = useChatStore()
 const conversationsStore = useConversationsStore()
 const notificationsStore = useNotificationsStore()
+const settingsStore = useSettingsStore()
 
 onMounted(() => {
+  applyTheme(getStoredTheme())
   appStore.bootstrap()
-  const savedTheme = localStorage.getItem('qq-theme') || 'dark'
-  document.documentElement.setAttribute('data-theme', savedTheme)
 })
+
+watch(
+  () => settingsStore.settings.ui.theme,
+  (theme) => {
+    applyTheme(theme)
+  },
+)
 
 watch(
   () => appStore.error,

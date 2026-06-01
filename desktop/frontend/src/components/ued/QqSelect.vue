@@ -337,7 +337,10 @@ onBeforeUnmount(() => {
   color: var(--qq-text-secondary);
 }
 
-html[data-theme="light"] .qq-select-menu {
+html[data-theme="light"] .qq-select-menu,
+html[data-theme="sunset"] .qq-select-menu,
+html[data-theme="minimal-gray"] .qq-select-menu,
+html[data-theme="saas-blue"] .qq-select-menu {
   border-color: rgba(15, 23, 42, 0.14);
   background: rgba(255, 255, 255, 0.98);
   box-shadow:
@@ -346,22 +349,37 @@ html[data-theme="light"] .qq-select-menu {
 }
 
 html[data-theme="light"] .qq-select-option:hover,
-html[data-theme="light"] .qq-select-option.is-active {
+html[data-theme="light"] .qq-select-option.is-active,
+html[data-theme="sunset"] .qq-select-option:hover,
+html[data-theme="sunset"] .qq-select-option.is-active,
+html[data-theme="minimal-gray"] .qq-select-option:hover,
+html[data-theme="minimal-gray"] .qq-select-option.is-active,
+html[data-theme="saas-blue"] .qq-select-option:hover,
+html[data-theme="saas-blue"] .qq-select-option.is-active {
   background: rgba(15, 23, 42, 0.06);
   color: var(--qq-text-primary);
 }
 
-html[data-theme="light"] .qq-select-option.is-selected {
-  background: rgba(8, 125, 167, 0.1);
+html[data-theme="light"] .qq-select-option.is-selected,
+html[data-theme="sunset"] .qq-select-option.is-selected,
+html[data-theme="minimal-gray"] .qq-select-option.is-selected,
+html[data-theme="saas-blue"] .qq-select-option.is-selected {
+  background: color-mix(in srgb, var(--qq-accent) 12%, transparent);
   color: var(--qq-accent-strong);
 }
 
-html[data-theme="light"] .qq-select-option.is-disabled {
+html[data-theme="light"] .qq-select-option.is-disabled,
+html[data-theme="sunset"] .qq-select-option.is-disabled,
+html[data-theme="minimal-gray"] .qq-select-option.is-disabled,
+html[data-theme="saas-blue"] .qq-select-option.is-disabled {
   color: var(--qq-text-tertiary);
   opacity: 0.6;
 }
 
-html[data-theme="light"] .qq-select-option.is-disabled:hover {
+html[data-theme="light"] .qq-select-option.is-disabled:hover,
+html[data-theme="sunset"] .qq-select-option.is-disabled:hover,
+html[data-theme="minimal-gray"] .qq-select-option.is-disabled:hover,
+html[data-theme="saas-blue"] .qq-select-option.is-disabled:hover {
   background: transparent;
   color: var(--qq-text-tertiary);
 }

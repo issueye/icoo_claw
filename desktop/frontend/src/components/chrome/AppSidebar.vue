@@ -1,7 +1,5 @@
 <script setup>
-import { ref } from 'vue'
 import { useRoute } from 'vue-router'
-import { Sun, Moon } from 'lucide-vue-next'
 import ProjectSwitcher from '@/components/project/ProjectSwitcher.vue'
 
 defineProps({
@@ -12,7 +10,6 @@ defineProps({
 })
 
 const route = useRoute()
-const theme = ref(localStorage.getItem('qq-theme') || 'dark')
 
 function isActive(item) {
   if (item.name === 'chat-home') {
@@ -21,12 +18,6 @@ function isActive(item) {
   return route.name === item.name
 }
 
-function toggleTheme() {
-  const nextTheme = theme.value === 'dark' ? 'light' : 'dark'
-  theme.value = nextTheme
-  localStorage.setItem('qq-theme', nextTheme)
-  document.documentElement.setAttribute('data-theme', nextTheme)
-}
 </script>
 
 <template>
@@ -56,16 +47,6 @@ function toggleTheme() {
         <span class="text-center leading-tight font-medium">{{ item.label }}</span>
       </RouterLink>
     </nav>
-
-    <!-- 一键切换主题悬浮按钮 (太阳/月亮微交互) -->
-    <button
-      class="group flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-white/10 bg-[var(--qq-fill-soft)] text-[color:var(--qq-text-secondary)] transition hover:scale-105 hover:border-[color:var(--qq-accent)] hover:bg-[rgba(0,242,254,0.08)] hover:text-[color:var(--qq-accent)] active:scale-95"
-      type="button"
-      @click="toggleTheme"
-    >
-      <Sun v-if="theme === 'dark'" class="h-4.5 w-4.5 transition-transform group-hover:rotate-45" />
-      <Moon v-else class="h-4.5 w-4.5 transition-transform group-hover:-rotate-12" />
-    </button>
 
     <ProjectSwitcher compact />
   </aside>

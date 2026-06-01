@@ -26,7 +26,7 @@ function dismiss(id) {
 
 <template>
   <Teleport to="body">
-    <div class="pointer-events-none fixed right-5 top-5 z-50 flex w-[min(28rem,calc(100vw-2.5rem))] flex-col gap-3">
+    <div class="pointer-events-none fixed right-5 top-5 z-[200] flex w-[min(28rem,calc(100vw-2.5rem))] flex-col gap-3">
       <transition-group name="notify">
         <section
           v-for="item in items"

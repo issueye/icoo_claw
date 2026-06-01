@@ -1,10 +1,11 @@
 <script setup>
 import { computed, reactive, ref, watch } from 'vue'
 import { RouterView, useRoute, useRouter } from 'vue-router'
-import { Bot, CalendarClock, KeyRound, LayoutTemplate, MessageSquareText, Minus, PlugZap, RefreshCw, Search, Settings2, Square, Wrench, X } from 'lucide-vue-next'
+import { Bot, CalendarClock, Check, KeyRound, MessageSquareText, Minus, Palette, PlugZap, RefreshCw, Search, Settings2, Square, Wrench, X } from 'lucide-vue-next'
 import { Window } from '@wailsio/runtime'
 import AppSidebar from '@/components/chrome/AppSidebar.vue'
 import ConversationList from '@/components/conversation/ConversationList.vue'
+import { THEME_OPTIONS, applyTheme } from '@/services/theme'
 import QqButton from '@/components/ued/QqButton.vue'
 import QqFormField from '@/components/ued/QqFormField.vue'
 import QqInput from '@/components/ued/QqInput.vue'
@@ -36,6 +37,11 @@ const conversationListCollapsed = ref(false)
 const conversationDeleteDialog = reactive({
   open: false,
   conversationId: '',
+})
+const themePopover = reactive({
+  open: false,
+  draft: '',
+  saving: false,
 })
 
 const navItems = [
@@ -90,6 +96,8 @@ const gatewayHealthLabel = computed(() => {
   }
   return [appStore.gatewayInfo.service, appStore.gatewayInfo.status].filter(Boolean).join(' / ') || '已响应'
 })
+const savedTheme = computed(() => settingsStore.settings.ui.theme || 'dark')
+const selectedTheme = computed(() => THEME_OPTIONS.find((theme) => theme.value === themePopover.draft) || THEME_OPTIONS[0])
 
 async function refresh() {
   await appStore.refreshGatewayData()
@@ -206,6 +214,39 @@ async function saveGatewaySettings() {
   }
 }
 
+function openThemePopover() {
+  themePopover.draft = savedTheme.value
+  themePopover.open = true
+}
+
+function closeThemePopover() {
+  themePopover.open = false
+  themePopover.draft = savedTheme.value
+  applyTheme(savedTheme.value)
+}
+
+function previewTheme(value) {
+  themePopover.draft = applyTheme(value)
+}
+
+async function saveTheme() {
+  themePopover.saving = true
+  try {
+    const theme = applyTheme(themePopover.draft)
+    await settingsStore.patch({ ui: { theme } })
+    notificationsStore.notify({
+      title: '主题已保存',
+      message: selectedTheme.value.label,
+      tone: 'success',
+    })
+    themePopover.open = false
+  } catch (error) {
+    notificationsStore.error(error?.message || String(error), { title: '主题保存失败' })
+  } finally {
+    themePopover.saving = false
+  }
+}
+
 async function connectGateway() {
   try {
     await saveGatewaySettings()
@@ -219,6 +260,16 @@ watch(
   () => settingsStore.settings.gateway.baseUrl,
   (value) => {
     gatewayDialog.draftBaseUrl = value || ''
+  },
+  { immediate: true },
+)
+
+watch(
+  () => settingsStore.settings.ui.theme,
+  (value) => {
+    if (!themePopover.open) {
+      themePopover.draft = value || 'dark'
+    }
   },
   { immediate: true },
 )
@@ -241,7 +292,7 @@ watch(
 <template>
   <div class="qq-theme qq-mesh relative flex h-screen flex-col text-[color:var(--qq-text-primary)]">
     <header
-      class="qq-panel-strong relative z-10 flex h-12 shrink-0 items-center justify-between border-b border-white/10 border-t-0 pl-4"
+      class="qq-panel-strong relative z-[90] flex h-12 shrink-0 items-center justify-between border-b border-white/10 border-t-0 pl-4"
       style="--wails-draggable: drag"
     >
       <div class="flex min-w-0 items-center gap-3">
@@ -265,6 +316,66 @@ watch(
         <QqButton variant="secondary" size="sm" @click="openGatewayDialog">
           网关管理
         </QqButton>
+        <div class="relative">
+          <button
+            class="inline-flex h-9 w-9 items-center justify-center rounded-[4px] border border-white/10 bg-[var(--qq-fill-medium)] text-[color:var(--qq-text-secondary)] transition hover:border-white/20 hover:bg-[var(--qq-fill-strong)] hover:text-[color:var(--qq-accent)]"
+            type="button"
+            title="选择主题"
+            @click="themePopover.open ? closeThemePopover() : openThemePopover()"
+          >
+            <Palette class="h-4 w-4" />
+          </button>
+
+          <div
+            v-if="themePopover.open"
+            class="theme-popover qq-panel-strong absolute right-0 top-[calc(100%+8px)] z-[120] w-[360px] rounded-[8px] border border-[color:var(--qq-border)] p-4 shadow-[var(--qq-shadow)]"
+          >
+            <div class="mb-3 flex items-start justify-between gap-3">
+              <div>
+                <p class="text-sm font-semibold text-[color:var(--qq-text-primary)]">界面主题</p>
+                <p class="mt-1 text-xs text-[color:var(--qq-text-tertiary)]">选择后会立即预览，保存后下次启动继续使用。</p>
+              </div>
+              <button
+                class="inline-flex h-7 w-7 items-center justify-center rounded-[4px] text-[color:var(--qq-text-tertiary)] hover:bg-[var(--qq-fill-soft)] hover:text-[color:var(--qq-text-primary)]"
+                type="button"
+                @click="closeThemePopover"
+              >
+                <X class="h-4 w-4" />
+              </button>
+            </div>
+
+            <div class="grid gap-2">
+              <button
+                v-for="theme in THEME_OPTIONS"
+                :key="theme.value"
+                class="theme-choice flex w-full items-center gap-3 rounded-[6px] border px-3 py-2 text-left transition"
+                :class="themePopover.draft === theme.value ? 'is-active' : ''"
+                type="button"
+                @click="previewTheme(theme.value)"
+              >
+                <span class="grid h-8 w-16 shrink-0 grid-cols-5 overflow-hidden rounded-[4px] border border-[color:var(--qq-border)]">
+                  <span v-for="color in theme.colors" :key="color" :style="{ backgroundColor: color }" />
+                </span>
+                <span class="min-w-0 flex-1">
+                  <span class="block truncate text-sm font-medium text-[color:var(--qq-text-primary)]">{{ theme.label }}</span>
+                  <span class="block truncate text-xs text-[color:var(--qq-text-tertiary)]">{{ theme.description }}</span>
+                </span>
+                <Check v-if="themePopover.draft === theme.value" class="h-4 w-4 shrink-0 text-[color:var(--qq-accent)]" />
+              </button>
+            </div>
+
+            <div class="mt-4 grid grid-cols-5 overflow-hidden rounded-[6px] border border-[color:var(--qq-border)]">
+              <div v-for="color in selectedTheme.colors" :key="color" class="h-10" :style="{ backgroundColor: color }" />
+            </div>
+
+            <div class="mt-4 flex justify-end gap-2">
+              <QqButton variant="ghost" size="sm" :disabled="themePopover.saving" @click="closeThemePopover">取消</QqButton>
+              <QqButton size="sm" :disabled="themePopover.saving" @click="saveTheme">
+                {{ themePopover.saving ? '保存中...' : '保存主题' }}
+              </QqButton>
+            </div>
+          </div>
+        </div>
         <button
           class="inline-flex h-9 w-9 items-center justify-center rounded-[4px] border border-white/10 bg-[var(--qq-fill-medium)] text-[color:var(--qq-text-secondary)] transition hover:border-white/20 hover:bg-[var(--qq-fill-strong)] hover:text-[color:var(--qq-text-primary)]"
           type="button"
@@ -417,3 +528,24 @@ watch(
     </QqModal>
   </div>
 </template>
+
+<style scoped>
+.theme-popover {
+  backdrop-filter: blur(28px);
+}
+
+.theme-choice {
+  border-color: var(--qq-border);
+  background: var(--qq-fill-subtle);
+}
+
+.theme-choice:hover {
+  border-color: var(--qq-border-strong);
+  background: var(--qq-fill-soft);
+}
+
+.theme-choice.is-active {
+  border-color: color-mix(in srgb, var(--qq-accent) 42%, var(--qq-border));
+  background: color-mix(in srgb, var(--qq-accent) 12%, transparent);
+}
+</style>

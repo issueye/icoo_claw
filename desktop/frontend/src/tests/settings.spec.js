@@ -15,6 +15,7 @@ describe('settings schema helpers', () => {
       currentProjectId: '',
       ui: {
         showTimestamps: true,
+        theme: 'dark',
       },
     })
   })
@@ -36,8 +37,17 @@ describe('settings schema helpers', () => {
       currentProjectId: '',
       ui: {
         showTimestamps: true,
+        theme: 'dark',
       },
     })
+  })
+
+  it('normalizes the saved theme', () => {
+    expect(mergeSettings({ ui: { theme: 'sunset', showTimestamps: false } }).ui).toEqual({
+      showTimestamps: false,
+      theme: 'sunset',
+    })
+    expect(mergeSettings({ ui: { theme: 'unknown' } }).ui.theme).toBe('dark')
   })
 
   it('normalizes projects and syncs the workspace root from the current project', () => {

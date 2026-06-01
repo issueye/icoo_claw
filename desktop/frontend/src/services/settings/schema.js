@@ -1,3 +1,5 @@
+import { normalizeTheme } from '@/services/theme'
+
 export function defaultSettings() {
   return {
     gateway: {
@@ -11,6 +13,7 @@ export function defaultSettings() {
     currentProjectId: '',
     ui: {
       showTimestamps: true,
+      theme: 'dark',
     },
   }
 }
@@ -44,6 +47,7 @@ export function mergeSettings(value = {}) {
     ui: {
       ...fallback.ui,
       ...(value.ui || {}),
+      theme: normalizeTheme(value.ui?.theme),
     },
   }
 }
