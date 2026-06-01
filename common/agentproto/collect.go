@@ -28,6 +28,12 @@ func CollectTextStream(events <-chan StreamEvent, fallbackSessionID string, fall
 			}
 			return nil
 		},
+		OnPermissionRequest: func(event StreamEvent) error {
+			if event.PermissionDecision != nil {
+				event.PermissionDecision <- PermissionVote{ID: permissionEventID(event), Outcome: "cancelled"}
+			}
+			return nil
+		},
 		OnCompleted: func(event StreamEvent) error {
 			result.StopReason = defaultString(event.StopReason, "end_turn")
 			completed = true
@@ -68,4 +74,11 @@ func defaultString(value string, fallback string) string {
 		return fallback
 	}
 	return value
+}
+
+func permissionEventID(event StreamEvent) string {
+	if event.Permission != nil && strings.TrimSpace(event.Permission.ID) != "" {
+		return strings.TrimSpace(event.Permission.ID)
+	}
+	return ""
 }

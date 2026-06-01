@@ -43,6 +43,32 @@ func TestCollectTextStream(t *testing.T) {
 	}
 }
 
+func TestCollectTextStreamCancelsPermissionRequests(t *testing.T) {
+	decision := make(chan PermissionVote, 1)
+	events := make(chan StreamEvent, 2)
+	events <- StreamEvent{
+		Type:               StreamEventPermissionRequest,
+		SessionID:          "sess_1",
+		RequestID:          "req_1",
+		Permission:         &PermissionRequest{ID: "perm_1"},
+		PermissionDecision: decision,
+	}
+	events <- StreamEvent{Type: StreamEventSessionCompleted, SessionID: "sess_1", RequestID: "req_1", StopReason: "end_turn"}
+	close(events)
+
+	got, err := CollectTextStream(events, "fallback_session", "fallback_request")
+	if err != nil {
+		t.Fatalf("collect: %v", err)
+	}
+	if got.SessionID != "sess_1" || got.RequestID != "req_1" {
+		t.Fatalf("collected = %+v", got)
+	}
+	vote := <-decision
+	if vote.ID != "perm_1" || vote.Outcome != "cancelled" {
+		t.Fatalf("vote = %+v", vote)
+	}
+}
+
 func TestCollectTextStreamErrorsWhenClosedBeforeCompletion(t *testing.T) {
 	events := make(chan StreamEvent, 1)
 	events <- StreamEvent{Type: StreamEventSessionUpdate, SessionID: "sess_1", RequestID: "req_1", Update: &SessionUpdate{SessionUpdate: "agent_message_chunk", Content: &ContentBlock{Type: "text", Text: "partial"}}}

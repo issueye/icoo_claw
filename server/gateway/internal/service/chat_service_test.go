@@ -221,6 +221,60 @@ func TestCollectClawStreamErrorsWhenClosedBeforeCompletion(t *testing.T) {
 	}
 }
 
+func TestChatServiceStreamMessageForwardsPermissionRequests(t *testing.T) {
+	conversations := &chatConversationRepo{conversation: &model.Conversation{
+		ID:        "conv_1",
+		SessionID: "sess_1",
+		AgentID:   "agent_1",
+		Status:    "active",
+	}}
+	instances := &chatInstanceRepo{instance: model.AgentInstance{
+		ID:      "inst_1",
+		AgentID: "agent_1",
+		Status:  "ready",
+		BaseURL: "http://127.0.0.1:8101",
+	}}
+	decision := make(chan client.PermissionVote, 1)
+	claw := &chatClawWithStream{stream: func(req client.RunRequest) <-chan client.StreamEvent {
+		out := make(chan client.StreamEvent, 2)
+		out <- client.StreamEvent{
+			Type:               "session/request_permission",
+			SessionID:          req.SessionID,
+			RequestID:          req.RequestID,
+			Permission:         &client.PermissionRequest{ID: "perm_1"},
+			PermissionDecision: decision,
+		}
+		out <- client.StreamEvent{Type: "session/completed", SessionID: req.SessionID, RequestID: req.RequestID, StopReason: "end_turn"}
+		close(out)
+		return out
+	}}
+	router := NewDefaultRouterPolicy(conversations, instances, nil)
+	svc := NewChatService(conversations, chatAgentRepo{}, nil, router, &chatSessionBackend{}, claw)
+
+	events, err := svc.StreamMessage(context.Background(), "conv_1", dto.SendMessageRequest{Prompt: "hello", RequestID: "req_1"})
+	if err != nil {
+		t.Fatalf("stream message: %v", err)
+	}
+	first := <-events
+	if first.Type != "session/request_permission" || first.Permission == nil || first.Permission.ID != "perm_1" || first.PermissionDecision == nil {
+		t.Fatalf("first event = %+v", first)
+	}
+	first.PermissionDecision <- client.PermissionVote{ID: "perm_1", Outcome: "cancelled"}
+	<-decision
+}
+
+type chatClawWithStream struct {
+	stream func(client.RunRequest) <-chan client.StreamEvent
+}
+
+func (c *chatClawWithStream) Run(_ context.Context, _ string, req client.RunRequest) (*client.RunResponse, error) {
+	return &client.RunResponse{SessionID: req.SessionID, RequestID: req.RequestID, Output: "ok", StopReason: "end_turn"}, nil
+}
+
+func (c *chatClawWithStream) Stream(_ context.Context, _ string, req client.RunRequest) (<-chan client.StreamEvent, error) {
+	return c.stream(req), nil
+}
+
 type chatMultiInstanceRepo struct {
 	instances []model.AgentInstance
 }

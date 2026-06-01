@@ -192,6 +192,10 @@ func (s *ChatService) StreamMessage(ctx context.Context, conversationID string, 
 				out <- event
 				return nil
 			},
+			OnPermissionRequest: func(event client.StreamEvent) error {
+				out <- event
+				return nil
+			},
 			OnCompleted: func(event client.StreamEvent) error {
 				out <- event
 				return nil
