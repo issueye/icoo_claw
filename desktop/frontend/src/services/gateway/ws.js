@@ -88,6 +88,17 @@ export class GatewayChatSocket {
     })
   }
 
+  sendPermissionDecision(input) {
+    this.send({
+      type: 'chat.permission_decision',
+      conversation_id: input.conversationId,
+      request_id: input.requestId,
+      permission_id: input.permissionId,
+      outcome: input.outcome,
+      option_id: input.optionId || '',
+    })
+  }
+
   ping() {
     this.send({ type: 'ping' })
   }

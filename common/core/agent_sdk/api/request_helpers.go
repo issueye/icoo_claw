@@ -1,6 +1,7 @@
 package api
 
 import (
+	"context"
 	"fmt"
 	"sort"
 	"strings"
@@ -8,6 +9,28 @@ import (
 	"icoo_claw/common/core/agent_sdk/runtime/skills"
 	"icoo_claw/common/core/agent_sdk/runtime/subagents"
 )
+
+type sessionContextKey string
+
+const sessionContextKeyName sessionContextKey = "agentsdk.session.id"
+
+func WithSessionID(ctx context.Context, sessionID string) context.Context {
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	if sessionID = strings.TrimSpace(sessionID); sessionID == "" {
+		return ctx
+	}
+	return context.WithValue(ctx, sessionContextKeyName, sessionID)
+}
+
+func SessionIDFromContext(ctx context.Context) string {
+	if ctx == nil {
+		return ""
+	}
+	value, _ := ctx.Value(sessionContextKeyName).(string)
+	return strings.TrimSpace(value)
+}
 
 func applyPromptMetadata(prompt string, meta map[string]any) string {
 	if len(meta) == 0 {

@@ -37,9 +37,50 @@ describe('gateway websocket helpers', () => {
         rawOutput: null,
         usage: null,
       },
+      permission: null,
       stopReason: '',
       code: '',
       error: '',
+      metadata: {},
+    })
+  })
+
+  it('normalizes ACP permission request frames', () => {
+    expect(
+      normalizeWSMessage({
+        type: 'session/request_permission',
+        conversation_id: 'conv_1',
+        request_id: 'req_1',
+        permission: {
+          id: 'perm_1',
+          sessionId: 'sess_1',
+          toolCall: {
+            toolCallId: 'tool_1',
+            title: 'Edit file',
+            rawInput: { path: 'README.md' },
+          },
+          options: [
+            { optionId: 'allow_once', name: 'Allow once', kind: 'allow_once' },
+            { optionId: 'reject_once', name: 'Reject', kind: 'reject_once' },
+          ],
+        },
+      }).permission,
+    ).toEqual({
+      id: 'perm_1',
+      sessionId: 'sess_1',
+      toolCall: {
+        toolCallId: 'tool_1',
+        title: 'Edit file',
+        kind: '',
+        status: '',
+        locations: [],
+        rawInput: { path: 'README.md' },
+        rawOutput: null,
+      },
+      options: [
+        { optionId: 'allow_once', name: 'Allow once', kind: 'allow_once', metadata: {} },
+        { optionId: 'reject_once', name: 'Reject', kind: 'reject_once', metadata: {} },
+      ],
       metadata: {},
     })
   })

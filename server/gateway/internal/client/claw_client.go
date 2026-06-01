@@ -22,3 +22,7 @@ type ContentBlock = agentproto.ContentBlock
 type ToolCallLocation = agentproto.ToolCallLocation
 type UsageUpdate = agentproto.UsageUpdate
 type StreamError = agentproto.StreamError
+type PermissionRequest = agentproto.PermissionRequest
+type PermissionToolCall = agentproto.PermissionToolCall
+type PermissionOption = agentproto.PermissionOption
+type PermissionVote = agentproto.PermissionVote

@@ -7,22 +7,27 @@ type ChatWSRequest struct {
 	ConversationID string         `json:"conversation_id,omitempty"`
 	Prompt         string         `json:"prompt,omitempty"`
 	RequestID      string         `json:"request_id,omitempty"`
+	PermissionID   string         `json:"permission_id,omitempty"`
+	Outcome        string         `json:"outcome,omitempty"`
+	OptionID       string         `json:"option_id,omitempty"`
 	Metadata       map[string]any `json:"metadata,omitempty"`
 }
 
 type ChatWSResponse struct {
-	Type           string         `json:"type"`
-	ConversationID string         `json:"conversation_id,omitempty"`
-	SessionID      string         `json:"session_id,omitempty"`
-	RequestID      string         `json:"request_id,omitempty"`
-	Update         *SessionUpdate `json:"update,omitempty"`
-	StopReason     string         `json:"stop_reason,omitempty"`
-	Code           string         `json:"code,omitempty"`
-	Error          string         `json:"error,omitempty"`
-	Metadata       map[string]any `json:"metadata,omitempty"`
+	Type           string             `json:"type"`
+	ConversationID string             `json:"conversation_id,omitempty"`
+	SessionID      string             `json:"session_id,omitempty"`
+	RequestID      string             `json:"request_id,omitempty"`
+	Update         *SessionUpdate     `json:"update,omitempty"`
+	Permission     *PermissionRequest `json:"permission,omitempty"`
+	StopReason     string             `json:"stop_reason,omitempty"`
+	Code           string             `json:"code,omitempty"`
+	Error          string             `json:"error,omitempty"`
+	Metadata       map[string]any     `json:"metadata,omitempty"`
 }
 
 type SessionUpdate = agentproto.SessionUpdate
 type ContentBlock = agentproto.ContentBlock
 type ToolCallLocation = agentproto.ToolCallLocation
 type UsageUpdate = agentproto.UsageUpdate
+type PermissionRequest = agentproto.PermissionRequest

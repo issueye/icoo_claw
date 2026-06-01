@@ -5,12 +5,15 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"path/filepath"
 	"strings"
 	"sync"
 	"time"
 
 	acp "github.com/coder/acp-go-sdk"
 	"icoo_claw/common/agentproto"
+	"icoo_claw/common/agentproto/agentruntime"
+	"icoo_claw/common/core/agent_sdk/api"
 	"icoo_claw/server/claw/pkg/agent_sdk"
 )
 
@@ -24,6 +27,8 @@ type Agent struct {
 
 type sessionState struct {
 	cancel context.CancelFunc
+	cwd    string
+	meta   map[string]any
 }
 
 func NewAgent(runner agent_sdk.Runner) *Agent {
@@ -31,6 +36,10 @@ func NewAgent(runner agent_sdk.Runner) *Agent {
 		runner:   runner,
 		sessions: make(map[string]*sessionState),
 	}
+}
+
+func (a *Agent) SetRunner(runner agent_sdk.Runner) {
+	a.runner = runner
 }
 
 func (a *Agent) SetAgentConnection(conn *acp.AgentSideConnection) {
@@ -41,7 +50,7 @@ func (a *Agent) Initialize(ctx context.Context, _ acp.InitializeRequest) (acp.In
 	return acp.InitializeResponse{
 		ProtocolVersion: acp.ProtocolVersionNumber,
 		AgentCapabilities: acp.AgentCapabilities{
-			LoadSession: false,
+			LoadSession: true,
 			SessionCapabilities: acp.SessionCapabilities{
 				Close:  &acp.SessionCloseCapabilities{},
 				List:   nil,
@@ -66,9 +75,20 @@ func (a *Agent) Authenticate(ctx context.Context, _ acp.AuthenticateRequest) (ac
 func (a *Agent) NewSession(ctx context.Context, params acp.NewSessionRequest) (acp.NewSessionResponse, error) {
 	sid := "sess_" + randomID()
 	a.mu.Lock()
-	a.sessions[sid] = &sessionState{}
+	a.sessions[sid] = &sessionState{cwd: params.Cwd, meta: cloneMap(params.Meta)}
 	a.mu.Unlock()
 	return acp.NewSessionResponse{SessionId: acp.SessionId(sid)}, nil
+}
+
+func (a *Agent) LoadSession(ctx context.Context, params acp.LoadSessionRequest) (acp.LoadSessionResponse, error) {
+	sessionID := strings.TrimSpace(string(params.SessionId))
+	if sessionID == "" {
+		return acp.LoadSessionResponse{}, fmt.Errorf("sessionId is required")
+	}
+	a.mu.Lock()
+	a.sessions[sessionID] = &sessionState{cwd: params.Cwd, meta: cloneMap(params.Meta)}
+	a.mu.Unlock()
+	return acp.LoadSessionResponse{}, nil
 }
 
 func (a *Agent) Prompt(ctx context.Context, params acp.PromptRequest) (acp.PromptResponse, error) {
@@ -89,7 +109,7 @@ func (a *Agent) Prompt(ctx context.Context, params acp.PromptRequest) (acp.Promp
 		Prompt:        promptText(params.Prompt),
 		Agent:         metaAgentProfile(params.Meta, "agent"),
 		ToolWhitelist: metaStringSlice(params.Meta, "tool_whitelist"),
-		Metadata:      metaMap(params.Meta, "metadata"),
+		Metadata:      runMetadata(params.Meta, state),
 	}
 	events, err := a.runner.RunStream(runCtx, req)
 	if err != nil {
@@ -165,6 +185,60 @@ func (a *Agent) SetSessionMode(ctx context.Context, _ acp.SetSessionModeRequest)
 	return acp.SetSessionModeResponse{}, acp.NewMethodNotFound(acp.AgentMethodSessionSetMode)
 }
 
+func (a *Agent) PromptPermission(ctx context.Context, req api.PermissionRequest) (bool, error) {
+	if a == nil || a.conn == nil {
+		return false, fmt.Errorf("acp permission prompt unavailable")
+	}
+	toolCallID := strings.TrimSpace(req.ToolCallID)
+	if toolCallID == "" {
+		toolCallID = "permission_" + randomID()
+	}
+	kind := acp.ToolKind(agentruntime.ToolKind(req.ToolName))
+	if kind == "" {
+		kind = acp.ToolKindOther
+	}
+	status := acp.ToolCallStatusPending
+	title := permissionTitle(req)
+	locations := permissionLocations(req.Target)
+
+	resp, err := a.conn.RequestPermission(ctx, acp.RequestPermissionRequest{
+		SessionId: acp.SessionId(firstNonEmpty(api.SessionIDFromContext(ctx), "default")),
+		ToolCall: acp.ToolCallUpdate{
+			ToolCallId: acp.ToolCallId(toolCallID),
+			Title:      &title,
+			Kind:       &kind,
+			Status:     &status,
+			Locations:  locations,
+			RawInput:   req.Arguments,
+			Meta: map[string]any{
+				"toolName": req.ToolName,
+				"target":   req.Target,
+				"rule":     req.Rule,
+				"mode":     req.Mode,
+			},
+		},
+		Options: []acp.PermissionOption{
+			{Kind: acp.PermissionOptionKindAllowOnce, Name: "Allow once", OptionId: acp.PermissionOptionId("allow_once")},
+			{Kind: acp.PermissionOptionKindRejectOnce, Name: "Reject once", OptionId: acp.PermissionOptionId("reject_once")},
+		},
+	})
+	if err != nil {
+		return false, err
+	}
+	if resp.Outcome.Cancelled != nil {
+		return false, context.Canceled
+	}
+	if resp.Outcome.Selected == nil {
+		return false, nil
+	}
+	switch resp.Outcome.Selected.OptionId {
+	case acp.PermissionOptionId("allow_once"), acp.PermissionOptionId("allow_always"):
+		return true, nil
+	default:
+		return false, nil
+	}
+}
+
 func (a *Agent) getOrCreateSession(sessionID string) *sessionState {
 	sessionID = strings.TrimSpace(sessionID)
 	if sessionID == "" {
@@ -178,6 +252,63 @@ func (a *Agent) getOrCreateSession(sessionID string) *sessionState {
 	state := &sessionState{}
 	a.sessions[sessionID] = state
 	return state
+}
+
+func runMetadata(meta map[string]any, state *sessionState) map[string]any {
+	out := metaMap(meta, "metadata")
+	if out == nil {
+		out = map[string]any{}
+	}
+	if state != nil {
+		if strings.TrimSpace(state.cwd) != "" {
+			if _, ok := out["cwd"]; !ok {
+				out["cwd"] = state.cwd
+			}
+			if _, ok := out["project_root"]; !ok {
+				out["project_root"] = state.cwd
+			}
+		}
+		for key, value := range state.meta {
+			if _, ok := out[key]; !ok {
+				out[key] = value
+			}
+		}
+	}
+	return out
+}
+
+func cloneMap(src map[string]any) map[string]any {
+	if len(src) == 0 {
+		return nil
+	}
+	out := make(map[string]any, len(src))
+	for key, value := range src {
+		out[key] = value
+	}
+	return out
+}
+
+func permissionTitle(req api.PermissionRequest) string {
+	toolName := strings.TrimSpace(req.ToolName)
+	if toolName == "" {
+		toolName = "tool"
+	}
+	target := strings.TrimSpace(req.Target)
+	if target == "" {
+		return fmt.Sprintf("Run %s", toolName)
+	}
+	return fmt.Sprintf("Run %s on %s", toolName, target)
+}
+
+func permissionLocations(target string) []acp.ToolCallLocation {
+	target = strings.TrimSpace(target)
+	if target == "" {
+		return nil
+	}
+	if filepath.IsAbs(target) || strings.ContainsAny(target, `/\`) {
+		return []acp.ToolCallLocation{{Path: target}}
+	}
+	return nil
 }
 
 func promptText(blocks []acp.ContentBlock) string {

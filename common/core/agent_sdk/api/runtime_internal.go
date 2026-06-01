@@ -156,6 +156,7 @@ func (rt *Runtime) runLoop(prep preparedRun, mdl model.Model, hookAdapter *runti
 	if ctx == nil {
 		ctx = context.Background()
 	}
+	ctx = WithSessionID(ctx, prep.normalized.SessionID)
 
 	appendUserInput(prep.history, prep.prompt, prep.contentBlocks)
 

@@ -20,6 +20,7 @@ export const useChatStore = defineStore('chat', {
     lastSessionId: '',
     streamsByConversationId: {},
     composerDraftsByConversationId: {},
+    pendingPermissionsByConversationId: {},
   }),
 
   getters: {
@@ -48,6 +49,7 @@ export const useChatStore = defineStore('chat', {
     socketStateFor: (state) => (conversationId) => state.streamsByConversationId[conversationId]?.socketState || 'idle',
     isStreaming: (state) => (conversationId) => Boolean(state.streamsByConversationId[conversationId]),
     composerDraftFor: (state) => (conversationId) => state.composerDraftsByConversationId[conversationId] || '',
+    pendingPermissionFor: (state) => (conversationId) => state.pendingPermissionsByConversationId[conversationId] || null,
   },
 
   actions: {
@@ -189,6 +191,13 @@ export const useChatStore = defineStore('chat', {
         onUpdate: () => {
           this.applySessionUpdate(conversationId, message.update)
         },
+        onPermissionRequest: () => {
+          this.setPendingPermission(conversationId, {
+            ...message.permission,
+            conversationId,
+            requestId: message.requestId,
+          })
+        },
         onCompleted: async () => {
           conversationsStore.markAssistantDraftComplete(conversationId)
           conversationsStore.bumpConversationRunning(conversationId, false)
@@ -208,11 +217,47 @@ export const useChatStore = defineStore('chat', {
         },
         onError: () => {
           this.error = message.error || 'chat request failed'
+          this.clearPendingPermission(conversationId)
           conversationsStore.markAssistantDraftError(conversationId, this.error)
           conversationsStore.bumpConversationRunning(conversationId, false)
           this.cleanupStream(conversationId)
         },
       })
+    },
+
+    decidePermission(conversationId, permissionId, outcome, optionId = '') {
+      const stream = this.streamsByConversationId[conversationId]
+      const socket = socketsByConversationId.get(conversationId)
+      if (!stream || !socket) {
+        return
+      }
+      socket.sendPermissionDecision({
+        conversationId,
+        requestId: stream.requestId,
+        permissionId,
+        outcome,
+        optionId,
+      })
+      this.clearPendingPermission(conversationId)
+    },
+
+    setPendingPermission(conversationId, permission) {
+      if (!conversationId || !permission?.id) {
+        return
+      }
+      this.pendingPermissionsByConversationId = {
+        ...this.pendingPermissionsByConversationId,
+        [conversationId]: permission,
+      }
+    },
+
+    clearPendingPermission(conversationId) {
+      if (!conversationId || !this.pendingPermissionsByConversationId[conversationId]) {
+        return
+      }
+      const next = { ...this.pendingPermissionsByConversationId }
+      delete next[conversationId]
+      this.pendingPermissionsByConversationId = next
     },
 
     applySessionUpdate(conversationId, update = {}) {
@@ -262,6 +307,7 @@ export const useChatStore = defineStore('chat', {
       const next = { ...this.streamsByConversationId }
       delete next[conversationId]
       this.streamsByConversationId = next
+      this.clearPendingPermission(conversationId)
 
       const socket = socketsByConversationId.get(conversationId)
       if (socket) {

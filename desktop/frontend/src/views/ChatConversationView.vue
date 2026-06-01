@@ -3,6 +3,7 @@ import { computed, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import ChatComposer from '@/components/chat/ChatComposer.vue'
 import ChatMessageList from '@/components/chat/ChatMessageList.vue'
+import ChatPermissionDialog from '@/components/chat/ChatPermissionDialog.vue'
 import ChatStatusBar from '@/components/chat/ChatStatusBar.vue'
 import { useAgentsStore } from '@/stores/agents'
 import { useAppStore } from '@/stores/app'
@@ -35,6 +36,7 @@ const selectedAgentName = computed(() => {
 const currentProjectContext = computed(() => projectsStore.currentProjectContext)
 const isConversationStreaming = computed(() => chatStore.isStreaming(conversationId.value))
 const conversationSocketState = computed(() => chatStore.socketStateFor(conversationId.value))
+const pendingPermission = computed(() => chatStore.pendingPermissionFor(conversationId.value))
 
 watch(
   conversationId,
@@ -58,6 +60,20 @@ async function submit() {
     draft.value = payload
     chatStore.error = error?.message || String(error)
   }
+}
+
+function selectPermissionOption(option) {
+  if (!pendingPermission.value || !option?.optionId) {
+    return
+  }
+  chatStore.decidePermission(conversationId.value, pendingPermission.value.id, 'selected', option.optionId)
+}
+
+function cancelPermission() {
+  if (!pendingPermission.value) {
+    return
+  }
+  chatStore.decidePermission(conversationId.value, pendingPermission.value.id, 'cancelled')
 }
 </script>
 
@@ -92,6 +108,12 @@ async function submit() {
       :project-context="currentProjectContext"
       @cancel="chatStore.cancelStream(conversationId)"
       @send="submit"
+    />
+
+    <ChatPermissionDialog
+      :permission="pendingPermission"
+      @cancel="cancelPermission"
+      @select="selectPermissionOption"
     />
   </section>
 </template>

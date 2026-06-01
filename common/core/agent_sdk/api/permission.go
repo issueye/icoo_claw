@@ -16,6 +16,7 @@ import (
 var ErrPermissionDenied = errors.New("api: tool use denied by permission")
 
 type PermissionRequest struct {
+	ToolCallID string
 	ToolName  string
 	Arguments map[string]any
 	Target    string
@@ -82,6 +83,7 @@ func (e *permissionEvaluator) Evaluate(ctx context.Context, call model.ToolCall)
 		return PermissionDecision{ToolName: strings.TrimSpace(call.Name), Allowed: true, Reason: "permissions disabled"}, nil
 	}
 	req := PermissionRequest{
+		ToolCallID: strings.TrimSpace(call.ID),
 		ToolName:  strings.TrimSpace(call.Name),
 		Arguments: cloneArguments(call.Arguments),
 		Target:    permissionTarget(call),

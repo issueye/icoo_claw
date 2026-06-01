@@ -39,7 +39,9 @@ func main() {
 	}
 
 	if acpMode {
-		agent := acpagent.NewAgent(container.Runner)
+		agent := acpagent.NewAgent(nil)
+		runner := container.NewRunnerWithPermissionPrompter(agent)
+		agent.SetRunner(runner)
 		conn := acp.NewAgentSideConnection(agent, os.Stdout, os.Stdin)
 		agent.SetAgentConnection(conn)
 		<-conn.Done()

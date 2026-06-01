@@ -57,6 +57,26 @@ describe('chat store', () => {
     expect(chatStore.composerDraftFor('conv_b')).toBe('hello b')
   })
 
+  it('tracks and clears pending permission requests by conversation', async () => {
+    const chatStore = useChatStore()
+
+    await chatStore.handleSocketMessage({
+      type: 'session/request_permission',
+      requestId: 'req_1',
+      permission: {
+        id: 'perm_1',
+        toolCall: { toolCallId: 'tool_1', title: 'Edit file' },
+        options: [{ optionId: 'allow_once', name: 'Allow once', kind: 'allow_once' }],
+      },
+    }, 'conv_a')
+
+    expect(chatStore.pendingPermissionFor('conv_a').id).toBe('perm_1')
+
+    chatStore.cleanupStream('conv_a')
+
+    expect(chatStore.pendingPermissionFor('conv_a')).toBe(null)
+  })
+
   it('reports an error instead of silently ignoring duplicate sends', async () => {
     const chatStore = useChatStore()
 

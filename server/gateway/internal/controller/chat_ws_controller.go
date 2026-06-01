@@ -61,6 +61,8 @@ type activeStream struct {
 	conversationID string
 	requestID      string
 	cancel         context.CancelFunc
+	permissionMu   sync.Mutex
+	permissions    map[string]chan client.PermissionVote
 }
 
 func (s *chatWSSession) run(ctx context.Context) {
@@ -107,6 +109,8 @@ func (s *chatWSSession) handleRequest(ctx context.Context, req dto.ChatWSRequest
 			ConversationID: req.ConversationID,
 			RequestID:      req.RequestID,
 		})
+	case "chat.permission_decision":
+		return s.handlePermissionDecision(req)
 	default:
 		return &client.HTTPError{
 			Service:    "gateway",
@@ -162,6 +166,7 @@ func (s *chatWSSession) startStream(ctx context.Context, req dto.ChatWSRequest) 
 		conversationID: req.ConversationID,
 		requestID:      req.RequestID,
 		cancel:         cancel,
+		permissions:    make(map[string]chan client.PermissionVote),
 	}
 	s.active = state
 	s.stateMu.Unlock()
@@ -232,6 +237,29 @@ func (s *chatWSSession) forwardEvents(ctx context.Context, state *activeStream, 
 				RequestID:      requestID,
 				Update:         event.Update,
 			})
+		case "session/request_permission":
+			if event.Permission == nil || event.PermissionDecision == nil {
+				continue
+			}
+			permissionID := event.Permission.ID
+			if permissionID == "" {
+				permissionID = event.Permission.ToolCall.ToolCallID
+			}
+			if permissionID == "" {
+				event.PermissionDecision <- client.PermissionVote{Outcome: "cancelled"}
+				continue
+			}
+			state.trackPermission(permissionID, event.PermissionDecision)
+			if err := s.writeJSON(dto.ChatWSResponse{
+				Type:           "session/request_permission",
+				ConversationID: state.conversationID,
+				SessionID:      sessionID,
+				RequestID:      requestID,
+				Permission:     event.Permission,
+			}); err != nil {
+				state.completePermission(permissionID, client.PermissionVote{ID: permissionID, Outcome: "cancelled"})
+				return
+			}
 		}
 	}
 
@@ -267,6 +295,7 @@ func (s *chatWSSession) cancelMatching(requestID string) {
 	if requestID != "" && s.active.requestID != "" && s.active.requestID != requestID {
 		return
 	}
+	s.active.cancelPermissions()
 	s.active.cancel()
 }
 
@@ -274,6 +303,7 @@ func (s *chatWSSession) cancelActive() {
 	s.stateMu.Lock()
 	defer s.stateMu.Unlock()
 	if s.active != nil {
+		s.active.cancelPermissions()
 		s.active.cancel()
 	}
 }
@@ -282,7 +312,97 @@ func (s *chatWSSession) clearActive(state *activeStream) {
 	s.stateMu.Lock()
 	defer s.stateMu.Unlock()
 	if s.active == state {
+		state.cancelPermissions()
 		s.active = nil
+	}
+}
+
+func (s *chatWSSession) handlePermissionDecision(req dto.ChatWSRequest) error {
+	permissionID := strings.TrimSpace(req.PermissionID)
+	if permissionID == "" {
+		return &client.HTTPError{
+			Service:    "gateway",
+			Method:     "WS",
+			Path:       "/v1/ws/chat",
+			StatusCode: http.StatusBadRequest,
+			Code:       "bad_request",
+			Message:    "permission_id is required",
+		}
+	}
+
+	s.stateMu.Lock()
+	active := s.active
+	s.stateMu.Unlock()
+	if active == nil {
+		return &client.HTTPError{
+			Service:    "gateway",
+			Method:     "WS",
+			Path:       "/v1/ws/chat",
+			StatusCode: http.StatusConflict,
+			Code:       "no_active_stream",
+			Message:    "no active stream is waiting for permission",
+		}
+	}
+
+	if ok := active.completePermission(permissionID, client.PermissionVote{
+		ID:       permissionID,
+		Outcome:  strings.TrimSpace(req.Outcome),
+		OptionID: strings.TrimSpace(req.OptionID),
+	}); !ok {
+		return &client.HTTPError{
+			Service:    "gateway",
+			Method:     "WS",
+			Path:       "/v1/ws/chat",
+			StatusCode: http.StatusNotFound,
+			Code:       "permission_not_found",
+			Message:    "permission request is no longer pending",
+		}
+	}
+
+	return s.writeJSON(dto.ChatWSResponse{
+		Type:           "chat.permission_decision.accepted",
+		ConversationID: req.ConversationID,
+		RequestID:      req.RequestID,
+		Metadata:       map[string]any{"permission_id": permissionID},
+	})
+}
+
+func (a *activeStream) trackPermission(id string, decisions chan client.PermissionVote) {
+	a.permissionMu.Lock()
+	defer a.permissionMu.Unlock()
+	if a.permissions == nil {
+		a.permissions = make(map[string]chan client.PermissionVote)
+	}
+	a.permissions[id] = decisions
+}
+
+func (a *activeStream) completePermission(id string, vote client.PermissionVote) bool {
+	a.permissionMu.Lock()
+	decisions := a.permissions[id]
+	if decisions != nil {
+		delete(a.permissions, id)
+	}
+	a.permissionMu.Unlock()
+	if decisions == nil {
+		return false
+	}
+	if vote.ID == "" {
+		vote.ID = id
+	}
+	if vote.Outcome == "" {
+		vote.Outcome = "cancelled"
+	}
+	decisions <- vote
+	return true
+}
+
+func (a *activeStream) cancelPermissions() {
+	a.permissionMu.Lock()
+	pending := a.permissions
+	a.permissions = make(map[string]chan client.PermissionVote)
+	a.permissionMu.Unlock()
+	for id, decisions := range pending {
+		decisions <- client.PermissionVote{ID: id, Outcome: "cancelled"}
 	}
 }
 

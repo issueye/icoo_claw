@@ -184,6 +184,95 @@ func TestChatWSControllerRespondsToPing(t *testing.T) {
 	}
 }
 
+func TestChatWSControllerForwardsPermissionDecision(t *testing.T) {
+	gin.SetMode(gin.ReleaseMode)
+	engine := gin.New()
+	engine.GET("/v1/ws/chat", NewChatWSController(fakeChatStreamer{
+		stream: func(ctx context.Context, conversationID string, req dto.SendMessageRequest) (<-chan client.StreamEvent, error) {
+			out := make(chan client.StreamEvent, 3)
+			go func() {
+				decision := make(chan client.PermissionVote, 1)
+				out <- client.StreamEvent{
+					Type:      "session/request_permission",
+					SessionID: "sess_1",
+					RequestID: req.RequestID,
+					Permission: &client.PermissionRequest{
+						ID: "perm_1",
+						ToolCall: client.PermissionToolCall{
+							ToolCallID: "tool_1",
+							Title:      "Sensitive action",
+						},
+						Options: []client.PermissionOption{
+							{OptionID: "allow_once", Name: "Allow", Kind: "allow_once"},
+						},
+					},
+					PermissionDecision: decision,
+				}
+				vote := <-decision
+				out <- client.StreamEvent{
+					Type:      "session/update",
+					SessionID: "sess_1",
+					RequestID: req.RequestID,
+					Update: &client.SessionUpdate{
+						SessionUpdate: "agent_message_chunk",
+						Content:       &client.ContentBlock{Type: "text", Text: vote.OptionID},
+					},
+				}
+				out <- client.StreamEvent{Type: "session/completed", SessionID: "sess_1", RequestID: req.RequestID, StopReason: "end_turn"}
+				close(out)
+			}()
+			return out, nil
+		},
+	}).Serve)
+
+	server := httptest.NewServer(engine)
+	defer server.Close()
+
+	conn := mustDialWS(t, server.URL+"/v1/ws/chat")
+	defer conn.Close()
+
+	if err := conn.WriteJSON(dto.ChatWSRequest{
+		Type:           "chat.start",
+		ConversationID: "conv_1",
+		RequestID:      "req_perm",
+		Prompt:         "hello",
+	}); err != nil {
+		t.Fatalf("write request: %v", err)
+	}
+
+	accepted := mustReadWSMessage(t, conn)
+	if accepted.Type != "session/accepted" {
+		t.Fatalf("accepted = %+v", accepted)
+	}
+	permission := mustReadWSMessage(t, conn)
+	if permission.Type != "session/request_permission" || permission.Permission == nil || permission.Permission.ID != "perm_1" {
+		t.Fatalf("permission = %+v", permission)
+	}
+
+	if err := conn.WriteJSON(dto.ChatWSRequest{
+		Type:         "chat.permission_decision",
+		RequestID:    "req_perm",
+		PermissionID: "perm_1",
+		Outcome:      "selected",
+		OptionID:     "allow_once",
+	}); err != nil {
+		t.Fatalf("write permission decision: %v", err)
+	}
+
+	decisionAck := mustReadWSMessage(t, conn)
+	if decisionAck.Type != "chat.permission_decision.accepted" {
+		t.Fatalf("decision ack = %+v", decisionAck)
+	}
+	update := mustReadWSMessage(t, conn)
+	if update.Type != "session/update" || update.Update == nil || update.Update.Content == nil || update.Update.Content.Text != "allow_once" {
+		t.Fatalf("update = %+v", update)
+	}
+	completed := mustReadWSMessage(t, conn)
+	if completed.Type != "session/completed" {
+		t.Fatalf("completed = %+v", completed)
+	}
+}
+
 func TestChatWSControllerRejectsMalformedPayload(t *testing.T) {
 	gin.SetMode(gin.ReleaseMode)
 	engine := gin.New()

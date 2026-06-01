@@ -510,8 +510,147 @@ func (c *acpCallbacks) WriteTextFile(context.Context, acp.WriteTextFileRequest) 
 	return acp.WriteTextFileResponse{}, errors.New("gateway acp client does not expose filesystem writes")
 }
 
-func (c *acpCallbacks) RequestPermission(context.Context, acp.RequestPermissionRequest) (acp.RequestPermissionResponse, error) {
-	return acp.RequestPermissionResponse{}, errors.New("gateway acp client cannot grant permissions")
+func (c *acpCallbacks) RequestPermission(_ context.Context, params acp.RequestPermissionRequest) (acp.RequestPermissionResponse, error) {
+	if c != nil && c.conn != nil {
+		return c.conn.requestPermission(context.TODO(), params)
+	}
+	return rejectACPPermission(params), nil
+}
+
+func (c *ACPConnection) requestPermission(ctx context.Context, params acp.RequestPermissionRequest) (acp.RequestPermissionResponse, error) {
+	c.mu.Lock()
+	active := c.active
+	c.mu.Unlock()
+	if active == nil || active.events == nil {
+		return rejectACPPermission(params), nil
+	}
+
+	decision := make(chan PermissionVote, 1)
+	permission := mapACPPermissionRequest(params, active.sessionID, active.requestID)
+	sendACPEvent(ctx, active.events, StreamEvent{
+		Type:               agentproto.StreamEventPermissionRequest,
+		SessionID:          active.sessionID,
+		RequestID:          active.requestID,
+		Permission:         permission,
+		PermissionDecision: decision,
+	})
+
+	select {
+	case <-ctx.Done():
+		return acp.RequestPermissionResponse{
+			Outcome: acp.RequestPermissionOutcome{
+				Cancelled: &acp.RequestPermissionOutcomeCancelled{},
+			},
+		}, nil
+	case vote := <-decision:
+		if strings.EqualFold(strings.TrimSpace(vote.Outcome), "selected") && strings.TrimSpace(vote.OptionID) != "" {
+			if optionID, ok := matchingPermissionOption(params.Options, vote.OptionID); ok {
+				return acp.RequestPermissionResponse{
+					Outcome: acp.RequestPermissionOutcome{
+						Selected: &acp.RequestPermissionOutcomeSelected{OptionId: optionID},
+					},
+				}, nil
+			}
+		}
+		return acp.RequestPermissionResponse{
+			Outcome: acp.RequestPermissionOutcome{
+				Cancelled: &acp.RequestPermissionOutcomeCancelled{},
+			},
+		}, nil
+	}
+}
+
+func rejectACPPermission(params acp.RequestPermissionRequest) acp.RequestPermissionResponse {
+	for _, preferred := range []acp.PermissionOptionKind{
+		acp.PermissionOptionKindRejectOnce,
+		acp.PermissionOptionKindRejectAlways,
+	} {
+		for _, option := range params.Options {
+			if option.Kind == preferred && strings.TrimSpace(string(option.OptionId)) != "" {
+				return acp.RequestPermissionResponse{
+					Outcome: acp.RequestPermissionOutcome{
+						Selected: &acp.RequestPermissionOutcomeSelected{OptionId: option.OptionId},
+					},
+				}
+			}
+		}
+	}
+	return acp.RequestPermissionResponse{
+		Outcome: acp.RequestPermissionOutcome{
+			Cancelled: &acp.RequestPermissionOutcomeCancelled{},
+		},
+	}
+}
+
+func matchingPermissionOption(options []acp.PermissionOption, optionID string) (acp.PermissionOptionId, bool) {
+	optionID = strings.TrimSpace(optionID)
+	for _, option := range options {
+		if strings.TrimSpace(string(option.OptionId)) == optionID {
+			return option.OptionId, true
+		}
+	}
+	return "", false
+}
+
+func mapACPPermissionRequest(params acp.RequestPermissionRequest, sessionID string, requestID string) *PermissionRequest {
+	toolCall := params.ToolCall
+	permissionID := strings.TrimSpace(requestID)
+	if toolID := strings.TrimSpace(string(toolCall.ToolCallId)); toolID != "" {
+		if permissionID != "" {
+			permissionID += ":"
+		}
+		permissionID += toolID
+	}
+	if permissionID == "" {
+		permissionID = strings.TrimSpace(string(params.SessionId))
+	}
+	options := make([]agentproto.PermissionOption, 0, len(params.Options))
+	for _, option := range params.Options {
+		options = append(options, agentproto.PermissionOption{
+			OptionID: strings.TrimSpace(string(option.OptionId)),
+			Name:     option.Name,
+			Kind:     string(option.Kind),
+			Metadata: option.Meta,
+		})
+	}
+
+	return &PermissionRequest{
+		ID:        permissionID,
+		SessionID: defaultString(sessionID, string(params.SessionId)),
+		ToolCall: agentproto.PermissionToolCall{
+			ToolCallID: strings.TrimSpace(string(toolCall.ToolCallId)),
+			Title:      stringValuePtr(toolCall.Title),
+			Kind:       stringToolKindPtr(toolCall.Kind),
+			Status:     stringToolStatusPtr(toolCall.Status),
+			Locations:  acpLocations(toolCall.Locations),
+			RawInput:   toolCall.RawInput,
+			RawOutput:  toolCall.RawOutput,
+		},
+		Options:  options,
+		Metadata: params.Meta,
+	}
+}
+
+func stringToolKindPtr(value *acp.ToolKind) string {
+	if value == nil {
+		return ""
+	}
+	return string(*value)
+}
+
+func stringToolStatusPtr(value *acp.ToolCallStatus) string {
+	if value == nil {
+		return ""
+	}
+	return string(*value)
+}
+
+func defaultString(value, fallback string) string {
+	value = strings.TrimSpace(value)
+	if value == "" {
+		return fallback
+	}
+	return value
 }
 
 func (c *acpCallbacks) CreateTerminal(context.Context, acp.CreateTerminalRequest) (acp.CreateTerminalResponse, error) {

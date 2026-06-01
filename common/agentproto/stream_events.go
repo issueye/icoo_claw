@@ -1,10 +1,11 @@
 package agentproto
 
 type StreamEventHandlerFunc struct {
-	OnUpdate    func(StreamEvent) error
-	OnCompleted func(StreamEvent) error
-	OnError     func(StreamEvent) error
-	OnUnhandled func(StreamEvent) error
+	OnUpdate            func(StreamEvent) error
+	OnPermissionRequest func(StreamEvent) error
+	OnCompleted         func(StreamEvent) error
+	OnError             func(StreamEvent) error
+	OnUnhandled         func(StreamEvent) error
 }
 
 func DispatchStreamEvents(events <-chan StreamEvent, handler StreamEventHandlerFunc) error {
@@ -21,6 +22,11 @@ func DispatchStreamEvent(event StreamEvent, handler StreamEventHandlerFunc) erro
 	case StreamEventSessionUpdate:
 		if handler.OnUpdate != nil {
 			return handler.OnUpdate(event)
+		}
+		return nil
+	case StreamEventPermissionRequest:
+		if handler.OnPermissionRequest != nil {
+			return handler.OnPermissionRequest(event)
 		}
 		return nil
 	case StreamEventSessionCompleted:

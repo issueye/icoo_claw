@@ -16,6 +16,7 @@ type RuntimeFactory struct {
 	history            *HistoryAdapter
 	model              sdkmodel.Model
 	defaultProjectRoot string
+	permissionPrompter api.PermissionPrompter
 }
 
 func NewRuntimeFactory(history *HistoryAdapter, model sdkmodel.Model) *RuntimeFactory {
@@ -27,6 +28,13 @@ func (f *RuntimeFactory) SetDefaultProjectRoot(projectRoot string) {
 		return
 	}
 	f.defaultProjectRoot = strings.TrimSpace(projectRoot)
+}
+
+func (f *RuntimeFactory) SetPermissionPrompter(prompter api.PermissionPrompter) {
+	if f == nil {
+		return
+	}
+	f.permissionPrompter = prompter
 }
 
 func (f *RuntimeFactory) New(ctx context.Context, req RunRequest) (*api.Runtime, error) {
@@ -49,13 +57,7 @@ func (f *RuntimeFactory) New(ctx context.Context, req RunRequest) (*api.Runtime,
 				NoProxy:    profile.NetworkProxy.NoProxy,
 			},
 		},
-		// Claw runs as the platform service layer, not an interactive CLI. Keep
-		// existing API behavior by approving SDK permission prompts here while
-		// still relying on tool whitelists, enabled tools, sandbox and settings
-		// for the actual policy boundary.
-		PermissionPrompter: api.PermissionPrompterFunc(func(context.Context, api.PermissionRequest) (bool, error) {
-			return true, nil
-		}),
+		PermissionPrompter: f.permissionPrompter,
 		HistoryLoader: func(sessionID string) ([]sdkmessage.Message, error) {
 			if f.history == nil {
 				return nil, nil
@@ -75,6 +77,15 @@ func (f *RuntimeFactory) New(ctx context.Context, req RunRequest) (*api.Runtime,
 			return nil, err
 		}
 		options.ModelFactory = provider
+	}
+
+	if options.PermissionPrompter == nil {
+		// Claw runs as the platform service layer, not an interactive CLI. Keep
+		// existing HTTP/Gateway behavior by approving SDK permission prompts here
+		// while ACP stdio mode can inject a real client-backed prompter.
+		options.PermissionPrompter = api.PermissionPrompterFunc(func(context.Context, api.PermissionRequest) (bool, error) {
+			return true, nil
+		})
 	}
 
 	rt, err := api.New(ctx, options)

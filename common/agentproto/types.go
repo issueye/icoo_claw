@@ -19,18 +19,21 @@ type RunResponse struct {
 }
 
 type StreamEvent struct {
-	Type       string         `json:"type"`
-	SessionID  string         `json:"session_id"`
-	RequestID  string         `json:"request_id,omitempty"`
-	Update     *SessionUpdate `json:"update,omitempty"`
-	StopReason string         `json:"stop_reason,omitempty"`
-	Error      *StreamError   `json:"error,omitempty"`
+	Type               string              `json:"type"`
+	SessionID          string              `json:"session_id"`
+	RequestID          string              `json:"request_id,omitempty"`
+	Update             *SessionUpdate      `json:"update,omitempty"`
+	Permission         *PermissionRequest  `json:"permission,omitempty"`
+	PermissionDecision chan PermissionVote `json:"-"`
+	StopReason         string              `json:"stop_reason,omitempty"`
+	Error              *StreamError        `json:"error,omitempty"`
 }
 
 const (
-	StreamEventSessionUpdate    = "session/update"
-	StreamEventSessionCompleted = "session/completed"
-	StreamEventSessionError     = "session/error"
+	StreamEventSessionUpdate     = "session/update"
+	StreamEventSessionCompleted  = "session/completed"
+	StreamEventSessionError      = "session/error"
+	StreamEventPermissionRequest = "session/request_permission"
 )
 
 type SessionUpdate struct {
@@ -69,4 +72,35 @@ type UsageUpdate struct {
 type StreamError struct {
 	Message string `json:"message,omitempty"`
 	Code    string `json:"code,omitempty"`
+}
+
+type PermissionRequest struct {
+	ID        string             `json:"id"`
+	SessionID string             `json:"sessionId,omitempty"`
+	ToolCall  PermissionToolCall `json:"toolCall"`
+	Options   []PermissionOption `json:"options"`
+	Metadata  map[string]any     `json:"metadata,omitempty"`
+}
+
+type PermissionToolCall struct {
+	ToolCallID string             `json:"toolCallId,omitempty"`
+	Title      string             `json:"title,omitempty"`
+	Kind       string             `json:"kind,omitempty"`
+	Status     string             `json:"status,omitempty"`
+	Locations  []ToolCallLocation `json:"locations,omitempty"`
+	RawInput   any                `json:"rawInput,omitempty"`
+	RawOutput  any                `json:"rawOutput,omitempty"`
+}
+
+type PermissionOption struct {
+	OptionID string         `json:"optionId"`
+	Name     string         `json:"name"`
+	Kind     string         `json:"kind"`
+	Metadata map[string]any `json:"metadata,omitempty"`
+}
+
+type PermissionVote struct {
+	ID       string
+	Outcome  string
+	OptionID string
 }
