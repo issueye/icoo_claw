@@ -212,6 +212,7 @@ func buildSkillsRegistry(opts Options) (*skills.Registry, []error) {
 		EmbedFS:     opts.EmbedFS,
 		SkillDirs:   pluginSkillDirs(opts.plugins),
 	})
+	fsRegs = filterSkillRegistrations(fsRegs, opts.AllowedSkills)
 
 	merged := mergeSkillRegistrations(fsRegs, opts.Skills, &errs)
 
@@ -222,6 +223,23 @@ func buildSkillsRegistry(opts Options) (*skills.Registry, []error) {
 		}
 	}
 	return reg, errs
+}
+
+func filterSkillRegistrations(regs []skills.SkillRegistration, allowed []string) []skills.SkillRegistration {
+	if len(regs) == 0 || len(allowed) == 0 {
+		return regs
+	}
+	allowedSet := toLowerSet(allowed)
+	if len(allowedSet) == 0 {
+		return regs
+	}
+	out := regs[:0]
+	for _, reg := range regs {
+		if _, ok := allowedSet[canonicalToolName(reg.Definition.Name)]; ok {
+			out = append(out, reg)
+		}
+	}
+	return out
 }
 
 func (rt *Runtime) refreshSkillsForSessionStart() {

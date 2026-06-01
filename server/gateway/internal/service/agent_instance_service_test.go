@@ -266,7 +266,7 @@ func TestAgentInstanceServiceStartUsesAgentCommandArgs(t *testing.T) {
 	}
 }
 
-func TestAgentInstanceServiceStartPublishesBoundSkillRoot(t *testing.T) {
+func TestAgentInstanceServiceStartUsesCanonicalSkillRootForBoundSkills(t *testing.T) {
 	root := filepath.Join(t.TempDir(), "icoo_runtime", "skills")
 	skillRepo := &memorySkillRepo{}
 	skills := NewSkillService(root, skillRepo)
@@ -299,19 +299,14 @@ func TestAgentInstanceServiceStartPublishesBoundSkillRoot(t *testing.T) {
 		skills,
 	)
 
-	started, err := svc.Start(context.Background(), dto.StartAgentInstanceRequest{AgentID: "agent_1"})
-	if err != nil {
+	if _, err := svc.Start(context.Background(), dto.StartAgentInstanceRequest{AgentID: "agent_1"}); err != nil {
 		t.Fatalf("start: %v", err)
 	}
-	wantRoot := filepath.Join(root, "instances", started.ID)
-	if supervisor.spec.DefaultProjectRoot != wantRoot {
-		t.Fatalf("default project root = %q, want %q", supervisor.spec.DefaultProjectRoot, wantRoot)
+	if supervisor.spec.DefaultProjectRoot != root {
+		t.Fatalf("default project root = %q, want canonical root %q", supervisor.spec.DefaultProjectRoot, root)
 	}
-	if _, err := os.Stat(filepath.Join(wantRoot, "doc-writer", "v1", "SKILL.md")); err != nil {
-		t.Fatalf("published skill missing: %v", err)
-	}
-	if data, err := os.ReadFile(filepath.Join(wantRoot, "doc-writer", "v1", "references", "template.md")); err != nil || string(data) != "template notes" {
-		t.Fatalf("published skill support file = %q, %v", string(data), err)
+	if data, err := os.ReadFile(filepath.Join(root, "doc-writer", "v1", "references", "template.md")); err != nil || string(data) != "template notes" {
+		t.Fatalf("canonical skill support file = %q, %v", string(data), err)
 	}
 }
 

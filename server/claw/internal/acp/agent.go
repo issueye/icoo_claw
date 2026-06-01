@@ -33,6 +33,7 @@ type historyLoader interface {
 
 type sessionState struct {
 	cancel                context.CancelFunc
+	gatewaySessionID      string
 	cwd                   string
 	additionalDirectories []string
 	mcpServers            []acp.McpServer
@@ -97,8 +98,10 @@ func (a *Agent) Authenticate(ctx context.Context, _ acp.AuthenticateRequest) (ac
 
 func (a *Agent) NewSession(ctx context.Context, params acp.NewSessionRequest) (acp.NewSessionResponse, error) {
 	sid := "sess_" + randomID()
+	gatewaySessionID := metaString(params.Meta, "gateway_session_id")
 	a.mu.Lock()
 	a.sessions[sid] = &sessionState{
+		gatewaySessionID:      gatewaySessionID,
 		cwd:                   params.Cwd,
 		additionalDirectories: cloneStringSlice(params.AdditionalDirectories),
 		mcpServers:            cloneMCPServers(params.McpServers),
@@ -120,8 +123,10 @@ func (a *Agent) LoadSession(ctx context.Context, params acp.LoadSessionRequest) 
 	if sessionID == "" {
 		return acp.LoadSessionResponse{}, fmt.Errorf("sessionId is required")
 	}
+	historySessionID := firstNonEmpty(metaString(params.Meta, "gateway_session_id"), sessionID)
 	a.mu.Lock()
 	a.sessions[sessionID] = &sessionState{
+		gatewaySessionID:      historySessionID,
 		cwd:                   params.Cwd,
 		additionalDirectories: cloneStringSlice(params.AdditionalDirectories),
 		mcpServers:            cloneMCPServers(params.McpServers),
@@ -131,7 +136,7 @@ func (a *Agent) LoadSession(ctx context.Context, params acp.LoadSessionRequest) 
 	}
 	a.mu.Unlock()
 	modeID := defaultSessionModeID()
-	if err := a.replaySessionHistory(ctx, acp.SessionId(sessionID)); err != nil {
+	if err := a.replaySessionHistory(ctx, acp.SessionId(sessionID), historySessionID); err != nil {
 		return acp.LoadSessionResponse{}, err
 	}
 	return acp.LoadSessionResponse{
@@ -140,11 +145,11 @@ func (a *Agent) LoadSession(ctx context.Context, params acp.LoadSessionRequest) 
 	}, nil
 }
 
-func (a *Agent) replaySessionHistory(ctx context.Context, sessionID acp.SessionId) error {
+func (a *Agent) replaySessionHistory(ctx context.Context, acpSessionID acp.SessionId, historySessionID string) error {
 	if a == nil || a.conn == nil || a.history == nil {
 		return nil
 	}
-	messages, err := a.history.Load(ctx, string(sessionID))
+	messages, err := a.history.Load(ctx, historySessionID)
 	if err != nil {
 		return fmt.Errorf("load session history: %w", err)
 	}
@@ -152,7 +157,7 @@ func (a *Agent) replaySessionHistory(ctx context.Context, sessionID acp.SessionI
 		updates := historyMessageUpdates(msg)
 		for _, update := range updates {
 			if err := a.conn.SessionUpdate(ctx, acp.SessionNotification{
-				SessionId: sessionID,
+				SessionId: acpSessionID,
 				Update:    update,
 			}); err != nil {
 				return fmt.Errorf("replay session history: %w", err)
@@ -238,11 +243,17 @@ func historyContentBlocks(msg sdkmessage.Message) []acp.ContentBlock {
 }
 
 func (a *Agent) Prompt(ctx context.Context, params acp.PromptRequest) (acp.PromptResponse, error) {
-	sessionID := string(params.SessionId)
-	state := a.getOrCreateSession(sessionID)
+	acpSessionID := strings.TrimSpace(string(params.SessionId))
+	runtimeSessionID := firstNonEmpty(metaString(params.Meta, "gateway_session_id"), acpSessionID)
+	state := a.getOrCreateSession(acpSessionID)
 	if state == nil {
-		return acp.PromptResponse{}, fmt.Errorf("session %s not found", sessionID)
+		return acp.PromptResponse{}, fmt.Errorf("session %s not found", acpSessionID)
 	}
+	a.mu.Lock()
+	if strings.TrimSpace(state.gatewaySessionID) == "" {
+		state.gatewaySessionID = runtimeSessionID
+	}
+	a.mu.Unlock()
 	if state.cancel != nil {
 		state.cancel()
 	}
@@ -250,7 +261,7 @@ func (a *Agent) Prompt(ctx context.Context, params acp.PromptRequest) (acp.Promp
 	state.cancel = cancel
 
 	req := agent_sdk.RunRequest{
-		SessionID:     sessionID,
+		SessionID:     runtimeSessionID,
 		RequestID:     firstNonEmpty(metaString(params.Meta, "request_id"), stringPtr(params.MessageId), "req_"+randomID()),
 		Prompt:        promptText(params.Prompt),
 		Agent:         metaAgentProfile(params.Meta, "agent"),
@@ -280,7 +291,7 @@ func (a *Agent) Prompt(ctx context.Context, params acp.PromptRequest) (acp.Promp
 			}
 			if a.conn != nil {
 				if err := a.conn.SessionUpdate(runCtx, acp.SessionNotification{
-					SessionId: acp.SessionId(sessionID),
+					SessionId: acp.SessionId(acpSessionID),
 					Update:    update,
 				}); err != nil {
 					state.cancel = nil
@@ -359,6 +370,7 @@ func (a *Agent) ResumeSession(ctx context.Context, params acp.ResumeSessionReque
 		state = &sessionState{modeID: defaultSessionModeID()}
 		a.sessions[sessionID] = state
 	}
+	state.gatewaySessionID = firstNonEmpty(metaString(params.Meta, "gateway_session_id"), state.gatewaySessionID, sessionID)
 	state.cwd = params.Cwd
 	state.additionalDirectories = cloneStringSlice(params.AdditionalDirectories)
 	state.mcpServers = cloneMCPServers(params.McpServers)
@@ -424,6 +436,7 @@ func (a *Agent) PromptPermission(ctx context.Context, req api.PermissionRequest)
 		return false, fmt.Errorf("acp permission prompt unavailable")
 	}
 	sessionID := firstNonEmpty(api.SessionIDFromContext(ctx), "default")
+	acpSessionID := a.acpSessionIDForRuntimeSession(sessionID)
 	ruleKey := permissionKey(req)
 	if allowed, ok := a.rememberedPermission(sessionID, ruleKey); ok {
 		return allowed, nil
@@ -441,7 +454,7 @@ func (a *Agent) PromptPermission(ctx context.Context, req api.PermissionRequest)
 	locations := permissionLocations(req.Target)
 
 	resp, err := a.conn.RequestPermission(ctx, acp.RequestPermissionRequest{
-		SessionId: acp.SessionId(sessionID),
+		SessionId: acp.SessionId(acpSessionID),
 		ToolCall: acp.ToolCallUpdate{
 			ToolCallId: acp.ToolCallId(toolCallID),
 			Title:      &title,
@@ -496,9 +509,27 @@ func (a *Agent) getOrCreateSession(sessionID string) *sessionState {
 	if state, ok := a.sessions[sessionID]; ok {
 		return state
 	}
-	state := &sessionState{}
+	state := &sessionState{modeID: defaultSessionModeID()}
 	a.sessions[sessionID] = state
 	return state
+}
+
+func (a *Agent) acpSessionIDForRuntimeSession(runtimeSessionID string) string {
+	runtimeSessionID = strings.TrimSpace(runtimeSessionID)
+	if runtimeSessionID == "" {
+		return "default"
+	}
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	if _, ok := a.sessions[runtimeSessionID]; ok {
+		return runtimeSessionID
+	}
+	for acpSessionID, state := range a.sessions {
+		if state != nil && strings.TrimSpace(state.gatewaySessionID) == runtimeSessionID {
+			return acpSessionID
+		}
+	}
+	return runtimeSessionID
 }
 
 func runMetadata(meta map[string]any, state *sessionState) map[string]any {
@@ -539,7 +570,7 @@ func runMetadata(meta map[string]any, state *sessionState) map[string]any {
 func (a *Agent) rememberedPermission(sessionID string, key permissionRuleKey) (bool, bool) {
 	a.mu.Lock()
 	defer a.mu.Unlock()
-	state := a.sessions[sessionID]
+	state := a.stateForRuntimeSessionLocked(sessionID)
 	if state == nil || state.permissionRules == nil {
 		return false, false
 	}
@@ -550,7 +581,7 @@ func (a *Agent) rememberedPermission(sessionID string, key permissionRuleKey) (b
 func (a *Agent) rememberPermission(sessionID string, key permissionRuleKey, allowed bool) {
 	a.mu.Lock()
 	defer a.mu.Unlock()
-	state := a.sessions[sessionID]
+	state := a.stateForRuntimeSessionLocked(sessionID)
 	if state == nil {
 		state = &sessionState{}
 		a.sessions[sessionID] = state
@@ -560,6 +591,22 @@ func (a *Agent) rememberPermission(sessionID string, key permissionRuleKey, allo
 	}
 	state.permissionRules[key] = allowed
 	state.updatedAt = time.Now().UTC()
+}
+
+func (a *Agent) stateForRuntimeSessionLocked(runtimeSessionID string) *sessionState {
+	runtimeSessionID = strings.TrimSpace(runtimeSessionID)
+	if runtimeSessionID == "" {
+		return nil
+	}
+	if state := a.sessions[runtimeSessionID]; state != nil {
+		return state
+	}
+	for _, state := range a.sessions {
+		if state != nil && strings.TrimSpace(state.gatewaySessionID) == runtimeSessionID {
+			return state
+		}
+	}
+	return nil
 }
 
 func permissionKey(req api.PermissionRequest) permissionRuleKey {

@@ -48,6 +48,7 @@ func (f *RuntimeFactory) New(ctx context.Context, req RunRequest) (*api.Runtime,
 		SystemPrompt:        profile.SystemPrompt,
 		MaxIterations:       profile.MaxIterations,
 		EnabledBuiltinTools: profile.EnabledBuiltinTools,
+		AllowedSkills:       profile.SkillNames,
 		MCPServers:          profile.MCPServers,
 		Sandbox: api.SandboxOptions{
 			NetworkAllow: profile.NetworkAllow,

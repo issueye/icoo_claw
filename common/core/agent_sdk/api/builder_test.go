@@ -208,6 +208,40 @@ Query the weather.`), 0o644); err != nil {
 	}
 }
 
+func TestRuntimeFiltersLoadedSkillsByAllowedNames(t *testing.T) {
+	root := t.TempDir()
+	writeBuilderSkill(t, root, "weather", "v1", "Query weather")
+	writeBuilderSkill(t, root, "doc-writer", "v1", "Write docs")
+
+	model := &capturingToolsModel{}
+	rt, err := New(context.Background(), Options{
+		ProjectRoot:          root,
+		Model:                model,
+		EnabledBuiltinTools:  []string{"skill_execute"},
+		AllowedSkills:        []string{"weather"},
+		DefaultEnableCache:   false,
+		DisableSafetyHook:    true,
+		PermissionPrompter:   PermissionPrompterFunc(func(context.Context, PermissionRequest) (bool, error) { return true, nil }),
+		MaxIterations:        4,
+		StopReinjectionLimit: 1,
+	})
+	if err != nil {
+		t.Fatalf("New: %v", err)
+	}
+	defer rt.Close()
+
+	if _, err := rt.Run(context.Background(), Request{SessionID: "sess_filtered", Prompt: "hello"}); err != nil {
+		t.Fatalf("run: %v", err)
+	}
+	desc := model.lastSkillDescription()
+	if !strings.Contains(desc, "weather") {
+		t.Fatalf("skill description = %q, want weather", desc)
+	}
+	if strings.Contains(desc, "doc-writer") {
+		t.Fatalf("skill description = %q, want doc-writer filtered out", desc)
+	}
+}
+
 func TestRuntimeLoadsPluginSubagentCapability(t *testing.T) {
 	root := t.TempDir()
 	pluginRoot := filepath.Join(root, ".agents", "plugins", "reviewer")
@@ -264,6 +298,27 @@ func containsString(values []string, target string) bool {
 		}
 	}
 	return false
+}
+
+func writeBuilderSkill(t *testing.T, root, name, version, description string) {
+	t.Helper()
+	dir := filepath.Join(root, name, version)
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		t.Fatalf("mkdir skill dir: %v", err)
+	}
+	content := strings.Join([]string{
+		"---",
+		"name: " + name,
+		"description: " + description,
+		"metadata:",
+		"  version: " + version,
+		"---",
+		description,
+		"",
+	}, "\n")
+	if err := os.WriteFile(filepath.Join(dir, "SKILL.md"), []byte(content), 0o644); err != nil {
+		t.Fatalf("write skill: %v", err)
+	}
 }
 
 type builderModel struct{}

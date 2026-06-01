@@ -106,6 +106,7 @@ func agentRuntimeProfile(agent model.AgentProfile, provider *model.ProviderProfi
 		NetworkAllow:  jsonutil.UnmarshalStringSlice(agent.NetworkAllowJSON),
 		NetworkProxy:  toAgentProtoNetworkProxy(unmarshalNetworkProxy(agent.NetworkProxyJSON)),
 		MCPServers:    jsonutil.UnmarshalStringSlice(agent.MCPServerIDsJSON),
+		SkillNames:    jsonutil.UnmarshalStringSlice(agent.SkillNamesJSON),
 	}
 	if tools := jsonutil.UnmarshalStringSlice(agent.ToolWhitelistJSON); len(tools) > 0 {
 		profile.EnabledBuiltinTools = tools

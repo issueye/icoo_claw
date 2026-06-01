@@ -175,10 +175,12 @@ func (c *loadReplayClient) WaitForTerminalExit(context.Context, acp.WaitForTermi
 }
 
 type staticHistoryLoader struct {
-	messages []sdkmessage.Message
+	sessionID string
+	messages  []sdkmessage.Message
 }
 
-func (h staticHistoryLoader) Load(context.Context, string) ([]sdkmessage.Message, error) {
+func (h *staticHistoryLoader) Load(_ context.Context, sessionID string) ([]sdkmessage.Message, error) {
+	h.sessionID = sessionID
 	return h.messages, nil
 }
 
@@ -193,10 +195,11 @@ func TestLoadSessionReplaysHistoryBeforeReturning(t *testing.T) {
 	})
 
 	agent := NewAgent(nil)
-	agent.SetHistoryLoader(staticHistoryLoader{messages: []sdkmessage.Message{
+	history := &staticHistoryLoader{messages: []sdkmessage.Message{
 		{Role: "user", Content: "hello"},
 		{Role: "assistant", Content: "hi"},
-	}})
+	}}
+	agent.SetHistoryLoader(history)
 	agentConn := acp.NewAgentSideConnection(agent, agentWrite, agentRead)
 	agent.SetAgentConnection(agentConn)
 	go func() { <-agentConn.Done() }()
@@ -223,6 +226,42 @@ func TestLoadSessionReplaysHistoryBeforeReturning(t *testing.T) {
 	}
 	if client.updates[1].AgentMessageChunk == nil || client.updates[1].AgentMessageChunk.Content.Text.Text != "hi" {
 		t.Fatalf("second update = %+v, want agent message hi", client.updates[1])
+	}
+}
+
+func TestPromptUsesGatewaySessionIDFromMeta(t *testing.T) {
+	runner := &captureRunner{}
+	agent := NewAgent(runner)
+	_, err := agent.NewSession(context.Background(), acp.NewSessionRequest{
+		Cwd: "/tmp/project",
+	})
+	if err != nil {
+		t.Fatalf("new session: %v", err)
+	}
+	sessions, err := agent.ListSessions(context.Background(), acp.ListSessionsRequest{})
+	if err != nil {
+		t.Fatalf("list sessions: %v", err)
+	}
+	if len(sessions.Sessions) != 1 {
+		t.Fatalf("sessions = %+v, want one ACP session", sessions.Sessions)
+	}
+
+	_, err = agent.Prompt(context.Background(), acp.PromptRequest{
+		SessionId: sessions.Sessions[0].SessionId,
+		Prompt:    []acp.ContentBlock{acp.TextBlock("hello")},
+		Meta: map[string]any{
+			"gateway_session_id": "gateway_sess_1",
+			"request_id":         "req_1",
+		},
+	})
+	if err != nil {
+		t.Fatalf("prompt: %v", err)
+	}
+	if runner.req.SessionID != "gateway_sess_1" {
+		t.Fatalf("runner session id = %q, want gateway session id", runner.req.SessionID)
+	}
+	if runner.req.RequestID != "req_1" {
+		t.Fatalf("runner request id = %q, want req_1", runner.req.RequestID)
 	}
 }
 

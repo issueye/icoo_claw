@@ -208,6 +208,7 @@ type Options struct {
 	CustomTools         []tool.Tool
 	MCPServers          []string
 	PluginDirs          []string
+	AllowedSkills       []string
 
 	TypedHooks             []hooks.ShellHook
 	HookMiddleware         []hooks.Middleware
@@ -400,6 +401,9 @@ func (o Options) frozen() Options {
 	}
 	if len(o.PluginDirs) > 0 {
 		o.PluginDirs = append([]string(nil), o.PluginDirs...)
+	}
+	if len(o.AllowedSkills) > 0 {
+		o.AllowedSkills = cloneStrings(o.AllowedSkills)
 	}
 	if len(o.TypedHooks) > 0 {
 		hooks := make([]hooks.ShellHook, len(o.TypedHooks))

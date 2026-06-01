@@ -17,6 +17,8 @@ import (
 	"icoo_claw/server/gateway/internal/dto"
 	"icoo_claw/server/gateway/internal/model"
 	"icoo_claw/server/gateway/internal/repository"
+
+	"github.com/goccy/go-yaml"
 )
 
 type SkillService struct {
@@ -34,13 +36,8 @@ func (s *SkillService) EnsureLayout() error {
 	if strings.TrimSpace(s.baseDir) == "" || s.baseDir == "." {
 		return fmt.Errorf("gateway skills base dir is required")
 	}
-	for _, dir := range []string{
-		s.baseDir,
-		filepath.Join(s.baseDir, "instances"),
-	} {
-		if err := os.MkdirAll(dir, 0o755); err != nil {
-			return err
-		}
+	if err := os.MkdirAll(s.baseDir, 0o755); err != nil {
+		return err
 	}
 	return nil
 }
@@ -85,6 +82,9 @@ func (s *SkillService) Get(ctx context.Context, id string) (*dto.SkillProfile, e
 }
 
 func (s *SkillService) List(ctx context.Context) ([]dto.SkillProfile, error) {
+	if err := s.syncFilesystemSkills(ctx); err != nil {
+		return nil, err
+	}
 	skills, err := s.repo.List(ctx)
 	if err != nil {
 		return nil, err
@@ -166,6 +166,9 @@ func (s *SkillService) Download(ctx context.Context, id string) ([]byte, string,
 }
 
 func (s *SkillService) SyncSummary(ctx context.Context) (*dto.SkillSummary, error) {
+	if err := s.syncFilesystemSkills(ctx); err != nil {
+		return nil, err
+	}
 	skills, err := s.repo.ListActive(ctx)
 	if err != nil {
 		return nil, err
@@ -184,12 +187,14 @@ func (s *SkillService) SyncSummary(ctx context.Context) (*dto.SkillSummary, erro
 	}, nil
 }
 
-// PublishForInstance publishes explicitly bound skills for a specific agent instance.
-// When no skill names are bound, the instance uses the global skill root so new
-// sessions can pick up newly added skills without regenerating instance files.
-func (s *SkillService) PublishForInstance(instanceID, skillNamesJSON string) (string, error) {
+// RuntimeRoot validates agent skill bindings and returns the single gateway
+// skill root used by both management APIs and Claw runtime loading.
+func (s *SkillService) RuntimeRoot(ctx context.Context, skillNamesJSON string) (string, error) {
 	if strings.TrimSpace(s.baseDir) == "" {
 		return "", nil
+	}
+	if err := s.syncFilesystemSkills(ctx); err != nil {
+		return "", err
 	}
 	names := jsonutil.CleanStringSlice(jsonutil.UnmarshalStringSlice(skillNamesJSON))
 	for _, name := range names {
@@ -198,39 +203,19 @@ func (s *SkillService) PublishForInstance(instanceID, skillNamesJSON string) (st
 		}
 	}
 	if len(names) == 0 {
-		return s.ActiveSkillPath(), nil
+		return s.root(), nil
 	}
 
-	root := s.instanceSkillPath(instanceID)
-	if err := os.RemoveAll(root); err != nil {
-		return "", err
-	}
-	if err := os.MkdirAll(root, 0o755); err != nil {
-		return "", fmt.Errorf("create instance skill dir for %s: %w", instanceID, err)
-	}
 	for _, name := range names {
-		skill, err := s.repo.GetByName(context.Background(), name)
+		skill, err := s.repo.GetByName(ctx, name)
 		if err != nil {
 			return "", err
 		}
 		if skill.Status != "active" {
 			return "", fmt.Errorf("skill %s is not active", name)
 		}
-		source := s.skillVersionPath(*skill)
-		target := filepath.Join(root, skill.Name, skill.Version)
-		if err := copyDir(source, target); err != nil {
-			return "", fmt.Errorf("publish skill %s for instance %s: %w", name, instanceID, err)
-		}
 	}
-	return root, nil
-}
-
-// CleanupInstance removes the skill directory created for an agent instance.
-func (s *SkillService) CleanupInstance(instanceID string) error {
-	if strings.TrimSpace(s.baseDir) == "" {
-		return nil
-	}
-	return os.RemoveAll(s.instanceSkillPath(instanceID))
+	return s.root(), nil
 }
 
 func (s *SkillService) publishSkillFiles(skill model.SkillProfile, files []dto.SkillFile) error {
@@ -322,61 +307,191 @@ func (s *SkillService) removeSkillFiles(skill model.SkillProfile) error {
 	)
 }
 
-func (s *SkillService) ActiveSkillPath() string {
+func (s *SkillService) root() string {
 	if strings.TrimSpace(s.baseDir) == "" {
 		return ""
 	}
 	return filepath.Clean(s.baseDir)
 }
 
-func (s *SkillService) instanceSkillPath(instanceID string) string {
-	instanceID = sanitizePathComponent(instanceID)
-	return filepath.Clean(filepath.Join(s.baseDir, "instances", instanceID))
-}
-
 func (s *SkillService) skillVersionPath(skill model.SkillProfile) string {
 	return filepath.Clean(filepath.Join(s.baseDir, sanitizePathComponent(skill.Name), normalizeSkillVersion(skill.Version)))
 }
 
-func copyFile(source, target string) error {
-	data, err := os.ReadFile(source)
+func (s *SkillService) syncFilesystemSkills(ctx context.Context) error {
+	if strings.TrimSpace(s.baseDir) == "" || s.baseDir == "." {
+		return nil
+	}
+	skills, err := s.scanFilesystemSkills()
 	if err != nil {
 		return err
 	}
-	if err := os.MkdirAll(filepath.Dir(target), 0o755); err != nil {
-		return err
+	for _, skill := range skills {
+		existing, err := s.repo.GetByName(ctx, skill.Name)
+		if err == nil {
+			if shouldUpdateSkillFromFS(*existing, skill) {
+				skill.ID = existing.ID
+				skill.Path = firstNonEmpty(existing.Path, skill.Path)
+				skill.Source = firstNonEmpty(existing.Source, skill.Source)
+				skill.CreatedAt = existing.CreatedAt
+				if err := s.repo.Update(ctx, skill); err != nil {
+					return err
+				}
+			}
+			continue
+		}
+		if !errors.Is(err, repository.ErrNotFound) {
+			return err
+		}
+		if err := s.repo.Create(ctx, skill); err != nil {
+			created, lookupErr := s.repo.GetByName(ctx, skill.Name)
+			if lookupErr == nil && created != nil {
+				continue
+			}
+			return err
+		}
 	}
-	return os.WriteFile(target, data, 0o600)
+	return nil
 }
 
-func copyDir(source, target string) error {
-	info, err := os.Stat(source)
+func (s *SkillService) scanFilesystemSkills() ([]model.SkillProfile, error) {
+	info, err := os.Stat(s.baseDir)
 	if err != nil {
-		return err
+		if os.IsNotExist(err) {
+			return nil, nil
+		}
+		return nil, err
 	}
 	if !info.IsDir() {
-		return fmt.Errorf("%s is not a directory", source)
+		return nil, fmt.Errorf("gateway skills base dir %s is not a directory", s.baseDir)
 	}
-	if err := os.RemoveAll(target); err != nil {
-		return err
-	}
-	return filepath.WalkDir(source, func(path string, entry os.DirEntry, walkErr error) error {
+
+	latest := map[string]model.SkillProfile{}
+	if err := filepath.WalkDir(s.baseDir, func(path string, entry os.DirEntry, walkErr error) error {
 		if walkErr != nil {
 			return walkErr
 		}
-		rel, err := filepath.Rel(source, path)
+		rel, err := filepath.Rel(s.baseDir, path)
 		if err != nil {
 			return err
 		}
-		if rel == "." {
-			return os.MkdirAll(target, 0o755)
-		}
-		dest := filepath.Join(target, rel)
+		parts := strings.Split(filepath.ToSlash(rel), "/")
 		if entry.IsDir() {
-			return os.MkdirAll(dest, 0o755)
+			return nil
 		}
-		return copyFile(path, dest)
-	})
+		if entry.Name() != "SKILL.md" || len(parts) != 3 {
+			return nil
+		}
+		skill, err := parseFilesystemSkill(path, parts[0], parts[1])
+		if err != nil {
+			return err
+		}
+		if !isValidSkillName(skill.Name) {
+			return nil
+		}
+		if current, ok := latest[skill.Name]; !ok || skill.Version > current.Version {
+			latest[skill.Name] = skill
+		}
+		return nil
+	}); err != nil {
+		return nil, err
+	}
+
+	out := make([]model.SkillProfile, 0, len(latest))
+	for _, skill := range latest {
+		out = append(out, skill)
+	}
+	sort.Slice(out, func(i, j int) bool { return out[i].Name < out[j].Name })
+	return out, nil
+}
+
+type skillFrontMatter struct {
+	Name         string            `yaml:"name"`
+	Description  string            `yaml:"description"`
+	AllowedTools []string          `yaml:"allowed-tools"`
+	Metadata     map[string]string `yaml:"metadata"`
+}
+
+func parseFilesystemSkill(path, dirName, dirVersion string) (model.SkillProfile, error) {
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return model.SkillProfile{}, err
+	}
+	meta, body, err := parseSkillMarkdown(string(data))
+	if err != nil {
+		return model.SkillProfile{}, fmt.Errorf("parse skill %s: %w", path, err)
+	}
+	name := strings.TrimSpace(meta.Name)
+	if name == "" {
+		name = strings.TrimSpace(dirName)
+	}
+	if dirName != "" && name != strings.TrimSpace(dirName) {
+		return model.SkillProfile{}, fmt.Errorf("skill name %q does not match directory %q in %s", name, dirName, path)
+	}
+	version := strings.TrimSpace(meta.Metadata["version"])
+	if version == "" {
+		version = strings.TrimSpace(dirVersion)
+	}
+	gatewayPath := strings.TrimSpace(meta.Metadata["gateway_path"])
+	if gatewayPath == "" {
+		gatewayPath = name
+	}
+	now := time.Now().UTC()
+	return model.SkillProfile{
+		ID:               "skill_" + id.Random(),
+		Name:             name,
+		Description:      strings.TrimSpace(meta.Description),
+		Path:             gatewayPath,
+		Content:          strings.TrimSpace(body),
+		Version:          normalizeSkillVersion(version),
+		Status:           "active",
+		Source:           "filesystem",
+		AllowedToolsJSON: mustStringSliceJSON(meta.AllowedTools),
+		MetadataJSON:     mustAnyJSON(meta.Metadata),
+		CreatedAt:        now,
+		UpdatedAt:        now,
+	}, nil
+}
+
+func parseSkillMarkdown(text string) (skillFrontMatter, string, error) {
+	text = strings.TrimPrefix(text, "\uFEFF")
+	lines := strings.Split(text, "\n")
+	if len(lines) == 0 || strings.TrimSpace(lines[0]) != "---" {
+		return skillFrontMatter{}, "", errors.New("missing YAML frontmatter")
+	}
+	end := -1
+	for i := 1; i < len(lines); i++ {
+		if strings.TrimSpace(lines[i]) == "---" {
+			end = i
+			break
+		}
+	}
+	if end == -1 {
+		return skillFrontMatter{}, "", errors.New("missing closing frontmatter separator")
+	}
+	var meta skillFrontMatter
+	if err := yaml.Unmarshal([]byte(strings.Join(lines[1:end], "\n")), &meta); err != nil {
+		return skillFrontMatter{}, "", err
+	}
+	return meta, strings.TrimPrefix(strings.Join(lines[end+1:], "\n"), "\n"), nil
+}
+
+func shouldUpdateSkillFromFS(existing, file model.SkillProfile) bool {
+	return existing.Description != file.Description ||
+		existing.Content != file.Content ||
+		existing.Version != file.Version ||
+		existing.Status != "active" ||
+		existing.AllowedToolsJSON != file.AllowedToolsJSON ||
+		existing.MetadataJSON != file.MetadataJSON
+}
+
+func firstNonEmpty(values ...string) string {
+	for _, value := range values {
+		if strings.TrimSpace(value) != "" {
+			return value
+		}
+	}
+	return ""
 }
 
 func isValidSkillName(name string) bool {

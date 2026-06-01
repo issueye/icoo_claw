@@ -76,9 +76,9 @@ func (s *AgentInstanceService) Start(ctx context.Context, req dto.StartAgentInst
 	}
 	spec.Agent = launch
 	if s.skills != nil {
-		skillsRoot, err := s.skills.PublishForInstance(instanceID, agent.SkillNamesJSON)
+		skillsRoot, err := s.skills.RuntimeRoot(ctx, agent.SkillNamesJSON)
 		if err != nil {
-			return nil, fmt.Errorf("publish skills for agent: %w", err)
+			return nil, fmt.Errorf("prepare skills for agent: %w", err)
 		}
 		if skillsRoot != "" {
 			spec.DefaultProjectRoot = skillsRoot
@@ -183,9 +183,6 @@ func (s *AgentInstanceService) Stop(ctx context.Context, id string) error {
 	if err := s.supervisor.Stop(ctx, *instance); err != nil {
 		return err
 	}
-	if s.skills != nil {
-		_ = s.skills.CleanupInstance(id)
-	}
 	instance.Status = "stopped"
 	instance.Inflight = 0
 	instance.UpdatedAt = time.Now().UTC()
@@ -234,9 +231,9 @@ func (s *AgentInstanceService) Restart(ctx context.Context, id string) (*dto.Age
 	spec.CommandArgs = jsonutil.UnmarshalStringSlice(instance.CommandArgsJSON)
 	spec.Agent = launch
 	if s.skills != nil {
-		skillsRoot, err := s.skills.PublishForInstance(id, agent.SkillNamesJSON)
+		skillsRoot, err := s.skills.RuntimeRoot(ctx, agent.SkillNamesJSON)
 		if err != nil {
-			return nil, fmt.Errorf("publish skills for agent: %w", err)
+			return nil, fmt.Errorf("prepare skills for agent: %w", err)
 		}
 		if skillsRoot != "" {
 			spec.DefaultProjectRoot = skillsRoot
@@ -313,9 +310,6 @@ func (s *AgentInstanceService) Remove(ctx context.Context, id string) error {
 	}
 	if instanceUsesPort(*instance) {
 		return ErrAgentInstanceActive
-	}
-	if s.skills != nil {
-		_ = s.skills.CleanupInstance(id)
 	}
 	return s.instances.Delete(ctx, id)
 }

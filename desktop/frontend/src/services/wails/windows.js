@@ -4,6 +4,6 @@ export async function openACPMonitorWindow() {
   try {
     await WindowService.OpenACPMonitorWindow()
   } catch {
-    window.open('/acp-monitor', 'icoo-claw-acp-monitor', 'width=1120,height=760')
+    window.open('/#/acp-monitor', 'icoo-claw-acp-monitor', 'width=1120,height=760')
   }
 }

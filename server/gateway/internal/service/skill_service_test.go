@@ -5,6 +5,7 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"strings"
 	"testing"
 
 	"icoo_claw/server/gateway/internal/dto"
@@ -108,6 +109,63 @@ func TestSkillServiceCreatePublishesVersionedSkillRoot(t *testing.T) {
 	}
 }
 
+func TestSkillServiceListImportsFilesystemSkillCreatedByRuntime(t *testing.T) {
+	root := filepath.Join(t.TempDir(), "icoo_runtime", "skills")
+	repo := &memorySkillRepo{}
+	svc := NewSkillService(root, repo)
+	writeRuntimeSkill(t, root, "weather", "v1", "Query weather", "Use weather data to answer.")
+
+	list, err := svc.List(context.Background())
+	if err != nil {
+		t.Fatalf("list skills: %v", err)
+	}
+	if len(list) != 1 {
+		t.Fatalf("skills = %+v, want one imported skill", list)
+	}
+	if list[0].Name != "weather" || list[0].Version != "v1" || list[0].Source != "filesystem" {
+		t.Fatalf("imported skill = %+v", list[0])
+	}
+	if list[0].Content != "Use weather data to answer." {
+		t.Fatalf("content = %q", list[0].Content)
+	}
+
+	stored, err := repo.GetByName(context.Background(), "weather")
+	if err != nil {
+		t.Fatalf("stored skill missing: %v", err)
+	}
+	if stored.ID == "" || stored.Path != "weather" {
+		t.Fatalf("stored skill = %+v", stored)
+	}
+}
+
+func TestSkillServiceSyncSummaryImportsFilesystemSkill(t *testing.T) {
+	root := filepath.Join(t.TempDir(), "icoo_runtime", "skills")
+	svc := NewSkillService(root, &memorySkillRepo{})
+	writeRuntimeSkill(t, root, "weather", "v1", "Query weather", "Use weather data to answer.")
+
+	summary, err := svc.SyncSummary(context.Background())
+	if err != nil {
+		t.Fatalf("sync summary: %v", err)
+	}
+	if len(summary.Skills) != 1 || summary.Skills[0].Name != "weather" {
+		t.Fatalf("summary skills = %+v", summary.Skills)
+	}
+}
+
+func TestSkillServiceRuntimeRootImportsAndValidatesFilesystemSkill(t *testing.T) {
+	root := filepath.Join(t.TempDir(), "icoo_runtime", "skills")
+	svc := NewSkillService(root, &memorySkillRepo{})
+	writeRuntimeSkill(t, root, "weather", "v1", "Query weather", "Use weather data to answer.")
+
+	runtimeRoot, err := svc.RuntimeRoot(context.Background(), `["weather"]`)
+	if err != nil {
+		t.Fatalf("runtime root: %v", err)
+	}
+	if runtimeRoot != root {
+		t.Fatalf("runtime root = %q, want %q", runtimeRoot, root)
+	}
+}
+
 func TestSkillServiceCreateGeneratesTimestampVersionWhenMissing(t *testing.T) {
 	root := filepath.Join(t.TempDir(), "icoo_runtime", "skills")
 	svc := NewSkillService(root, &memorySkillRepo{})
@@ -129,24 +187,22 @@ func TestSkillServiceCreateGeneratesTimestampVersionWhenMissing(t *testing.T) {
 	}
 }
 
-func TestSkillServiceEnsureLayoutCreatesSkillsStructure(t *testing.T) {
+func TestSkillServiceEnsureLayoutCreatesCanonicalSkillRoot(t *testing.T) {
 	root := filepath.Join(t.TempDir(), "icoo_runtime", "skills")
 	svc := NewSkillService(root, &memorySkillRepo{})
 
 	if err := svc.EnsureLayout(); err != nil {
 		t.Fatalf("ensure layout: %v", err)
 	}
-	for _, path := range []string{
-		root,
-		filepath.Join(root, "instances"),
-	} {
-		info, err := os.Stat(path)
-		if err != nil {
-			t.Fatalf("stat %s: %v", path, err)
-		}
-		if !info.IsDir() {
-			t.Fatalf("%s is not a directory", path)
-		}
+	info, err := os.Stat(root)
+	if err != nil {
+		t.Fatalf("stat %s: %v", root, err)
+	}
+	if !info.IsDir() {
+		t.Fatalf("%s is not a directory", root)
+	}
+	if _, err := os.Stat(filepath.Join(root, "instances")); !os.IsNotExist(err) {
+		t.Fatalf("instances directory should not be created, stat err = %v", err)
 	}
 }
 
@@ -164,7 +220,7 @@ func TestSkillServiceRejectsInvalidSkillName(t *testing.T) {
 	}
 }
 
-func TestSkillServicePublishForInstanceFiltersBoundSkills(t *testing.T) {
+func TestSkillServiceRuntimeRootValidatesBoundSkillsWithoutCopying(t *testing.T) {
 	root := filepath.Join(t.TempDir(), "icoo_runtime", "skills")
 	repo := &memorySkillRepo{}
 	svc := NewSkillService(root, repo)
@@ -178,33 +234,25 @@ func TestSkillServicePublishForInstanceFiltersBoundSkills(t *testing.T) {
 		}
 	}
 
-	instanceRoot, err := svc.PublishForInstance("inst_1", `["doc-writer"]`)
+	runtimeRoot, err := svc.RuntimeRoot(context.Background(), `["doc-writer"]`)
 	if err != nil {
-		t.Fatalf("publish for instance: %v", err)
+		t.Fatalf("runtime root: %v", err)
 	}
-	docSkill := repo.items[0]
-	if _, err := os.Stat(filepath.Join(instanceRoot, "doc-writer", docSkill.Version, "SKILL.md")); err != nil {
-		t.Fatalf("bound skill missing: %v", err)
-	}
-	dockerSkill := repo.items[1]
-	if _, err := os.Stat(filepath.Join(instanceRoot, "docker-helper", dockerSkill.Version, "SKILL.md")); !os.IsNotExist(err) {
-		t.Fatalf("unbound skill should not be published, stat err = %v", err)
+	if runtimeRoot != root {
+		t.Fatalf("runtime root = %q, want %q", runtimeRoot, root)
 	}
 }
 
-func TestSkillServicePublishForInstanceUsesGlobalRootWhenUnbound(t *testing.T) {
+func TestSkillServiceRuntimeRootUsesCanonicalRootWhenUnbound(t *testing.T) {
 	root := filepath.Join(t.TempDir(), "icoo_runtime", "skills")
 	svc := NewSkillService(root, &memorySkillRepo{})
 
-	instanceRoot, err := svc.PublishForInstance("inst_1", "")
+	runtimeRoot, err := svc.RuntimeRoot(context.Background(), "")
 	if err != nil {
-		t.Fatalf("publish for instance: %v", err)
+		t.Fatalf("runtime root: %v", err)
 	}
-	if instanceRoot != root {
-		t.Fatalf("instance root = %q, want global root %q", instanceRoot, root)
-	}
-	if _, err := os.Stat(filepath.Join(root, "instances", "inst_1")); !os.IsNotExist(err) {
-		t.Fatalf("unbound instance dir should not be created, stat err = %v", err)
+	if runtimeRoot != root {
+		t.Fatalf("runtime root = %q, want %q", runtimeRoot, root)
 	}
 }
 
@@ -252,5 +300,26 @@ func TestSkillServiceRejectsEscapingSupportFilePath(t *testing.T) {
 	})
 	if err == nil {
 		t.Fatal("expected invalid support file path error")
+	}
+}
+
+func writeRuntimeSkill(t *testing.T, root, name, version, description, body string) {
+	t.Helper()
+	dir := filepath.Join(root, name, version)
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		t.Fatalf("mkdir skill dir: %v", err)
+	}
+	content := strings.Join([]string{
+		"---",
+		`name: "` + name + `"`,
+		`description: "` + description + `"`,
+		"metadata:",
+		`  version: "` + version + `"`,
+		"---",
+		body,
+		"",
+	}, "\n")
+	if err := os.WriteFile(filepath.Join(dir, "SKILL.md"), []byte(content), 0o600); err != nil {
+		t.Fatalf("write skill: %v", err)
 	}
 }

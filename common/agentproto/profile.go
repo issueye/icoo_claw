@@ -18,6 +18,7 @@ type AgentRuntimeProfile struct {
 	MCPServers          []string           `json:"mcp_servers,omitempty"`
 	NetworkAllow        []string           `json:"network_allow,omitempty"`
 	NetworkProxy        NetworkProxyConfig `json:"network_proxy,omitempty"`
+	SkillNames          []string           `json:"skill_names,omitempty"`
 }
 
 type AgentLaunchConfig struct {

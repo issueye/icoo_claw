@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"strings"
 	"sync"
 
 	sdkmessage "icoo_claw/common/core/agent_sdk/message"
@@ -38,6 +39,12 @@ func (h *HistoryAdapter) Load(ctx context.Context, sessionID string) ([]sdkmessa
 	if store, ok := h.store.(RevisionedHistoryStore); ok {
 		loaded, revision, err := store.ListMessagesWithRevision(ctx, sessionID)
 		if err != nil {
+			if isHistoryNotFound(err) {
+				h.mu.Lock()
+				h.revisions[sessionID] = 0
+				h.mu.Unlock()
+				return nil, nil
+			}
 			return nil, err
 		}
 		messages = loaded
@@ -47,11 +54,24 @@ func (h *HistoryAdapter) Load(ctx context.Context, sessionID string) ([]sdkmessa
 	} else {
 		loaded, err := h.store.ListMessages(ctx, sessionID)
 		if err != nil {
+			if isHistoryNotFound(err) {
+				return nil, nil
+			}
 			return nil, err
 		}
 		messages = loaded
 	}
 	return toSDKMessages(messages)
+}
+
+func isHistoryNotFound(err error) bool {
+	if err == nil {
+		return false
+	}
+	message := strings.ToLower(err.Error())
+	return strings.Contains(message, "status 404") ||
+		strings.Contains(message, "not_found") ||
+		strings.Contains(message, "not found")
 }
 
 func (h *HistoryAdapter) SaveSnapshot(ctx context.Context, sessionID string, messages []sdkmessage.Message) error {
@@ -60,9 +80,21 @@ func (h *HistoryAdapter) SaveSnapshot(ctx context.Context, sessionID string, mes
 	}
 	if store, ok := h.store.(RevisionedHistoryStore); ok {
 		expected := h.expectedRevision(sessionID)
-		return store.ReplaceMessagesWithRevision(ctx, sessionID, fromSDKMessages(messages), expected)
+		if err := store.ReplaceMessagesWithRevision(ctx, sessionID, fromSDKMessages(messages), expected); err != nil {
+			if isHistoryNotFound(err) {
+				return nil
+			}
+			return err
+		}
+		return nil
 	}
-	return h.store.ReplaceMessages(ctx, sessionID, fromSDKMessages(messages))
+	if err := h.store.ReplaceMessages(ctx, sessionID, fromSDKMessages(messages)); err != nil {
+		if isHistoryNotFound(err) {
+			return nil
+		}
+		return err
+	}
+	return nil
 }
 
 func (h *HistoryAdapter) expectedRevision(sessionID string) *int64 {

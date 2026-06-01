@@ -34,7 +34,7 @@ func (s *WindowService) OpenACPMonitorWindow() {
 		Height:           760,
 		MinWidth:         880,
 		MinHeight:        560,
-		URL:              "/acp-monitor",
+		URL:              "/#/acp-monitor",
 		BackgroundColour: application.NewRGB(9, 12, 19),
 	})
 }
